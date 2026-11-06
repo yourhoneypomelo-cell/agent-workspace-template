@@ -1,0 +1,2 @@
+# Raw host transcripts can contain tool output and paths. Commit the Markdown copies only.
+*/raw/

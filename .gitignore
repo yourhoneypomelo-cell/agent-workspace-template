@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Workspace cache
+.agents/cache/
+
+# Release packages (attach to GitHub Releases instead)
+dist/*.zip
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

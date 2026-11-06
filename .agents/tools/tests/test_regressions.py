@@ -4,6 +4,8 @@ import os
 import subprocess
 import sys
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from support import ENV, TOOLS, Workspace
 from wslib import core, rows, tables
@@ -25,6 +27,18 @@ def host(**names):
 def window(name):
     """Environment of a command run by host conversation `name`."""
     return host(WS_SESSION_ID=name)
+
+
+def busy_once(real):
+    """A file call that fails once, as on Windows while another process has the file open."""
+    calls = []
+
+    def call(*args, **kwargs):
+        calls.append(args)
+        if len(calls) == 1:
+            raise PermissionError(13, 'The process cannot access the file because it is being used by another process')
+        return real(*args, **kwargs)
+    return call
 
 
 def turn_context(test, conversation):
@@ -65,6 +79,23 @@ class Locking(Workspace):
     @unittest.skipUnless(os.name == 'nt', 'Windows process access rules')
     def test_access_denied_counts_as_alive(self):
         self.assertTrue(core.pid_alive(4))
+
+    def test_a_stale_lock_that_a_reader_holds_open_is_retried(self):
+        path = self.root / '.agents/cache/ws.lock'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({'pid': 999999999, 'created_at': 'x', 'nonce': 'gone'}), encoding='utf-8')
+        with mock.patch.object(Path, 'unlink', busy_once(Path.unlink)), core.lock(self.root):
+            pass
+        self.assertFalse(path.exists())
+
+    def test_release_is_retried_while_a_reader_holds_the_lock(self):
+        with mock.patch.object(Path, 'unlink', busy_once(Path.unlink)), core.lock(self.root):
+            pass
+        self.assertFalse((self.root / '.agents/cache/ws.lock').exists())
+
+    def test_a_lock_create_refused_during_a_delete_is_retried(self):
+        with mock.patch.object(core.os, 'open', busy_once(os.open)), core.lock(self.root):
+            pass
 
 
 class Pair(Workspace):

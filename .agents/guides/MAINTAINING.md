@@ -87,6 +87,9 @@ The static tier checks that every test named here exists.
 | 3.6.7 | A waiting command deleted the lock of a live holder whose generation lagged after a takeover | `test_session.SessionIdentity.test_live_lock_is_not_reclaimed_even_with_an_older_generation` | fails |
 | 3.6.7 | Leaving the lock deleted it even after another process had taken it | `test_regressions.Locking.test_l1_release_keeps_a_lock_that_is_not_ours` | fails |
 | 3.6.7 | On Windows a process this user may not open was taken for dead, so its lock was reclaimed | `test_regressions.Locking.test_access_denied_counts_as_alive` | fails |
+| 3.6.7 | On Windows a waiting command crashed when it deleted a stale lock that another command was reading | `test_regressions.Locking.test_a_stale_lock_that_a_reader_holds_open_is_retried` | fails |
+| 3.6.7 | Leaving the lock while another command read it left the lock behind | `test_regressions.Locking.test_release_is_retried_while_a_reader_holds_the_lock` | fails |
+| 3.6.7 | On Windows a command crashed when it created the lock while the previous one was still being deleted | `test_regressions.Locking.test_a_lock_create_refused_during_a_delete_is_retried` | fails |
 | 3.6.7 | Retiring a requirement that another session's claimed task cites was allowed, then refused with a broken sentence | `test_regressions.Retire.test_p1_retire_requirement_cited_by_claimed_task_is_refused` | fails |
 | 3.6.7 | Retiring a feature whose Tasks column holds another session's claimed task was allowed | `test_regressions.Retire.test_p1_retire_feature_whose_tasks_column_holds_claimed_task_is_refused` | fails |
 | 3.6.7 | Retiring what only your own task builds on stays allowed | `test_regressions.Retire.test_retiring_what_only_your_own_task_builds_on_is_allowed` | guard |

@@ -157,27 +157,34 @@ def lock(root: Path):
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             break
         except FileExistsError:
-            try:
-                holder = json.loads(path.read_text(encoding='utf-8'))
-            except (OSError, ValueError):
-                holder = {}
-            if holder.get('pid') and not pid_alive(int(holder['pid'])):
-                path.unlink(missing_ok=True)
-                continue
-            # A crash while the lock was written leaves an empty or NUL-filled file that names no process.
-            try:
-                age = time.time() - path.stat().st_mtime
-            except OSError:
-                continue
-            if not holder.get('pid') and age > LOCK_ORPHAN_SECONDS:
-                path.unlink(missing_ok=True)
-                continue
+            pass
+        except PermissionError as error:
+            # Windows refuses to create a file whose delete is still pending: the lock is being released.
             if time.monotonic() >= deadline:
-                raise WorkspaceError(
-                    f'another ws.py command is running (pid {holder.get("pid", "unknown")}, lock {int(age)} s old). '
-                    'Wait and retry. Do not delete the lock while another window may run ws; a lock that names no '
-                    f'process is removed after {LOCK_ORPHAN_SECONDS} s.')
+                raise WorkspaceError(f'cannot create the lock {LOCK}: {error}. Check that the folder is writable')
             time.sleep(0.1)
+            continue
+        try:
+            holder = json.loads(path.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            holder = {}
+        if holder.get('pid') and not pid_alive(int(holder['pid'])):
+            _unlink(path)
+            continue
+        # A crash while the lock was written leaves an empty or NUL-filled file that names no process.
+        try:
+            age = time.time() - path.stat().st_mtime
+        except OSError:
+            continue
+        if not holder.get('pid') and age > LOCK_ORPHAN_SECONDS:
+            _unlink(path)
+            continue
+        if time.monotonic() >= deadline:
+            raise WorkspaceError(
+                f'another ws.py command is running (pid {holder.get("pid", "unknown")}, lock {int(age)} s old). '
+                'Wait and retry. Do not delete the lock while another window may run ws; a lock that names no '
+                f'process is removed after {LOCK_ORPHAN_SECONDS} s.')
+        time.sleep(0.1)
     nonce = os.urandom(8).hex()
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as stream:
@@ -187,13 +194,26 @@ def lock(root: Path):
         _release(path, nonce)
 
 
+def _unlink(path: Path) -> bool:
+    """Delete a lock file. Windows refuses while another process reads it; the caller then tries again."""
+    try:
+        path.unlink(missing_ok=True)
+        return True
+    except PermissionError:
+        time.sleep(0.05)
+        return False
+
+
 def _release(path: Path, nonce: str):
     """Remove the lock only while it is still ours: a process that took us for dead may have taken it since."""
-    try:
-        if json.loads(path.read_text(encoding='utf-8')).get('nonce') == nonce:
-            path.unlink(missing_ok=True)
-    except (OSError, ValueError):
-        pass
+    for _ in range(20):
+        try:
+            if json.loads(path.read_text(encoding='utf-8')).get('nonce') != nonce or _unlink(path):
+                return
+        except PermissionError:
+            time.sleep(0.05)
+        except (OSError, ValueError):
+            return
 
 
 # Machine state: one single-line HTML comment at the end of HANDOFF.md.

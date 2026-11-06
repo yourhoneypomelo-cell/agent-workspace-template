@@ -22,7 +22,7 @@ def acceptance_argv(row: dict) -> list:
     Backslashes are kept, so Windows paths match what the agent types. Only the first backtick span
     counts when the cell mixes a command with prose. A trailing expect clause is not part of the command."""
     import shlex
-    text = evidence.split_expect(row.get('Acceptance', ''))[0].strip()
+    text = evidence.split_expect(evidence.acceptance_text(row))[0].strip()
     if text.lower().startswith('check:'):
         text = text[6:].strip()
     found = re.search(r'`([^`]+)`', text)

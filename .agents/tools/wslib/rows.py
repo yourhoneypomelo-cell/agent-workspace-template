@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from . import coverage, logs, tables, validate
+from . import coverage, evidence, logs, tables, validate
 from .coverage import redact
 from .core import (
     WorkspaceError, card, card_text, lock, now, read, safe_path, state_of, today, with_goal, goal_of,
@@ -72,6 +72,8 @@ def add(root: Path, table_name: str, sets: list, source: str | None, writer=None
         missing = [h.lower() for h in t.required if not row.get(h, '').strip() or row[h].lower() == NONE]
         if missing:
             raise WorkspaceError(f'{t.key}: missing {", ".join(missing)}. Pass --set {missing[0]}=...')
+        if t.key == 'tasks':
+            evidence.split_expect(row['Acceptance'])
         row['ID'] = tables.next_id(root, t, ledger(root))
         changes = {t.file: tables.upsert(read(root, t.file), t.headers, t.file, row)}
         if t.log:
@@ -144,6 +146,8 @@ def set_row(root: Path, identifier: str, sets: list, source: str | None, writer=
             if old.get(key, NONE).lower() != NONE:
                 fields[key] = f'{old[key]}; {fields[key]}'
         row = {**old, **fields}
+        if t.key == 'tasks' and 'Acceptance' in fields:
+            evidence.split_expect(row['Acceptance'])
         overwritten = [(k, old[k]) for k in fields if k not in appended and k not in ('Status',)
                        and old.get(k, NONE).lower() not in (NONE, '') and old[k] != fields[k]]
         if row['Status'] in NEEDS_REASON[t.key] and 'Reason' in t.headers and row.get('Reason', NONE).lower() == NONE:

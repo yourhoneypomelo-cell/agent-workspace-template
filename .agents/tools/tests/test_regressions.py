@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 from support import ENV, TOOLS, Workspace
-from wslib import core, rows, schema, tables
+from wslib import core, evidence, rows, schema, tables
 from wslib.schema import LIB_MODULES, TABLES
 
 WRITER = ('import subprocess, sys\n'
@@ -349,6 +349,44 @@ class Hooks(Workspace):
         state['checkpoint']['sha256'] = core.sha(raw.encode('utf-8'))
         core.save_state(self.root, state)
         self.ready()
+
+
+class Evidence(Workspace):
+    PROBE = ('add', 'task', '--set', 'requirements=R1', '--set', 'scope=probe.py', '--set', 'action=Probe')
+
+    def test_v3_invalid_expect_regex_is_a_clean_error(self):
+        self.init()
+        refused = self.ws(*self.PROBE, '--set', 'acceptance=check: python probe.py expect /[unclosed/', expect=2).stderr
+        self.assertIn('invalid expect pattern', refused)
+        self.ws(*self.PROBE, '--set', 'acceptance=check: python probe.py expect "OK"')
+        self.write('docs/state/TASKS.md', self.read('docs/state/TASKS.md').replace('expect "OK"', 'expect /[unclosed/'))
+        self.write('probe.py', 'print("OK")\n')
+        failed = self.ws('verify', 'T1', '--', 'python', 'probe.py', expect=2).stderr
+        self.assertIn('invalid expect pattern', failed)
+        self.assertNotIn('Traceback', failed)
+
+    def test_v3_backticked_check_is_a_check(self):
+        self.init()
+        self.write('probe.py', 'print("OK")\n')
+        self.ws(*self.PROBE, '--set', 'acceptance=`check: python probe.py expect "OK"`')
+        out = self.ws('verify', 'T1', '--done', '--', 'python', 'probe.py').stdout
+        self.assertTrue(json.loads(out.splitlines()[0])['marked_done'])
+
+    def test_n8_old_test_evidence_satisfies_a_check_acceptance(self):
+        self.done()
+        tested = tables.rows(self.root, TABLES['tasks'])[0]['Evidence']
+        self.assertEqual(evidence.load(self.root, tested, 'check')['kind'], 'test')
+        self.write('probe.py', 'print("OK")\n')
+        self.ws(*self.PROBE, '--set', 'acceptance=check: python probe.py expect "OK"')
+        self.ws('verify', 'T2', '--', 'python', 'probe.py')
+        checked = tables.rows(self.root, TABLES['tasks'])[1]['Evidence']
+        with self.assertRaises(core.WorkspaceError):
+            evidence.load(self.root, checked, 'test')
+
+    def test_v4_py_launcher_version_switch_is_kept(self):
+        run, recorded = evidence._resolve(['py', '-3', '-c', 'print(1)'])
+        self.assertNotEqual(run[0], sys.executable)
+        self.assertEqual(recorded, ['py', '-3', '-c', 'print(1)'])
 
 
 class Guarded(Workspace):

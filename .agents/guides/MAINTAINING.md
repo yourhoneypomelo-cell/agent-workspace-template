@@ -123,6 +123,10 @@ The static tier checks that every test named here exists.
 | 3.6.7 | Enabling Qoder or Qwen hooks turned a READY workspace NOT READY | `test_regressions.Hooks.test_h3_hooks_keep_ready_for_watched_hosts` | fails |
 | 3.6.7 | Enabling Gemini hooks changed a watched file without saying so, and a long hook list counted against the adapter size | `test_regressions.Hooks.test_n2_gemini_hooks_print_the_checkpoint_note` | fails |
 | 3.6.7 | A checkpoint from an older version reported files the new rules no longer watch as removed | `test_regressions.Hooks.test_rewatch_ignores_files_the_new_rules_exclude` | fails |
+| 3.6.7 | An invalid expect pattern was accepted by `ws add` and crashed `ws verify` with a traceback | `test_regressions.Evidence.test_v3_invalid_expect_regex_is_a_clean_error` | fails |
+| 3.6.7 | An acceptance written as "`check: ...`" was run as a test | `test_regressions.Evidence.test_v3_backticked_check_is_a_check` | fails |
+| 3.6.7 | Test evidence did not count for a check acceptance, so rows read as checks from this version on would lose their evidence | `test_regressions.Evidence.test_n8_old_test_evidence_satisfies_a_check_acceptance` | fails |
+| 3.6.7 | `py -3.12 ...` ran the tool's own interpreter, which rejects the version switch | `test_regressions.Evidence.test_v4_py_launcher_version_switch_is_kept` | fails |
 
 ## Release
 

@@ -23,8 +23,15 @@ def task_definition(row: dict) -> str:
     return digest({k: row.get(k, '') for k in DEFINITION_FIELDS})
 
 
+def acceptance_text(row: dict) -> str:
+    """The acceptance cell, with "`check: x`" read as "check: `x`": agents put the whole cell in backticks."""
+    text = row.get('Acceptance', '').strip()
+    found = re.match(r'`\s*(check:)\s*([^`]*)`(.*)$', text, re.I | re.S)
+    return f'{found[1]} `{found[2].strip()}`{found[3]}' if found else text
+
+
 def acceptance_kind(row: dict) -> str:
-    return 'check' if row.get('Acceptance', '').strip().lower().startswith('check:') else 'test'
+    return 'check' if acceptance_text(row).lower().startswith('check:') else 'test'
 
 
 # A check proves behavior only when it names the output it must produce: check: <command> expect "<text>".
@@ -38,7 +45,11 @@ def split_expect(acceptance: str) -> tuple:
     expected = []
     for raw in EXPECT_RE.findall(acceptance):
         body = raw[1:-1].replace('\\"', '"').replace('\\/', '/')
-        expected.append(re.compile(body, re.M) if raw.startswith('/') else body)
+        try:
+            expected.append(re.compile(body, re.M) if raw.startswith('/') else body)
+        except re.error as error:
+            raise WorkspaceError(f'the acceptance has an invalid expect pattern /{body}/ ({error}). Fix the regular '
+                                 'expression, or quote the text instead: expect "<text>"') from None
     return EXPECT_RE.sub('', acceptance), expected
 
 
@@ -227,7 +238,7 @@ def _resolve(command: list) -> tuple:
     """Return (argv to execute, argv to record). Records never hold local interpreter paths."""
     recorded = list(command)
     run = list(command)
-    if run[0] in ('python', 'python3', 'py'):
+    if run[0] in ('python', 'python3'):
         run[0] = sys.executable
     else:
         found = shutil.which(run[0])
@@ -335,7 +346,8 @@ def load(root: Path, rel: str, required_kind: str) -> dict:
         raise WorkspaceError(f'{rel} is not accepted evidence')
     if sha(data.get('output', '').encode('utf-8')) != data.get('output_sha256'):
         raise WorkspaceError(f'{rel}: recorded output was edited')
-    if data.get('kind') != required_kind:
+    # A passing test run proves more than a check's exit code, so it stands for a check; never the other way round.
+    if data.get('kind') != required_kind and not (required_kind == 'check' and data.get('kind') == 'test'):
         raise WorkspaceError(f'{rel}: evidence kind is {data.get("kind")}, the task acceptance needs {required_kind}')
     summary = summarize(data['output'])
     if data.get('report'):

@@ -1,4 +1,4 @@
-"""Regression tests for the 3.6.7 fixes. Each one fails on 3.6.6 unless its comment says it guards a fix."""
+"""Regression tests for the 3.6.7 and 3.7.0 fixes. Each one fails on the version before unless its comment says it guards a fix."""
 import json
 import os
 import subprocess

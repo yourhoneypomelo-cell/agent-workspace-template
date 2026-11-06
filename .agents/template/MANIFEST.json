@@ -1,13 +1,13 @@
 {
- "created_at": "2026-11-06T23:00:50+00:00",
+ "created_at": "2026-11-06T23:03:04+00:00",
  "files": {
   ".agents/README.md": "e339e27d20c0874353796a72add8121a698b1878977ff659198509c7a16fc012",
   ".agents/TEMPLATE_CHECKOUT.md": "d88bf0d92630df240179e4a5d95f8406453bfe165b107b5557797cfaeac589b7",
   ".agents/guides/DESIGN_REQUIREMENTS.md": "85ad1fcfeb7958c5e90c0492b09f7ebe6d6fbb69067920e05b7e77a9f4f5c655",
   ".agents/guides/FIXES.md": "39bcfd16f6a1ed506e28502320d6a636c40dfb0d2db82a466b6584c628488fda",
   ".agents/guides/HOSTS.md": "0f3a4bff59659576f048c03c64938b4caad2573348c0e450cb970c7eaa2140db",
-  ".agents/guides/MAINTAINING.md": "833e80e9fea0b2726d5c020eed85cba4aaecd4821381a0fd6f61c8e0528b75d8",
-  ".agents/guides/PROTOCOL.md": "508b30b2062c2d5c45b44f74a5f4df5636c5195d0b83b4b3cd8e0b5c2168affc",
+  ".agents/guides/MAINTAINING.md": "03db338c063bf7933696d5e4be71581c326953dbe7ebe6ed01d3f35064059311",
+  ".agents/guides/PROTOCOL.md": "387bc1bffb1369cb6fbcd41e53f9b9d469a99cf6811ab3ac70f6caad4fb8b619",
   ".agents/guides/QUICKSTART.md": "56cb6f46f80f0433f4f6f73eb4e318869778dceb9e9cd98b80883bd971a3cd89",
   ".agents/guides/README.md": "2e5383f443a3f010d6be70b71c5ebef626fb23ac4fea037523dcb4b4cf9d649a",
   ".agents/guides/STRUCTURE.md": "e26e45ce8ceedb6b5f80bf1f03cb5f644bce1da93988f5e437af3890ee34d100",
@@ -16,7 +16,7 @@
   ".agents/skills/save-session-log/SKILL.md": "a7e0ddbaba42fcd62177a368b55a5fca30fe226af77ff0e64d6c632f9cc54c10",
   ".agents/skills/spec-workflow/SKILL.md": "0ceb9567674a56e603f64da900a65ad9f26eb39d31dae58dcf62f728f32c88cf",
   ".agents/template/README.md": "c02f349d8920e04d5a6222e084773ddadc8d7a91515326a63e78c14b2b7ed1eb",
-  ".agents/template/TOOL_TRIAL.md": "d144d725fe0a763f1d1d0cdbdd527679018bf1b7f24216aefa3e1a0c7b7c7121",
+  ".agents/template/TOOL_TRIAL.md": "4b205c9a6bdf247d466ecadee4006d551edc7dae6f07b01139ae009045052156",
   ".agents/template/examples/go_json.py": "8cb5ff7f8d354da170e3ebe570a1c5c87189f96418977859933fda04abad409c",
   ".agents/template/examples/minimal_cycle.py": "9f4704fad5a6bc2d7362579c964c75a073ab3bae9769ed35f140ad1bd6f77afb",
   ".agents/template/examples/pytest_junit.py": "2f0649d9ada0856d7b2bd8d182c5e796854dc9f5b6d96ea7c0c54e6130cf734a",
@@ -38,7 +38,7 @@
   ".agents/tools/tests/test_nudge.py": "2bdb22761845c3edcc15254212b03dce2e877bd75abdc0a062ca8db519bdb369",
   ".agents/tools/tests/test_probes.py": "2a375a72bfa4d6f4c54d2be73bd81f9bb524e3d01635cf1ecc28898e761283b6",
   ".agents/tools/tests/test_reconcile.py": "b2edac0324d05f70978b9729b9361c53ef8c658b8cdd237db48a8db0d6aace6c",
-  ".agents/tools/tests/test_regressions.py": "de716e7cad879127a3c55e83dbd29f7d6396eecd9622e19fa3d726aee5d9e778",
+  ".agents/tools/tests/test_regressions.py": "4842dbcd61be7a0110eea31e9f3d8875f0257eac87b1aa699996033877a299fd",
   ".agents/tools/tests/test_review.py": "971d5c4b4ed5ba7fcf6a1aba0a433fac54c7248ba2018cb43c2001208b8b4aba",
   ".agents/tools/tests/test_session.py": "28902943c3495f5028d407f4a754813b2693537d54b3aa490077364e920e0b42",
   ".agents/tools/tests/test_static.py": "fdf9a1617eece1b13325f3961966e31a85e8003e9a32c50b849bafadd527dd83",
@@ -67,7 +67,7 @@
   ".agents/tools/wslib/retired.py": "34d060048f154126f1e0c3d3cdf7e3bed21d8db0c0223700b7969a073b73dbb3",
   ".agents/tools/wslib/rows.py": "b37267412f6ccb420d8e696ba66310ae2867b2f3fef5fce607ccefb14c7decdc",
   ".agents/tools/wslib/runs.py": "1b7ef247c86c10f27ee7a048df48350ea23299daaf8d999140817f051b371154",
-  ".agents/tools/wslib/schema.py": "e91e3ed395ea681be14c8af7ea987a82c021ff88bd867f376c3976ba46371167",
+  ".agents/tools/wslib/schema.py": "c3d53edde3d2922465c8d6603153aa23f96505b5da488ec57546d6b77d7c3113",
   ".agents/tools/wslib/snapshot.py": "c608534c7b232820deb89f7ab1255174b03b8a05951aa774e716066acae3aced",
   ".agents/tools/wslib/tables.py": "836fc273fea985a5a47d3de110010be5b1706ca661e8b9bac4d7bf87013def52",
   ".agents/tools/wslib/upgrade.py": "b75c91068e62b53c860084c7b54d7eaf4a555c69edc98fc55cb94da091df10c0",
@@ -83,5 +83,5 @@
   "CODEBUDDY.md": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
  },
  "schema": "template-manifest.v3",
- "version": "3.6.7"
+ "version": "3.7.0"
 }

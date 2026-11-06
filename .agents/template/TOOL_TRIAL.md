@@ -11,7 +11,7 @@ Copy this file to `docs/archive/trials/<date>-<host>.md` in a scratch project an
 | Host and exact version | |
 | Model | |
 | Operating system | |
-| Template version | 3.6.7 |
+| Template version | 3.7.0 |
 | Entry | native load of AGENTS.md, or explicit read prompt |
 | Hooks enabled | yes or no, and which events fired |
 

@@ -1,7 +1,7 @@
 # Protocol
 
 The formats, commands and rules behind AGENTS.md.
-Schema `continuity.v3`, template version 3.6.7.
+Schema `continuity.v3`, template version 3.7.0.
 
 ## Model
 

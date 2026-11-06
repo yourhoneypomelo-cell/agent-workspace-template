@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 SCHEMA = 'continuity.v3'
-VERSION = '3.6.7'
+VERSION = '3.7.0'
 NONE = 'none'
 PROTOCOL_MARKER = '<!-- AGENT-PROTOCOL: continuity.v3 -->'
 

@@ -125,10 +125,10 @@ def pid_alive(pid: int) -> bool:
         return False
     if os.name == 'nt':
         import ctypes
-        kernel = ctypes.windll.kernel32
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
         handle = kernel.OpenProcess(0x1000, False, pid)
         if not handle:
-            return False
+            return ctypes.get_last_error() == 5  # access denied: the process exists but this user may not open it
         try:
             code = ctypes.c_ulong()
             kernel.GetExitCodeProcess(handle, ctypes.byref(code))
@@ -152,7 +152,6 @@ def lock(root: Path):
     path = safe_path(root, LOCK)
     path.parent.mkdir(parents=True, exist_ok=True)
     deadline = time.monotonic() + float(os.environ.get('WS_LOCK_WAIT', '30'))
-    generation = _lock_generation(root)
     while True:
         try:
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -173,33 +172,28 @@ def lock(root: Path):
             if not holder.get('pid') and age > LOCK_ORPHAN_SECONDS:
                 path.unlink(missing_ok=True)
                 continue
-            # Fencing: the lock holder's generation is older than the current workspace revision.
-            # Its window was taken over, so its lock is stale even if the process is alive.
-            holder_gen = holder.get('generation')
-            if holder_gen is not None and generation is not None and holder_gen < generation:
-                path.unlink(missing_ok=True)
-                continue
             if time.monotonic() >= deadline:
                 raise WorkspaceError(
                     f'another ws.py command is running (pid {holder.get("pid", "unknown")}, lock {int(age)} s old). '
-                    'Wait and retry: "ws verify" holds the lock while its command runs. Do not delete the lock while '
-                    f'another window may run ws; a lock that names no process is removed after {LOCK_ORPHAN_SECONDS} s.')
+                    'Wait and retry. Do not delete the lock while another window may run ws; a lock that names no '
+                    f'process is removed after {LOCK_ORPHAN_SECONDS} s.')
             time.sleep(0.1)
+    nonce = os.urandom(8).hex()
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as stream:
-            stream.write(json.dumps({'pid': os.getpid(), 'created_at': now(), 'generation': generation}))
+            stream.write(json.dumps({'pid': os.getpid(), 'created_at': now(), 'nonce': nonce}))
         yield
     finally:
-        path.unlink(missing_ok=True)
+        _release(path, nonce)
 
 
-def _lock_generation(root: Path) -> int | None:
-    """The workspace's writer_revision, used as a fencing token in the lock file.
-    A window that was taken over holds an older generation, so its lock is stale."""
+def _release(path: Path, nonce: str):
+    """Remove the lock only while it is still ours: a process that took us for dead may have taken it since."""
     try:
-        return state_of(root).get('writer_revision')
-    except (WorkspaceError, OSError, ValueError):
-        return None
+        if json.loads(path.read_text(encoding='utf-8')).get('nonce') == nonce:
+            path.unlink(missing_ok=True)
+    except (OSError, ValueError):
+        pass
 
 
 # Machine state: one single-line HTML comment at the end of HANDOFF.md.

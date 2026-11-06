@@ -194,32 +194,16 @@ class SessionIdentity(Workspace):
         os.utime(lock, (old, old))
         self.ws('add', 'question', '--set', 'question=after crash', env=host(CLAUDE_CODE_SESSION_ID='claude-a'))
 
-    def test_stale_generation_lock_is_reclaimed(self):
-        """A lock whose generation is older than the workspace's writer_revision is stale, even if the pid is alive."""
-        import json
+    def test_live_lock_is_not_reclaimed_even_with_an_older_generation(self):
+        """A live holder keeps its lock, whatever generation an older version wrote into it."""
+        import os
         self.started(host(CLAUDE_CODE_SESSION_ID='claude-a'))
-        from wslib.core import state_of, lock
-        state = state_of(self.root)
-        gen = state.get('writer_revision')
-        self.assertIsNotNone(gen)
-        # Simulate a lock held by a window that was taken over: its generation is behind.
-        stale_lock = self.root / '.agents/cache/ws.lock'
-        stale_lock.write_text(json.dumps({'pid': 99999, 'created_at': '2026-01-01T00:00:00', 'generation': gen - 1}))
-        # The next write should reclaim the stale lock and succeed.
-        self.ws('add', 'question', '--set', 'question=stale lock reclaimed',
-                env=host(CLAUDE_CODE_SESSION_ID='claude-a'))
-
-    def test_current_generation_lock_is_not_reclaimed(self):
-        """A lock with the current generation and a live pid blocks writes."""
-        import json, os
-        self.started(host(CLAUDE_CODE_SESSION_ID='claude-a'))
-        from wslib.core import state_of
-        gen = state_of(self.root).get('writer_revision')
-        live_lock = self.root / '.agents/cache/ws.lock'
-        live_lock.write_text(json.dumps({'pid': os.getpid(), 'created_at': '2026-01-01T00:00:00', 'generation': gen}))
-        result = self.ws('add', 'question', '--set', 'question=blocked',
-                         env=host(CLAUDE_CODE_SESSION_ID='claude-a'), expect=2)
+        lock = self.root / '.agents/cache/ws.lock'
+        lock.write_text(json.dumps({'pid': os.getpid(), 'created_at': '2026-01-01T00:00:00', 'generation': 0}))
+        result = self.ws('add', 'question', '--set', 'question=blocked', expect=2,
+                         env={**host(CLAUDE_CODE_SESSION_ID='claude-a'), 'WS_LOCK_WAIT': '1'})
         self.assertIn('another ws.py command is running', result.stderr)
+        self.assertIn('"generation": 0', lock.read_text())
 
 
 class MergeAndCard(Workspace):

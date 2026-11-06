@@ -84,6 +84,9 @@ The static tier checks that every test named here exists.
 | 3.6.7 | Three writers at once lose or duplicate no rows | `test_regressions.Locking.test_three_processes_add_without_losing_rows` | guard |
 | 3.6.7 | The fix table names only tests that exist | `test_static.Process.test_fix_table_names_existing_tests` | guard |
 | 3.6.7 | An edit could drop an owner rule from AGENTS.md unnoticed | `test_static.OwnerRules.test_agents_md_keeps_owner_rule_anchors` | guard |
+| 3.6.7 | A waiting command deleted the lock of a live holder whose generation lagged after a takeover | `test_session.SessionIdentity.test_live_lock_is_not_reclaimed_even_with_an_older_generation` | fails |
+| 3.6.7 | Leaving the lock deleted it even after another process had taken it | `test_regressions.Locking.test_l1_release_keeps_a_lock_that_is_not_ours` | fails |
+| 3.6.7 | On Windows a process this user may not open was taken for dead, so its lock was reclaimed | `test_regressions.Locking.test_access_denied_counts_as_alive` | fails |
 
 ## Release
 

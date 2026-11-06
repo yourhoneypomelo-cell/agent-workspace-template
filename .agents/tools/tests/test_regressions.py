@@ -1,10 +1,12 @@
 """Regression tests for the 3.6.7 fixes. Each one fails on 3.6.6 unless its comment says it guards a fix."""
+import json
+import os
 import subprocess
 import sys
 import unittest
 
 from support import ENV, Workspace
-from wslib import tables
+from wslib import core, tables
 from wslib.schema import TABLES
 
 WRITER = ('import subprocess, sys\n'
@@ -28,6 +30,16 @@ class Locking(Workspace):
         self.assertEqual(sorted(r['Requirement'] for r in rows),
                          sorted(f'Writer {n} row {i}' for n in range(3) for i in range(5)))
         self.assertEqual(len({r['ID'] for r in rows}), 15)
+
+    def test_l1_release_keeps_a_lock_that_is_not_ours(self):
+        path = self.root / '.agents/cache/ws.lock'
+        with core.lock(self.root):
+            path.write_text(json.dumps({'pid': os.getpid(), 'created_at': 'x', 'nonce': 'another process'}), encoding='utf-8')
+        self.assertTrue(path.exists())
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows process access rules')
+    def test_access_denied_counts_as_alive(self):
+        self.assertTrue(core.pid_alive(4))
 
 
 if __name__ == '__main__':

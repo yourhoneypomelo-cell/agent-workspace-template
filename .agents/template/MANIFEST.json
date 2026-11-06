@@ -1,11 +1,11 @@
 {
- "created_at": "2026-11-06T21:36:27+00:00",
+ "created_at": "2026-11-06T21:37:32+00:00",
  "files": {
   ".agents/README.md": "e339e27d20c0874353796a72add8121a698b1878977ff659198509c7a16fc012",
   ".agents/TEMPLATE_CHECKOUT.md": "d88bf0d92630df240179e4a5d95f8406453bfe165b107b5557797cfaeac589b7",
   ".agents/guides/DESIGN_REQUIREMENTS.md": "85ad1fcfeb7958c5e90c0492b09f7ebe6d6fbb69067920e05b7e77a9f4f5c655",
-  ".agents/guides/FIXES.md": "0d69ea6db49572c35b8baea0f47ef686821b5c06f45dc9758bb8fcff2a444293",
-  ".agents/guides/HOSTS.md": "be693b543474bd188a03f104a503ebdfd609d28b575ecf64ed4e249e02421f26",
+  ".agents/guides/FIXES.md": "bf768d0f6d07772b06ae25e540c53b52de45e2ebdd7932294b55efe9897b53f9",
+  ".agents/guides/HOSTS.md": "8976fb46ede80dd9bad4d173209ed2a986239b795a51dbaf196ca47d1a68d2ab",
   ".agents/guides/MAINTAINING.md": "833e80e9fea0b2726d5c020eed85cba4aaecd4821381a0fd6f61c8e0528b75d8",
   ".agents/guides/PROTOCOL.md": "ea5767b5bbb7e2465f7361446b6111ad6194a79042783e73c86b157636d0701b",
   ".agents/guides/QUICKSTART.md": "2ee6d3ffa2bc09df649dc4f5305b73680999e7fb31ad21df4467a3d83d0b2a5e",
@@ -40,7 +40,7 @@
   ".agents/tools/tests/test_regressions.py": "ac8d679bb4ded39e0c38ebdbf1e43e379cca1b47cae6ad5e862bc2e5fb8bde68",
   ".agents/tools/tests/test_review.py": "971d5c4b4ed5ba7fcf6a1aba0a433fac54c7248ba2018cb43c2001208b8b4aba",
   ".agents/tools/tests/test_session.py": "28902943c3495f5028d407f4a754813b2693537d54b3aa490077364e920e0b42",
-  ".agents/tools/tests/test_static.py": "7c4f703c6c8cf1f1da942e39fc81611013e2e98156ec839cc5a9731a50641d43",
+  ".agents/tools/tests/test_static.py": "fdf9a1617eece1b13325f3961966e31a85e8003e9a32c50b849bafadd527dd83",
   ".agents/tools/tests/test_tracking.py": "6845abc0267d8f2ae6db70e8c336df4b42464120d2f231162d668ff4eb06caec",
   ".agents/tools/tests/test_upgrade.py": "6a7f9d25e2fb5dfe1a25f392a05274c859fa8d7bc20e387ce20fadd7b33214ef",
   ".agents/tools/tests/test_v36.py": "5bfa71e9e3f464afabe829fec3f7b4df58e5ccd7c0594a7a14b51f8c712fa251",

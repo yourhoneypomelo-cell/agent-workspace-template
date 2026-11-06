@@ -89,10 +89,10 @@ every test named here exists.
 | 3.7.0 | Evidence that passed under older rules but fails under the current ones went unnoticed | `test_regressions.Evidence.test_13_older_rules_are_rechecked_with_a_note` | fails |
 | 3.7.0 | An "OK" printed by the program under test made a passing unittest run unreadable | `test_regressions.Evidence.test_v3_program_printing_ok_keeps_the_unittest_summary` | fails |
 | 3.7.0 | A log line starting with "FAILED" counted as a test failure | `test_regressions.Evidence.test_failed_log_line_is_not_a_test_failure` | fails |
-| 3.7.0 | Enabling Gemini hooks on a released workspace left it NOT READY until a new session checkpointed | \	est_upgrade.Rebaseline.test_hooks_enable_on_a_released_workspace_keeps_it_ready\ | fails |
-| 3.7.0 | A rebaseline takes in template files only, so other drift is still reported | \	est_upgrade.Rebaseline.test_rebaseline_keeps_other_drift\ | guard |
-| 3.7.0 | A rebaseline refuses project files | \	est_upgrade.Rebaseline.test_rebaseline_takes_only_template_files\ | guard |
-| 3.7.0 | A rebaseline waits until the workspace is released | \	est_upgrade.Rebaseline.test_rebaseline_needs_a_released_workspace\ | guard |
-| 3.7.0 | There was no way to take the tool's hooks out of a host settings file | \	est_regressions.Install.test_x3_hooks_disable_restores_the_settings_file\ | fails |
-| 3.7.0 | \install --merge\ showed no preview of a merge and kept no copy of the merged files | \	est_regressions.Install.test_x3_merge_dry_run_prints_a_diff\ | fails |
-| 3.7.0 | An install with --allow-modified recorded the template's hashes, not those of the files it copied | \	est_regressions.Install.test_manifest_matches_written_files\ | fails |
+| 3.7.0 | Enabling Gemini hooks on a released workspace left it NOT READY until a new session checkpointed | `test_upgrade.Rebaseline.test_hooks_enable_on_a_released_workspace_keeps_it_ready` | fails |
+| 3.7.0 | A rebaseline takes in template files only, so other drift is still reported | `test_upgrade.Rebaseline.test_rebaseline_keeps_other_drift` | guard |
+| 3.7.0 | A rebaseline refuses project files | `test_upgrade.Rebaseline.test_rebaseline_takes_only_template_files` | guard |
+| 3.7.0 | A rebaseline waits until the workspace is released | `test_upgrade.Rebaseline.test_rebaseline_needs_a_released_workspace` | guard |
+| 3.7.0 | There was no way to take the tool's hooks out of a host settings file | `test_regressions.Install.test_x3_hooks_disable_restores_the_settings_file` | fails |
+| 3.7.0 | `install --merge` showed no preview of a merge and kept no copy of the merged files | `test_regressions.Install.test_x3_merge_dry_run_prints_a_diff` | fails |
+| 3.7.0 | An install with --allow-modified recorded the template's hashes, not those of the files it copied | `test_regressions.Install.test_manifest_matches_written_files` | fails |

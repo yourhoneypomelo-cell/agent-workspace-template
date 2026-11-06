@@ -49,6 +49,7 @@ The next step is an action a new session can start without asking.
 | `wrote N min ago; another conversation may still be working` | Do not take over. Ask the user which window continues |
 | `revision conflict` or `took over the workspace` | Another session is active. Stop writing and re-read HANDOFF.md |
 | a broken table with file and line | Repair that row by hand, then run `ws check` |
+| `change rejected; no change can be checked until these are repaired` | Repair what it lists first: a broken row by hand, a changed or missing archive file from version control or a snapshot. Ask the user before you touch the CONTINUITY line |
 | `files changed after the last checkpoint` | Inspect them, then checkpoint |
 | `owns the workspace from another window that is still running` | Do not write. Ask the user; if that window is finished, `ws start --force --reason "<what the user said>"` |
 | `another ws.py command is running` | Wait and retry: a long `ws verify` holds the lock. Delete `.agents/cache/ws.lock` only when no other window runs `ws` |

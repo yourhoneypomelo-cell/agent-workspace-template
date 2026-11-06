@@ -715,9 +715,10 @@ def live_host_text(host: dict) -> str:
     return f'{host.get("name", "host")} pid {host["pid"]}, started {since}'
 
 
-def require_session(state: dict):
+def require_session(root: Path, state: dict):
     """For note, reconcile and snapshot: refuse a worker, and an old window that a host variable names, without validating.
-    A parallel session that holds a claim passes; its label is set for the log row."""
+    A parallel session that holds a claim passes; its label is set for the log row. The session that released the
+    workspace with its checkpoint takes it back, as on any other write."""
     if delegated():
         raise WorkspaceError('this session runs with WS_ROLE set, as a subagent or helper window, so it never writes the '
                              'workspace. Report the result to the session that started it')
@@ -726,6 +727,9 @@ def require_session(state: dict):
     if who not in (None, 'primary'):
         CALLER.set(who)
         return
+    if not state.get('writer'):
+        from .ops import resume_released
+        resume_released(root, state)
     if other_session(state):
         raise WorkspaceError(f'{state.get("writer")} took over the workspace, so this session must stop writing. '
                              'Re-read docs/state/HANDOFF.md before doing anything else')

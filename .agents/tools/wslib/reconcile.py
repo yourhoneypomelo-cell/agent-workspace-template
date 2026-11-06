@@ -111,10 +111,10 @@ def mark(root: Path, message: str, ids: str | None, reason: str | None) -> dict:
         raise WorkspaceError('give either --ids R1,T2 or --reason, not both')
     with lock(root):
         state = state_of(root)
+        from .core import require_session
+        require_session(root, state)
         if not state.get('writer'):
             raise WorkspaceError('no session owns the workspace. Run "ws start" first')
-        from .core import require_session
-        require_session(state)
         open_ids = {mid for mid, _ in pending(root)}
         targets = sorted(open_ids) if message == 'all' else [message]
         if message == 'all' and not reason:

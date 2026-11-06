@@ -79,11 +79,11 @@ def take(root: Path, label: str, paths: list, pin: bool) -> dict:
         raise WorkspaceError('--label takes up to 60 characters of lowercase words joined by hyphens, for example before-docs-merge')
     with lock(root):
         state = state_of(root)
-        if state['mode'] != 'active' or not state.get('writer'):
-            raise WorkspaceError('no session owns the workspace; run "ws.py start" first')
         from .core import require_session
         from .validate import conflict_markers
-        require_session(state)
+        require_session(root, state)
+        if state['mode'] != 'active' or not state.get('writer'):
+            raise WorkspaceError('no session owns the workspace; run "ws.py start" first')
         for marker in conflict_markers(root)[:1]:
             raise WorkspaceError(marker)
         files = files_in(root, paths)

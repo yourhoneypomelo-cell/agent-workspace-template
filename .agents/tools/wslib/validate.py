@@ -170,6 +170,24 @@ def ledger(data: dict) -> dict:
     return result
 
 
+# The error of a check that stopped before its end begins with this; guarded() then refuses every write.
+INCOMPLETE = 'check stopped early: '
+
+
+def state_line_errors(state: dict) -> list:
+    """What is wrong with the CONTINUITY line itself: the first problem only, since each check relies on the ones before."""
+    if state.get('schema') != SCHEMA:
+        return [f'HANDOFF.md declares schema {state.get("schema")}; this tool reads {SCHEMA}. Run "ws.py migrate" for older workspaces']
+    if state.get('mode') not in ('bootstrap', 'active') or type(state.get('revision')) is not int or state['revision'] < 0:
+        return ['the CONTINUITY line has an invalid mode or revision']
+    writer = state.get('writer')
+    if writer is not None and (not isinstance(writer, str) or not writer.strip()):
+        return ['the CONTINUITY line has an invalid writer']
+    if writer and (type(state.get('writer_revision')) is not int or not 0 < state['writer_revision'] <= state['revision']):
+        return ['the CONTINUITY line has an invalid writer_revision']
+    return []
+
+
 def semantics(root: Path, ready=False, sealing=False, card_changes=None) -> list:
     errors = conflict_markers(root)
     if errors:
@@ -177,15 +195,16 @@ def semantics(root: Path, ready=False, sealing=False, card_changes=None) -> list
     try:
         state = state_of(root)
         if state.get('schema') != SCHEMA:
-            return [f'HANDOFF.md declares schema {state.get("schema")}; this tool reads {SCHEMA}. Run "ws.py migrate" for older workspaces']
-        if state.get('mode') not in ('bootstrap', 'active') or type(state.get('revision')) is not int or state['revision'] < 0:
-            return ['the CONTINUITY line has an invalid mode or revision']
+            return state_line_errors(state)
+        # A bad state line or checkpoint does not end the check: guarded() compares the errors before and after a
+        # change, and stopping here would hide every error the change adds.
+        errors += state_line_errors(state)
         writer = state.get('writer')
-        if writer is not None and (not isinstance(writer, str) or not writer.strip()):
-            return ['the CONTINUITY line has an invalid writer']
-        if writer and (type(state.get('writer_revision')) is not int or not 0 < state['writer_revision'] <= state['revision']):
-            return ['the CONTINUITY line has an invalid writer_revision']
-        cp = checkpoint_of(root, state)
+        try:
+            cp = checkpoint_of(root, state)
+        except (WorkspaceError, ValueError, TypeError, OSError) as error:
+            errors.append(str(error))
+            cp = None
         fields = card(root)
         fields.update(card_changes or {})
         for key in CARD_FIELDS:
@@ -333,17 +352,17 @@ def semantics(root: Path, ready=False, sealing=False, card_changes=None) -> list
                 errors.append(f'a command lock is present: {LOCK}')
             from .coverage import secret_warnings
             errors += [w for w in secret_warnings(root) if w.startswith(('docs/state/', 'docs/specs/', 'docs/guides/', 'ops/'))]
-            if not cp:
+            if not state.get('checkpoint'):
                 errors.append('no checkpoint yet; run "ws.py checkpoint"')
         if cp and not sealing:
             changes = difference(cp['files'], fingerprint(root))
             if any(changes.values()):
                 errors.append('files changed after the last checkpoint: ' + describe_drift(changes, 10) +
                               '. Review them, then run "ws.py checkpoint"')
-        if state['mode'] == 'active' and not cp and not sealing:
+        if state['mode'] == 'active' and not state.get('checkpoint') and not sealing:
             errors.append('no checkpoint yet; run "ws.py checkpoint" after the initial inspection')
     except (WorkspaceError, ValueError, KeyError, TypeError, OSError) as error:
-        errors.append(str(error))
+        errors.append(INCOMPLETE + str(error))
     return errors
 
 

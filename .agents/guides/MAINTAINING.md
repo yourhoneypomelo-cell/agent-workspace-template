@@ -92,6 +92,14 @@ The static tier checks that every test named here exists.
 | 3.6.7 | Retiring what only your own task builds on stays allowed | `test_regressions.Retire.test_retiring_what_only_your_own_task_builds_on_is_allowed` | guard |
 | 3.6.7 | R1 matches neither R10 nor R12, T2 not T12 | `test_regressions.RetireMatching.test_r1_does_not_match_r10` | guard |
 | 3.6.7 | Importing `wslib.rows` or `wslib.runs` before `wslib.ops` failed with a circular import | `test_regressions.Imports.test_every_module_imports_alone` | fails |
+| 3.6.7 | After its checkpoint released the workspace, the same session's `verify --done` kept the evidence but did not attach it | `test_regressions.Resume.test_l5_verify_done_after_release_attaches` | fails |
+| 3.6.7 | A command that takes the lock twice logged `resume` twice | `test_regressions.Resume.test_l5_one_resume_row` | fails |
+| 3.6.7 | `ws note`, `ws reconcile` and `ws snapshot` refused the session that had just released the workspace | `test_regressions.Resume.test_l5_note_reconcile_snapshot_resume` | fails |
+| 3.6.7 | With the checkpoint manifest missing, every write passed unchecked | `test_regressions.Resume.test_missing_checkpoint_manifest_does_not_disable_guarded` | fails |
+| 3.6.7 | A hand-edited state line let every write pass unchecked | `test_regressions.Guarded.test_invalid_state_line_refuses_every_write` | fails |
+| 3.6.7 | A check that stopped at a broken row let every write pass unchecked | `test_regressions.Guarded.test_check_that_stops_early_refuses_every_write` | fails |
+| 3.6.7 | The resumed claim is saved with a valid state line, so its first write is still checked | `test_regressions.Resume.test_l5_first_write_after_release_is_validated` | guard |
+| 3.6.7 | `--rev` names the revision read before the resume, also across the two locks of a checkpoint | `test_regressions.Resume.test_l5_rev_matches_the_revision_before_resume` | guard |
 
 ## Release
 

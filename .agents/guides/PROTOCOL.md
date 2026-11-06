@@ -203,8 +203,9 @@ over, so its evidence stays valid. Hosts without such a variable get a key from 
 hook: the brief's Next line reads `ws start --session k-...`. The key is used only to resume.
 
 A session on a host with a session variable that released the workspace with `ws checkpoint` may write
-again before anyone else claims it: the next write resumes ownership and logs `resume`. Other sessions
-still need `ws start`.
+again before anyone else claims it: the next write, `ws note`, `ws reconcile` and `ws snapshot` included, resumes
+ownership and logs `resume`. The resume takes a revision of its own; `--rev` still names the revision read before
+it. Other sessions still need `ws start`.
 
 When the owner's window cannot be checked (its process chain was broken, or it was claimed before 3.6.3) and it
 wrote less than 20 minutes ago, the brief's Next line says "do not claim yet" and `ws start` warns.

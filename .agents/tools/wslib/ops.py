@@ -49,7 +49,8 @@ def require_owner(root: Path, state: dict, writer: str | None, rev: int | None) 
             raise WorkspaceError(f'revision conflict: you passed {rev}, the workspace is at {state["revision"]}. Re-read HANDOFF.md')
         return who
     CALLER.set(None)
-    owner = state.get('writer')
+    # --rev names the revision the caller read, before a resume below takes one more.
+    owner, base = state.get('writer'), state['revision']
     if not owner and resume_released(root, state):
         owner = state['writer']
     if not owner:
@@ -64,7 +65,7 @@ def require_owner(root: Path, state: dict, writer: str | None, rev: int | None) 
                              f'({live_host_text(state["host"])}), so this window must not write. If you are a subagent '
                              'or side window, report to that session. If the user says that window is finished, run '
                              '"ws.py start --force --reason \"<what the user said>\""')
-    if rev is not None and rev != state['revision']:
+    if rev is not None and rev != base:
         raise WorkspaceError(f'revision conflict: you passed {rev}, the workspace is at {state["revision"]}. Re-read HANDOFF.md')
     return owner
 
@@ -76,12 +77,16 @@ DELEGATED_MESSAGE = ('this session runs with WS_ROLE set, as a subagent or helpe
 def resume_released(root: Path, state: dict) -> bool:
     """The session that released the workspace with a checkpoint writes again before anyone else claimed it.
 
-    Only a host session variable proves it is the same session, so a key from a hook or no variable never resumes."""
+    Only a host session variable proves it is the same session, so a key from a hook or no variable never resumes.
+    The claim is saved at once under a revision of its own: a command that takes the lock twice resumes once, and
+    the evidence it records belongs to the resumed claim."""
     mine, last = session_identity(), state.get('released') or {}
     if not (mine and mine['via'] == 'env' and last.get('session') == mine['id'] and last.get('writer')):
         return False
-    state.update(writer=last['writer'], writer_revision=state['revision'] + 1, claimed_at=now(), session=mine,
-                 released=None, host=host_process())
+    state['revision'] += 1
+    state.update(writer=last['writer'], writer_revision=state['revision'], claimed_at=now(), last_write_at=now(),
+                 session=mine, released=None, host=host_process())
+    save_state(root, state)
     logs.append(root, 'MAINTENANCE_LOG', {'Event': 'resume', 'Detail': f'{last["writer"]} wrote again after its checkpoint'})
     return True
 
@@ -93,11 +98,16 @@ def bump(root: Path, state: dict):
 
 
 def guarded(root: Path, changes: dict):
-    """Write files only if the change adds no new validation error."""
-    before = set(validate.semantics(root, sealing=True))
+    """Write files only if the change adds no new validation error. Nothing is written while the check cannot judge
+    the workspace as it stands: the errors it misses before the change would hide the ones the change adds."""
+    before = validate.semantics(root, sealing=True)
+    unchecked = [e for e in before if e.startswith(validate.INCOMPLETE)] or validate.state_line_errors(state_of(root))
+    if unchecked:
+        raise WorkspaceError('change rejected; no change can be checked until these are repaired ("ws check" lists '
+                             'every problem):\n  ' + '\n  '.join(unchecked))
     with preview(changes):
         after = set(validate.semantics(root, sealing=True))
-    new = sorted(after - before)
+    new = sorted(after - set(before))
     if new:
         raise WorkspaceError('change rejected; it would introduce:\n  ' + '\n  '.join(new))
     for rel, text in changes.items():
@@ -277,12 +287,10 @@ def note(root: Path, text: str):
         state = state_of(root)
         if state['mode'] != 'active':
             raise WorkspaceError('the workspace is not initialized; run "ws.py init --goal ..."')
-        writer = state.get('writer')
         from .core import require_session
         from .claims import CALLER
-        if writer or state.get('claims'):
-            require_session(state)
-        writer = CALLER.get() or writer
+        require_session(root, state)
+        writer = CALLER.get() or state.get('writer')
         if not writer:
             raise WorkspaceError('no session owns the workspace, so a note would leave it unsaved. Run "ws start" first')
         logs.append(root, 'SESSION_LOG', {'Writer': writer, 'Stop point': short(redact(text), 200), 'Next step': NONE,
@@ -305,6 +313,7 @@ def checkpoint(root: Path, stop: str, next_step: str, sets: list, keep: bool, wr
     with lock(root):
         state = state_of(root)
         owner = require_owner(root, state, writer, rev)
+        revision = state['revision']
         from . import claims
         if owner in (state.get('claims') or {}):
             state = parallel_checkpoint(root, state, owner, stop, next_step, keep)
@@ -315,7 +324,8 @@ def checkpoint(root: Path, stop: str, next_step: str, sets: list, keep: bool, wr
         return finish_parallel(root, state, owner, keep)
     with lock(root):
         state = state_of(root)
-        owner = require_owner(root, state, writer, rev)
+        # --rev was checked under the first lock, where a resume may have moved the revision.
+        owner = require_owner(root, state, writer, None if rev is None else revision)
         stale = stale_card_fields({**card(root), **fields}, root)
         errors = claims.only_mine(state, validate.validate(root, strict=True, sealing=True, card_changes=fields))
         if errors and keep and SYNC_PENDING in read(root, HANDOFF):

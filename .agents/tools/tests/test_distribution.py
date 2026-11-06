@@ -21,8 +21,15 @@ class Install(Workspace):
                 self.assertEqual(self.read(rel), text, rel)
 
     def test_template_checkout_matches_defaults(self):
+        # The checkout's README.md is the repository front page; projects receive the generated one.
         for rel, text in defaults.documents().items():
-            self.assertEqual((TEMPLATE / rel).read_text(encoding='utf-8'), text, rel)
+            if rel != 'README.md':
+                self.assertEqual((TEMPLATE / rel).read_text(encoding='utf-8'), text, rel)
+
+    def test_facade_readme_stays_in_template(self):
+        self.assertEqual(self.read('README.md'), defaults.documents()['README.md'])
+        for rel in ('README.zh-CN.md', 'DESIGN.md', 'DESIGN.zh-CN.md'):
+            self.assertFalse((self.root / rel).exists(), rel)
 
     def test_install_keeps_existing_files_and_reports_conflicts(self):
         target = self.parent / 'product'

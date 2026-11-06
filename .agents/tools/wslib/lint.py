@@ -45,7 +45,8 @@ FENCE_RE = re.compile(r'^ {0,3}(`{3,}|~{3,})')
 
 
 def reusable_docs(root: Path) -> list:
-    paths = ['AGENTS.md', 'README.md', *[f'{GUIDE_DIR}/{p.name}' for p in sorted((root / GUIDE_DIR).glob('*.md'))],
+    # README.md is not checked: in the template it is the repository front page, in a project the product's own page.
+    paths = ['AGENTS.md', *[f'{GUIDE_DIR}/{p.name}' for p in sorted((root / GUIDE_DIR).glob('*.md'))],
              *[f'.agents/skills/{s}/SKILL.md' for s in SKILLS],
              *[p.relative_to(root).as_posix() for p in sorted((root / TEMPLATE_DIR).rglob('*.md'))]]
     return [p for p in dict.fromkeys(paths) if (root / p).is_file()]

@@ -134,6 +134,10 @@ The static tier checks that every test named here exists.
 | 3.6.7 | The checkpoint linted the card before writing it | `test_regressions.Misc.test_u2_first_checkpoint_has_no_lint_warning` | guard |
 | 3.6.7 | Codex gave the SessionEnd hook one second, too short to copy the transcript | `test_regressions.Misc.test_h4_codex_session_end_has_a_timeout` | fails |
 | 3.6.7 | The per-turn reminder said credentials are never written to a file, also where the user had chosen "plain" | `test_regressions.Misc.test_u63_turn_reminder_follows_the_credential_rule` | fails |
+| 3.6.7 | Hook entries with a quoted, absolute or variable path were not recognized as the tool's own, so enabling hooks again added a second set | `test_regressions.Entry.test_is_ours_recognizes_quoted_absolute_and_variable_commands` | fails |
+| 3.6.7 | Hook commands always started with "python", which some machines lack | `test_regressions.Entry.test_x1_hook_command_uses_an_interpreter_that_exists` | fails |
+| 3.6.7 | An older Python stopped on ws.py with a traceback instead of saying which version it needs | `test_regressions.Entry.test_x1_python_version_message` | fails |
+| 3.6.7 | ws.py stays readable by Python 3.7 to 3.9, or its version message cannot print | `test_static.SourceBytes.test_ws_py_parses_with_the_python_3_7_grammar` | guard |
 | 3.6.7 | West of UTC, an edit made with `ws set` in the evening was reported as a hand edit | `test_regressions.Misc.test_hand_edits_use_the_local_date` | fails |
 | 3.6.7 | A linked `.agents` folder made ws.py read and write the project it links to | `test_regressions.Misc.test_linked_agents_folder_is_refused` | fails |
 | 3.6.7 | `--move-detail` into a new spec folder was always refused | `test_regressions.Misc.test_move_detail_into_a_new_spec_folder` | fails |

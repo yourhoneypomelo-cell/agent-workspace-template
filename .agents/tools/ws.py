@@ -10,6 +10,17 @@ import re
 import sys
 from pathlib import Path
 
+if sys.version_info < (3, 10):  # before wslib, which needs 3.10; this file keeps to the 3.7 grammar
+    print(f'ERROR: ws.py needs Python 3.10 or newer, and {sys.executable} is Python '
+          f'{".".join(map(str, sys.version_info[:3]))}. Run it with a newer one, for example '
+          '"python3.12 .agents/tools/ws.py ...". On macOS the python3 that comes with the system is 3.9: install '
+          'Python from python.org or with Homebrew. For hooks: ws hooks enable <host> --python python3.12', file=sys.stderr)
+    if '--hook' in sys.argv or sys.argv[1:2] == ['capture']:  # a hook must never break the host session
+        host = sys.argv[sys.argv.index('--hook') + 1] if '--hook' in sys.argv[:-1] else ''
+        print({'kiro': '', 'cursor': '{"continue": true}'}.get(host, '{}'))
+        sys.exit(0)
+    sys.exit(2)
+
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -44,7 +55,7 @@ COMMANDS = '''commands:
   compact [--dry-run] [--prune-evidence]        move closed rows to CLOSED_ITEMS.md, roll logs
   snapshot --label NAME [PATHS]                 zip the documents before a large reorganization; no restore
   hooks enable|show HOST     write hook settings: claude, codex, cursor, gemini, copilot, kiro, antigravity,
-                             grok, codebuddy, workbuddy, qoder, qwen
+                             grok, codebuddy, workbuddy, qoder, qwen; --python CMD sets the interpreter command
   capture --host H --event E read a hook payload on stdin and copy the transcript
   chats import HOST          copy this project's sessions from a local store: kimi, codex, antigravity,
                              kiro, cursor, workbuddy, codebuddy, qoder, qwen, gemini, dsh
@@ -132,6 +143,8 @@ def parser() -> argparse.ArgumentParser:
     hooks = subs.add_parser('hooks')
     hooks.add_argument('action', choices=('enable', 'show'))
     hooks.add_argument('host', choices=HOSTS)
+    hooks.add_argument('--python', metavar='CMD', help='interpreter command the hooks run, such as python3 or "py -3"; '
+                       'by default the first of python, python3 and py -3 that is 3.10 or newer')
     cap = subs.add_parser('capture')
     cap.add_argument('--host', required=True)
     cap.add_argument('--event', default='unknown')
@@ -254,12 +267,52 @@ def hook_settings(host: str) -> tuple:
     }}
 
 
-OURS = re.compile(r'(?:^|[\s"\'/\\])(?:\.agents[/\\])?tools[/\\]ws\.py\s+(?:brief|turn|capture)\b')
+OURS = re.compile(r'(?:^|[\s/])(?:\.agents/)?tools/ws\.py\s+(?:brief|turn|capture)\b')
+COMMAND_KEYS = ('command', 'bash', 'powershell', 'commandWindows')
+
+
+def _commands(value) -> list:
+    """The command strings in a hook entry, under whichever key the host uses."""
+    if isinstance(value, dict):
+        return [c for k, v in value.items() for c in ([v] if k in COMMAND_KEYS and isinstance(v, str) else _commands(v))]
+    if isinstance(value, list):
+        return [c for item in value for c in _commands(item)]
+    return []
 
 
 def _is_ours(entry) -> bool:
-    """A hook entry this tool wrote: it runs ws.py brief, turn or capture."""
-    return bool(OURS.search(json.dumps(entry)))
+    """A hook entry this tool wrote: a command runs ws.py brief, turn or capture, with any interpreter and the path
+    relative, absolute, quoted or through a variable such as $CLAUDE_PROJECT_DIR."""
+    return any(OURS.search(re.sub(r'["\']', ' ', c.replace('\\', '/'))) for c in _commands(entry))
+
+
+def interpreter() -> str:
+    """The first of python, python3 and py -3 that runs Python 3.10 or newer here; the Windows Store placeholder does
+    not count. Hook files keep the command name, not a path: they travel with the project to other machines."""
+    import shutil
+    import subprocess
+    for command in (['python'], ['python3'], ['py', '-3']):
+        found = shutil.which(command[0])
+        if not found or 'windowsapps' in found.lower():
+            continue
+        try:
+            done = subprocess.run([found, *command[1:], '-c', 'import sys; print(sys.version_info >= (3, 10))'],
+                                  capture_output=True, text=True, timeout=20)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if done.stdout.strip() == 'True':
+            return ' '.join(command)
+    return 'python'
+
+
+def with_python(value, python: str):
+    """Hook settings whose commands start with the given interpreter command instead of python."""
+    if isinstance(value, dict):
+        return {k: python + v[6:] if k in COMMAND_KEYS and isinstance(v, str) and v.startswith('python ')
+                else with_python(v, python) for k, v in value.items()}
+    if isinstance(value, list):
+        return [with_python(item, python) for item in value]
+    return value
 
 
 def merge_hooks(existing, ours: dict) -> dict:
@@ -304,8 +357,9 @@ def merge_hooks(existing, ours: dict) -> dict:
 LEGACY_HOOK_FILES = {'kiro': ('.kiro/hooks/workspace-brief.json',)}
 
 
-def enable_hooks(root: Path, host: str, show: bool):
+def enable_hooks(root: Path, host: str, show: bool, python: str | None = None):
     rel, settings = hook_settings(host)
+    settings = with_python(settings, python or interpreter())
     path = root / rel
     for old in LEGACY_HOOK_FILES.get(host, ()):
         legacy = root / old
@@ -623,7 +677,7 @@ def main(argv=None) -> int:
             print(json.dumps(result, ensure_ascii=False))
             print(f'Saved. Nothing restores it in place: extract with "{result["extract"]}", compare, copy back by hand.')
         elif args.command == 'hooks':
-            enable_hooks(root, args.host, args.action == 'show')
+            enable_hooks(root, args.host, args.action == 'show', args.python)
         elif args.command == 'capture':
             # Hosts give hooks a few seconds; a busy workspace must not stall the host.
             os.environ.setdefault('WS_LOCK_WAIT', '3')

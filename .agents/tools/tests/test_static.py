@@ -35,6 +35,10 @@ class SourceBytes(unittest.TestCase):
                 warnings.simplefilter('error')
                 ast.parse((TEMPLATE / rel).read_text(encoding='utf-8'), rel, feature_version=(3, 10))
 
+    def test_ws_py_parses_with_the_python_3_7_grammar(self):
+        # Its version gate can only print the message if an older Python parses the whole file.
+        ast.parse((TEMPLATE / '.agents/tools/ws.py').read_text(encoding='utf-8'), 'ws.py', feature_version=(3, 7))
+
     def test_manifest_matches_the_checkout(self):
         recorded = json.loads((TEMPLATE / MANIFEST).read_text(encoding='utf-8'))['files']
         changed = [rel for rel in STATIC_FILES if recorded.get(rel) !=

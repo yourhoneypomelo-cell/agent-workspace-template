@@ -529,6 +529,43 @@ class Capture(Workspace):
         self.assertEqual(capture._mentions(self.root, [other]), [])
 
 
+class Entry(Workspace):
+    def test_is_ours_recognizes_quoted_absolute_and_variable_commands(self):
+        import ws
+        for command in ('"C:\\Python311\\python.exe" "E:\\proj\\.agents\\tools\\ws.py" turn --hook claude',
+                        'python "$CLAUDE_PROJECT_DIR/.agents/tools/ws.py" brief --hook claude',
+                        'py -3 %CLAUDE_PROJECT_DIR%\\.agents\\tools\\ws.py capture --host claude --event Stop',
+                        'python tools/ws.py brief --hook antigravity'):
+            with self.subTest(command=command):
+                self.assertTrue(ws._is_ours({'hooks': [{'type': 'command', 'command': command}]}))
+        self.assertTrue(ws._is_ours({'action': {'type': 'command', 'command': 'python3 .agents/tools/ws.py turn --hook kiro'}}))
+        self.assertFalse(ws._is_ours({'hooks': [{'type': 'command', 'command': 'python lint/ws.py brief'}]}))
+        self.assertFalse(ws._is_ours({'hooks': [{'type': 'command', 'command': 'echo hello'}],
+                                      'note': 'python .agents/tools/ws.py turn'}))
+
+    def test_x1_hook_command_uses_an_interpreter_that_exists(self):
+        import shutil
+        import ws
+        self.ws('hooks', 'enable', 'claude', '--python', 'py -3')
+        commands = ws._commands(json.loads(self.read('.claude/settings.json')))
+        self.assertTrue(commands and all(c.startswith('py -3 .agents/tools/ws.py ') for c in commands), commands)
+        self.assertTrue(shutil.which(ws.interpreter().split()[0]))
+
+    def test_x1_python_version_message(self):
+        tool = str(self.root / '.agents/tools/ws.py')
+        code = ('import runpy, sys; sys.version_info = (3, 9, 6, "final", 0); sys.argv = sys.argv[1:]; '
+                'runpy.run_path(sys.argv[0], run_name="__main__")')
+
+        def run(*args):
+            return subprocess.run([sys.executable, '-c', code, tool, *args], env=ENV, capture_output=True, text=True,
+                                  encoding='utf-8')
+        plain = run('status')
+        self.assertEqual(plain.returncode, 2, plain.stdout + plain.stderr)
+        self.assertIn('needs Python 3.10 or newer', plain.stderr)
+        self.assertIn('macOS', plain.stderr)
+        self.assertEqual(run('turn', '--hook', 'cursor').returncode, 0)
+
+
 class Guarded(Workspace):
     def test_invalid_state_line_refuses_every_write(self):
         self.init()

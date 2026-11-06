@@ -57,7 +57,9 @@ Harness, Qwen Code, Trae and Grok. Other hosts reach them through the "More deta
 Existing settings and hooks are kept. Running it twice adds nothing.
 
 Hook commands use paths relative to the project root, except Antigravity's, which run from
-`.agents/`. The tool finds the project from its own location, so either works.
+`.agents/`. The tool finds the project from its own location, so either works. They start with the first of
+`python`, `python3` and `py -3` that runs Python 3.10 or newer on this machine; `ws hooks enable <host> --python
+<command>` writes another. An older Python prints which version ws.py needs, and a hook then exits quietly.
 
 | Host | Settings file | Session start | Every turn | Transcript copy |
 | --- | --- | --- | --- | --- |

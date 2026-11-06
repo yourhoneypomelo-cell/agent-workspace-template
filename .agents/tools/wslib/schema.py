@@ -49,10 +49,15 @@ TEST_MODULES = ('support', 'test_core', 'test_workflow', 'test_distribution', 't
 # a business agent searching its project should not find the template's own requirements, history or self-tests.
 MAINTAINER_GUIDES = ('MAINTAINING', 'DESIGN_REQUIREMENTS')
 TEMPLATE_MARKER = '.agents/TEMPLATE_CHECKOUT.md'
+# Folder preview READMEs: GitHub shows the first lines when a folder is opened. They are for
+# browsing the repository, so they stay in the template source and are never installed into a project.
+FOLDER_PREVIEWS = ('.agents/README.md', f'{GUIDE_DIR}/README.md', '.agents/skills/README.md',
+                   '.agents/tools/README.md', f'{TEMPLATE_DIR}/README.md')
 MAINTAINER_FILES = (TEMPLATE_MARKER,
     *(f'{GUIDE_DIR}/{name}.md' for name in MAINTAINER_GUIDES),
     *(f'{TOOLS_DIR}/tests/{name}.py' for name in TEST_MODULES),
     f'{TEMPLATE_DIR}/examples/minimal_cycle.py',
+    *FOLDER_PREVIEWS,
 )
 # What a project receives.
 RUNTIME_FILES = (

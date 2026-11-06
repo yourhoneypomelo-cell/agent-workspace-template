@@ -537,6 +537,7 @@ def advisories(root: Path) -> list:
         result += [message for level, message in findings(root, data['live']) if level == 'warn']
         result += spec_warnings(root, data)
         result += secret_warnings(root)
+        result += evidence.rules_notes(root, data['live']['tasks'])
     except (WorkspaceError, ValueError, OSError):
         pass
     return result

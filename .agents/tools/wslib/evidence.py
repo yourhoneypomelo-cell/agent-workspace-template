@@ -66,7 +66,14 @@ def missing_expected(output: str, expected: list) -> list:
 
 
 # Terminal summaries. Unknown formats are never guessed as passing.
-def summarize(output: str) -> dict:
+# Evidence records the number of the rules that read its output, and load() reads that output again with the same
+# rules: a parser change never invalidates evidence recorded before it, and a summary edited by hand is still caught.
+# When the rules change again, freeze the current ones under their number in SUMMARIZERS.
+RULES = 2
+
+
+def _summarize_v1(output: str) -> dict:
+    """Rules 1, the parser of 3.6.x. Frozen: test_13_frozen_rules_1_golden_outputs pins its results."""
     text = re.sub(r'\x1b\[[0-9;]*m', '', output)
     failure = bool(re.search(r'^FAILED(?:\s|$)', text, re.M))
     failure |= any(int(n) > 0 for n in re.findall(r'^# (?:fail|cancelled) (\d+)\s*$', text, re.M))
@@ -119,6 +126,53 @@ def summarize(output: str) -> dict:
     if result['known'] and result['total'] != sum(result[k] for k in COUNTERS[1:]):
         result['known'] = False
     return result
+
+
+def _noise_free(output: str) -> str:
+    """The output without the lines rules 1 misreads: an OK or FAILED status that follows no "Ran N tests" of its own,
+    printed by the program under test, and a FAILED line that is neither unittest's summary nor pytest's
+    "FAILED path::name", such as a log line "FAILED to connect"."""
+    kept, owned = [], False
+    for line in re.sub(r'\x1b\[[0-9;]*m', '', output).splitlines():
+        if re.match(r'^Ran \d+ tests? in .+$', line):
+            owned = True
+        elif re.match(r'^(?:OK|FAILED)(?: \([^\n]+\))?\s*$', line):
+            if not owned:
+                continue
+            owned = False
+        elif re.match(r'^FAILED(?:\s|$)', line) and not re.match(r'^FAILED \S+::\S+', line):
+            continue
+        kept.append(line)
+    return '\n'.join(kept) + '\n'
+
+
+def summarize(output: str) -> dict:
+    """The summary under the current rules, 2. Output that rules 1 accepts keeps exactly its rules 1 summary, so a
+    project that goes back to 3.6.x reads every summary this version accepted the same way."""
+    first = _summarize_v1(output)
+    return first if passed(first) else _summarize_v1(_noise_free(output))
+
+
+SUMMARIZERS = {1: _summarize_v1, 2: lambda output: summarize(output)}
+
+
+def rules_notes(root: Path, task_rows: list) -> list:
+    """Done tasks whose evidence passed under older summary rules and would not under the current ones. Advisory:
+    the evidence stays valid, but the run deserves a second look."""
+    notes = []
+    for row in task_rows:
+        if row.get('Status') != 'done':
+            continue
+        for rel in evidence_paths(row.get('Evidence', '')):
+            try:
+                data = json.loads(read(root, rel))
+            except (WorkspaceError, ValueError, OSError):
+                continue
+            rules = data.get('rules', 1)
+            if isinstance(rules, int) and rules < RULES and not data.get('report') and not passed(summarize(data.get('output', ''))):
+                notes.append(f'{row["ID"]}: {rel} passed under summary rules {rules}, but not under rules {RULES}. '
+                             f'Check the run, then "ws verify {row["ID"]}" again')
+    return notes
 
 
 TEST_CONFIG = re.compile(r'(?:^|/)(?:conftest\.py|pytest\.ini|tox\.ini|setup\.cfg|(?:jest|vitest)\.config\.[cm]?[jt]s)$')
@@ -331,7 +385,7 @@ def run(root: Path, command: list, label: str, writer: str, revision: int, kind:
                 report_error=report_error, accepted=accepted, reasons=reasons, output=output,
                 for_tasks=list(for_tasks or []), surface=surface(output, after_files),
                 expected=[e.pattern if hasattr(e, 'pattern') else e for e in expected or []],
-                output_sha256=sha(output.encode('utf-8')))
+                output_sha256=sha(output.encode('utf-8')), rules=RULES)
     safe_label = re.sub(r'[^A-Za-z0-9_-]', '-', label)[:48] or 'check'
     rel = f'docs/archive/checks/{safe_label}-{os.urandom(6).hex()}.json'
     atomic_write(safe_path(root, rel), json.dumps(data, ensure_ascii=False, indent=2) + '\n')
@@ -349,7 +403,13 @@ def load(root: Path, rel: str, required_kind: str) -> dict:
     # A passing test run proves more than a check's exit code, so it stands for a check; never the other way round.
     if data.get('kind') != required_kind and not (required_kind == 'check' and data.get('kind') == 'test'):
         raise WorkspaceError(f'{rel}: evidence kind is {data.get("kind")}, the task acceptance needs {required_kind}')
-    summary = summarize(data['output'])
+    rules = data.get('rules', 1)
+    if not isinstance(rules, int) or rules not in SUMMARIZERS:
+        if isinstance(rules, int) and rules > RULES:
+            raise WorkspaceError(f'{rel} was read with summary rules {rules}; this tool knows rules 1 to {RULES}. '
+                                 'Upgrade the workspace tool')
+        raise WorkspaceError(f'{rel}: invalid summary rules {rules!r}')
+    summary = SUMMARIZERS[rules](data['output'])
     if data.get('report'):
         report = data['report']
         raw = safe_path(root, report['path']).read_bytes()

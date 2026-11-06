@@ -82,3 +82,10 @@ every test named here exists.
 | 3.6.7 | Scan results cached under the old matching rules were kept | `test_regressions.Capture.test_c4_scan_cache_from_older_rules_is_recomputed` | fails |
 | 3.6.7 | An install that failed part way left half its files in the target | `test_distribution.Install.test_i2_install_failure_leaves_the_target_unchanged` | fails |
 | 3.6.7 | A broken link in the project's own README.md blocked checkpoints | `test_distribution.Install.test_project_readme_links_are_not_checked` | fails |
+| 3.7.0 | A change of the test-output parser would have made the sealed evidence of every project invalid | `test_regressions.Evidence.test_13_rules_1_evidence_stays_valid_after_a_parser_change` | fails |
+| 3.7.0 | A summary edited by hand is still rejected under the rules the evidence recorded | `test_regressions.Evidence.test_13_forged_summary_is_still_rejected` | guard |
+| 3.7.0 | Evidence read with newer rules than the tool knows was not told apart from a tampered file | `test_regressions.Evidence.test_13_newer_rules_are_refused_with_an_upgrade_hint` | fails |
+| 3.7.0 | Rules 1 keep reading evidence exactly as 3.6.x did | `test_regressions.Evidence.test_13_frozen_rules_1_golden_outputs` | guard |
+| 3.7.0 | Evidence that passed under older rules but fails under the current ones went unnoticed | `test_regressions.Evidence.test_13_older_rules_are_rechecked_with_a_note` | fails |
+| 3.7.0 | An "OK" printed by the program under test made a passing unittest run unreadable | `test_regressions.Evidence.test_v3_program_printing_ok_keeps_the_unittest_summary` | fails |
+| 3.7.0 | A log line starting with "FAILED" counted as a test failure | `test_regressions.Evidence.test_failed_log_line_is_not_a_test_failure` | fails |

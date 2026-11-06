@@ -351,8 +351,77 @@ class Hooks(Workspace):
         self.ready()
 
 
+SUMMARY_KEYS = ('parser', 'known', 'total', 'passed', 'failed', 'errors', 'skipped', 'explicit_failure')
+GOLDEN_RULES_1 = (
+    ('Ran 2 tests in 0.01s\n\nOK\n', ('unittest', True, 2, 2, 0, 0, 0, False)),
+    ('Ran 3 tests in 0.1s\n\nFAILED (failures=1, errors=1)\n', ('unittest', True, 3, 1, 1, 1, 0, True)),
+    ('Ran 4 tests in 0.2s\n\nOK (skipped=1, expected failures=1)\n', ('unittest', True, 4, 2, 0, 0, 2, False)),
+    ('==== 3 passed, 1 skipped in 0.2s ====', ('pytest', True, 4, 3, 0, 0, 1, False)),
+    ('=== 1 passed, 1 failed in 0.1s ===', ('pytest', True, 2, 1, 1, 0, 0, True)),
+    ('# tests 2\n# pass 2\n# fail 0\n', ('node-tap', True, 2, 2, 0, 0, 0, False)),
+    ('Tests: 1 failed, 3 passed, 4 total', ('jest-vitest', True, 4, 3, 1, 0, 0, True)),
+    ('connected: OK\nOK\nRan 1 test in 0.001s\n\nOK\n', ('unknown', False, 0, 0, 0, 0, 0, False)),
+    ('FAILED to connect\nRan 1 test in 0.001s\n\nOK\n', ('unittest', True, 1, 1, 0, 0, 0, True)),
+    ('all good', ('unknown', False, 0, 0, 0, 0, 0, False)),
+)
+
+
 class Evidence(Workspace):
     PROBE = ('add', 'task', '--set', 'requirements=R1', '--set', 'scope=probe.py', '--set', 'action=Probe')
+
+    def rules_1_evidence(self):
+        """T1's accepted evidence as 3.6.x wrote it, without a rules field."""
+        self.done()
+        rel = tables.rows(self.root, TABLES['tasks'])[0]['Evidence']
+        data = json.loads(self.read(rel))
+        data.pop('rules', None)
+        self.write(rel, json.dumps(data))
+        return rel, data
+
+    def test_13_rules_1_evidence_stays_valid_after_a_parser_change(self):
+        rel, _ = self.rules_1_evidence()
+        changed = dict(parser='unittest', known=True, total=9, passed=9, failed=0, errors=0, skipped=0, explicit_failure=False)
+        with mock.patch.object(evidence, 'summarize', lambda output: dict(changed)):
+            self.assertTrue(evidence.load(self.root, rel, 'test')['accepted'])
+
+    def test_13_forged_summary_is_still_rejected(self):
+        # Guards the rules: the summary is still read again from the recorded output.
+        rel, data = self.rules_1_evidence()
+        data['summary'].update(total=data['summary']['total'] + 1, passed=data['summary']['passed'] + 1)
+        self.write(rel, json.dumps(data))
+        with self.assertRaisesRegex(core.WorkspaceError, 'summary does not match'):
+            evidence.load(self.root, rel, 'test')
+
+    def test_13_newer_rules_are_refused_with_an_upgrade_hint(self):
+        rel, data = self.rules_1_evidence()
+        self.write(rel, json.dumps({**data, 'rules': 99}))
+        with self.assertRaisesRegex(core.WorkspaceError, 'Upgrade the workspace tool'):
+            evidence.load(self.root, rel, 'test')
+
+    def test_13_frozen_rules_1_golden_outputs(self):
+        # Pins rules 1: evidence recorded by 3.6.x is read with exactly these summaries.
+        for output, expected in GOLDEN_RULES_1:
+            with self.subTest(output=output):
+                summary = evidence._summarize_v1(output)
+                self.assertEqual(tuple(summary[k] for k in SUMMARY_KEYS), expected)
+
+    def test_13_older_rules_are_rechecked_with_a_note(self):
+        self.rules_1_evidence()
+        failing = dict(parser='unittest', known=True, total=1, passed=0, failed=1, errors=0, skipped=0, explicit_failure=True)
+        with mock.patch.object(evidence, 'summarize', lambda output: dict(failing)):
+            notes = evidence.rules_notes(self.root, tables.rows(self.root, TABLES['tasks']))
+        self.assertEqual(len(notes), 1)
+        self.assertIn('ws verify T1', notes[0])
+
+    def test_v3_program_printing_ok_keeps_the_unittest_summary(self):
+        summary = evidence.summarize('connected: OK\nOK\nRan 1 test in 0.001s\n\nOK\n')
+        self.assertTrue(evidence.passed(summary), summary)
+
+    def test_failed_log_line_is_not_a_test_failure(self):
+        summary = evidence.summarize('FAILED to connect, retrying\nRan 1 test in 0.001s\n\nOK\n')
+        self.assertTrue(evidence.passed(summary), summary)
+        pytest = 'FAILED tests/test_x.py::test_y - assert 1 == 2\n=== 2 passed in 0.1s ==='
+        self.assertFalse(evidence.passed(evidence.summarize(pytest)))
 
     def test_v3_invalid_expect_regex_is_a_clean_error(self):
         self.init()

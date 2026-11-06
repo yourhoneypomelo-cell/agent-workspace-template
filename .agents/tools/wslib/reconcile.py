@@ -12,7 +12,7 @@ from pathlib import Path
 
 from . import logs, tables
 from .coverage import redact
-from .core import WorkspaceError, atomic_write, lock, read, safe_path, sha, state_of
+from .core import READ_ONLY, WorkspaceError, atomic_write, lock, read, safe_path, sha, state_of
 from .schema import CACHE_DIR, CHAT_DIR, CHAT_INDEX, HEADING_NOTE, PREFIX_TABLE
 
 LOG = 'RECONCILE_LOG'
@@ -81,7 +81,7 @@ def user_messages(root: Path) -> list:
             if mid not in seen:
                 seen.add(mid)
                 found.append((mid, rel, is_routine))
-    if fresh != cache and not os.environ.get('WS_NO_CACHE'):
+    if fresh != cache and not os.environ.get('WS_NO_CACHE') and not READ_ONLY.get():
         try:
             (root / CACHE_DIR).mkdir(parents=True, exist_ok=True)
             atomic_write(root / CACHE, json.dumps(fresh))

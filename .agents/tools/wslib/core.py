@@ -36,6 +36,14 @@ def today():
     return dt.datetime.now().astimezone().date().isoformat()
 
 
+def local_date(stamp: str) -> str:
+    """The local date of a stored UTC time, the date a log row written at that moment carries."""
+    try:
+        return dt.datetime.fromisoformat(stamp).astimezone().date().isoformat()
+    except ValueError:
+        return stamp[:10]
+
+
 def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -78,6 +86,11 @@ def read(root: Path, rel: str) -> str:
     if not path.is_file():
         raise WorkspaceError(f'missing file: {rel}')
     return path.read_text(encoding='utf-8-sig').replace('\r\n', '\n')
+
+
+def exists(root: Path, rel: str) -> bool:
+    """Whether a file exists, counting the files of the change being previewed."""
+    return rel in (_OVERRIDES.get() or {}) or safe_path(root, rel).exists()
 
 
 @contextlib.contextmanager

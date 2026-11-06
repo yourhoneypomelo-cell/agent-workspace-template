@@ -12,7 +12,13 @@ from pathlib import Path
 STORE = Path(os.environ.get('DSH_HOME') or Path.home() / '.dsh') / 'sessions'
 MAX_STORE = 50 * 1024 * 1024  # compressed bytes of one session file
 MAX_TEXT = 200 * 1024 * 1024  # decompressed characters; a 96 KB file can expand to 1 GB
-HELPER = 'import sys\nfrom compression import zstd\nsys.stdout.buffer.write(zstd.decompress(sys.stdin.buffer.read()))\n'
+# Run by a Python 3.14 when this one has no zstd: frame by frame, exit code 3 once the output passes the limit in argv[1].
+HELPER = ('import sys\nfrom compression import zstd\nlimit, size, data = int(sys.argv[1]), 0, sys.stdin.buffer.read()\n'
+          'while data:\n    part = zstd.ZstdDecompressor()\n    while not part.eof:\n'
+          '        chunk = part.decompress(data, max_length=1 << 20)\n        data = b""\n        size += len(chunk)\n'
+          '        if size > limit:\n            sys.exit(3)\n        sys.stdout.buffer.write(chunk)\n'
+          '        if not chunk and part.needs_input:\n            break\n'
+          '    data = part.unused_data if part.eof else b""\n')
 
 
 def project_key(folder: Path) -> str:
@@ -102,7 +108,7 @@ def decoder(in_process: bool = False):
         except (OSError, subprocess.SubprocessError):
             usable = False
         if usable:
-            return lambda raw, exe=exe: _run([exe, '-c', HELPER], raw), None
+            return lambda raw, exe=exe: _run([exe, '-c', HELPER, str(MAX_TEXT)], raw), None
     return None, ('DeepSeek Harness sessions are zstd-compressed. Install Python 3.14 or newer, or run '
                   '"pip install backports.zstd", then run "ws chats import dsh" again')
 

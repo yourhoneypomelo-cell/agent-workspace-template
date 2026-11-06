@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from support import ENV, TOOLS, Workspace
-from wslib import core, evidence, rows, schema, tables
+from support import ENV, TEMPLATE, TOOLS, Workspace
+from wslib import core, evidence, logs, rows, schema, tables
 from wslib.schema import LIB_MODULES, TABLES
 
 WRITER = ('import subprocess, sys\n'
@@ -387,6 +387,137 @@ class Evidence(Workspace):
         run, recorded = evidence._resolve(['py', '-3', '-c', 'print(1)'])
         self.assertNotEqual(run[0], sys.executable)
         self.assertEqual(recorded, ['py', '-3', '-c', 'print(1)'])
+
+
+class Misc(Workspace):
+    def test_u5_brief_with_a_transcript_writes_no_cache(self):
+        self.init()
+        self.save()
+        payload = json.dumps({'type': 'user', 'message': {'role': 'user', 'content': 'please add export'}})
+        transcript = self.parent / 'session.jsonl'
+        transcript.write_text(payload + '\n', encoding='utf-8')
+        self.ws('capture', '--host', 'claude', '--event', 'Stop', stdin=json.dumps({'session_id': 'abc', 'transcript_path': str(transcript)}))
+        cache = self.root / '.agents/cache/messages.json'
+        cache.unlink(missing_ok=True)
+        self.ws('brief')
+        self.ws('check', expect=None)
+        self.assertFalse(cache.exists())
+
+    def test_u7_dropped_dependency_has_one_meaning(self):
+        self.init()
+        for action, depends in (('First step', 'none'), ('Second step', 'T1')):
+            self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=demo.py', '--set', f'action={action}',
+                    '--set', 'acceptance=python -m unittest', '--set', f'depends={depends}')
+        self.ws('set', 'T1', '--set', 'status=dropped', '--set', 'reason=user dropped it')
+        brief = self.ws('brief').stdout
+        self.assertNotIn('ready next: T2', brief)
+        self.assertIn('ws set T2 --set depends=none', brief)
+
+    def test_u7_cycle_names_only_members(self):
+        from wslib import validate
+        rows = {'T1': {'Depends': 'T2'}, 'T2': {'Depends': 'T1'}, 'T3': {'Depends': 'T1'}, 'T4': {'Depends': 'T4'}}
+        self.assertEqual(validate._cycle(rows), ['TASKS.md: dependency cycle among T1, T2, T4'])
+
+    def test_u7_snapshot_restores_to_a_checkable_workspace(self):
+        self.done()
+        self.save()
+        self.ws('start')
+        snapshot = json.loads(self.ws('snapshot', '--label', 'before-change', 'test_demo.py').stdout.splitlines()[0])['snapshot']
+        other = self.parent / 'restored'
+        from wslib import distribution
+        distribution.install(TEMPLATE, other, allow_modified=True)
+        import zipfile
+        with zipfile.ZipFile(self.root / snapshot) as bundle:
+            bundle.extractall(other)
+        (other / 'SNAPSHOT.json').unlink()
+        run = subprocess.run([sys.executable, str(other / '.agents/tools/ws.py'), '--root', str(other), 'check'], env=ENV,
+                             capture_output=True, text=True, encoding='utf-8')
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+
+    def test_u2_first_checkpoint_has_no_lint_warning(self):
+        # Guards the order in checkpoint: the card is written before the state files are linted.
+        self.init()
+        out = self.ws('checkpoint', '--stop', 'requirements recorded', '--next', 'plan the first task', '--set', 'phase=plan',
+                      '--set', 'risks=none known yet', '--set', 'next_acceptance=T1 has an acceptance command').stdout
+        self.assertNotIn('findings in the state files changed this session', out)
+
+    def test_h4_codex_session_end_has_a_timeout(self):
+        import ws
+        self.assertEqual(ws.hook_settings('codex')[1]['hooks']['SessionEnd'][0]['hooks'][0]['timeout'], 3)
+
+    def test_hand_edits_use_the_local_date(self):
+        # A "ws set" in the evening west of Greenwich is logged on the local date, while UTC is already a day later.
+        self.init()
+        logs.append(self.root, 'CHANGE_LOG', {'Date': '2026-11-06', 'ID': 'T1', 'Event': 'acceptance edited',
+                                              'Detail': 'was: old', 'Source': 'assistant'})
+        code = ('import json, sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); from wslib import coverage; '
+                'cp = {"created_at": "2026-11-07T03:00:00+00:00", "task_texts": {"T1": {"Acceptance": "old"}}}; '
+                'print(json.dumps(coverage.hand_edits(Path(sys.argv[2]), {"tasks": [{"ID": "T1", "Acceptance": "new"}]}, cp)))')
+        run = subprocess.run([sys.executable, '-c', code, str(TOOLS), str(self.root)], env={**ENV, 'TZ': 'XXX12'},
+                             capture_output=True, text=True, encoding='utf-8')
+        self.assertEqual(run.stdout.strip(), '[]', run.stderr[-600:])
+
+    def test_linked_agents_folder_is_refused(self):
+        other = self.parent / 'other'
+        other.mkdir()
+        link = other / '.agents'
+        if os.name == 'nt':
+            import _winapi
+            _winapi.CreateJunction(str(self.root / '.agents'), str(link))
+        else:
+            os.symlink(self.root / '.agents', link)
+        self.addCleanup(os.rmdir if os.name == 'nt' else os.unlink, link)
+        run = subprocess.run([sys.executable, str(link / 'tools/ws.py'), 'status'], cwd=other, env=ENV,
+                             capture_output=True, text=True, encoding='utf-8')
+        self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
+        self.assertIn('is a link', run.stderr)
+
+    def test_move_detail_into_a_new_spec_folder(self):
+        self.init()
+        self.ws('set', 'R1', '--set', 'requirement=Demo returns 4; the spec holds the rest', '--set',
+                'detail=docs/specs/demo/requirements.md', '--move-detail', 'docs/specs/demo/requirements.md')
+        for name in ('requirements', 'design', 'tasks'):
+            self.assertTrue((self.root / f'docs/specs/demo/{name}.md').is_file(), name)
+
+    def test_dsh_helper_stops_at_the_size_limit(self):
+        from wslib import dsh
+        stub = self.parent / 'stub' / 'compression'
+        stub.mkdir(parents=True)
+        (stub / '__init__.py').write_text('', encoding='utf-8')
+        (stub / 'zstd.py').write_text('class ZstdDecompressor:\n    eof, needs_input, unused_data = False, False, b""\n\n'
+                                      '    def decompress(self, data, max_length=-1):\n        return b"x" * max_length\n',
+                                      encoding='utf-8')
+        run = subprocess.run([sys.executable, '-c', dsh.HELPER, str(4 << 20)], input=b'frame', capture_output=True,
+                             env={**ENV, 'PYTHONPATH': str(stub.parent)})
+        self.assertEqual(run.returncode, 3, run.stderr[-600:])
+        self.assertLessEqual(len(run.stdout), 4 << 20)
+
+
+class Capture(Workspace):
+    def transcripts(self, *texts):
+        paths = []
+        for n, text in enumerate(texts):
+            path = self.parent / f'session-{n}.jsonl'
+            path.write_text(json.dumps({'cwd': text}) + '\n', encoding='utf-8')
+            paths.append(path)
+        return paths
+
+    def test_c4_mentions_boundary_and_drive_case(self):
+        from wslib import capture
+        root = str(self.root.resolve())
+        exact, longer, lower = self.transcripts(root + os.sep + 'src', root + '2' + os.sep + 'src', root[0].swapcase() + root[1:])
+        self.assertEqual(capture._mentions(self.root, [exact, longer]), [exact])
+        if os.name == 'nt':
+            self.assertEqual(capture._mentions(self.root, [lower]), [lower])
+
+    def test_c4_scan_cache_from_older_rules_is_recomputed(self):
+        from wslib import capture
+        (other,) = self.transcripts(str(self.parent / 'elsewhere'))
+        info = other.stat()
+        cache = self.root / capture.SCAN_CACHE
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps({str(other): [f'{info.st_size}:{info.st_mtime_ns}', True]}), encoding='utf-8')
+        self.assertEqual(capture._mentions(self.root, [other]), [])
 
 
 class Guarded(Workspace):

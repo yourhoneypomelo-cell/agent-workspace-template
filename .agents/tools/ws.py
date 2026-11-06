@@ -207,15 +207,16 @@ def hook_settings(host: str) -> tuple:
             'SessionEnd': entry('workspace-capture', f'{HOOK} capture --host gemini --event SessionEnd'),
         }}
     if host == 'codex':
-        def entry(cmd):
+        def entry(cmd, **timeout):
             # Codex runs "command" through a POSIX shell; commandWindows is its documented Windows override.
-            return [{'hooks': [{'type': 'command', 'command': cmd, 'commandWindows': cmd}]}]
+            return [{'hooks': [{'type': 'command', 'command': cmd, 'commandWindows': cmd, **timeout}]}]
         return HOOK_FILES[host], {'hooks': {
             'SessionStart': entry(f'{HOOK} brief --hook codex'),
             'UserPromptSubmit': entry(f'{HOOK} turn --hook codex'),
             'PreCompact': entry(f'{HOOK} capture --host codex --event PreCompact'),
             'Stop': entry(f'{HOOK} capture --host codex --event Stop'),
-            'SessionEnd': entry(f'{HOOK} capture --host codex --event SessionEnd'),
+            # Codex gives SessionEnd one second unless told otherwise, and three at most.
+            'SessionEnd': entry(f'{HOOK} capture --host codex --event SessionEnd', timeout=3),
         }}
     if host == 'grok':
         def entry(cmd):
@@ -526,6 +527,16 @@ def find_root(start: Path | None) -> Path:
     return TEMPLATE_ROOT
 
 
+def linked_agents() -> str | None:
+    """Where .agents points when it is a symbolic link or a junction: the project found from ws.py would be another."""
+    agents = Path(os.path.abspath(__file__)).parents[1]
+    try:
+        linked = agents.is_symlink() or bool(getattr(os.lstat(agents), 'st_file_attributes', 0) & 0x400)
+    except OSError:
+        return None
+    return str(agents.resolve()) if linked else None
+
+
 def main(argv=None) -> int:
     configure_stdout()
     argv = list(sys.argv[1:] if argv is None else argv)
@@ -540,6 +551,14 @@ def main(argv=None) -> int:
             hint = ('\nA --set value with spaces needs quotes: --set "requirement=Login works". '
                     'In PowerShell use single quotes around the whole field=value')
         print(f'ERROR: unexpected arguments: {" ".join(extra)}{hint}', file=sys.stderr)
+        return 2
+    target = None if args.root else linked_agents()
+    if target:
+        print(f'ERROR: .agents in this project is a link to {target}, so ws.py would read and write that other '
+              'project. Copy the .agents folder into this project instead of linking it', file=sys.stderr)
+        if getattr(args, 'hook', None) or args.command == 'capture':  # a hook must never break the host session
+            print({'kiro': '', 'cursor': '{"continue": true}'}.get(getattr(args, 'hook', None), '{}'))
+            return 0
         return 2
     root = find_root(args.root)
     if args.command in READ_ONLY_COMMANDS:

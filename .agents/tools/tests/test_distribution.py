@@ -33,6 +33,30 @@ class Install(Workspace):
         for rel in ('README.zh-CN.md', 'DESIGN.md', 'DESIGN.zh-CN.md'):
             self.assertFalse((self.root / rel).exists(), rel)
 
+    def test_i2_install_failure_leaves_the_target_unchanged(self):
+        target = self.parent / 'product'
+        (target / 'src').mkdir(parents=True)
+        (target / 'src/app.py').write_text('print(1)\n', encoding='utf-8')
+        (target / 'AGENTS.md').write_bytes(b'# Old rules\r\n\r\nUse tabs.\r\n')
+        before = {p.relative_to(target).as_posix(): p.read_bytes() for p in target.rglob('*') if p.is_file()}
+        real, calls = distribution.atomic_write, []
+
+        def fail_late(path, text):
+            calls.append(path)
+            if len(calls) == 20:
+                raise OSError('disk full')
+            real(path, text)
+        with mock.patch.object(distribution, 'atomic_write', fail_late), self.assertRaises(OSError):
+            distribution.install(TEMPLATE, target, merge=True, allow_modified=True)
+        after = {p.relative_to(target).as_posix(): p.read_bytes() for p in target.rglob('*') if p.is_file()}
+        self.assertEqual(after, before)
+        self.assertEqual(sorted(p.name for p in target.iterdir()), ['AGENTS.md', 'src'])
+
+    def test_project_readme_links_are_not_checked(self):
+        self.init()
+        self.write('README.md', '# My product\n\nSee [the guide](docs/guide.md).\n')
+        self.save()
+
     def test_install_keeps_existing_files_and_reports_conflicts(self):
         target = self.parent / 'product'
         (target / 'src').mkdir(parents=True)

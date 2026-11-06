@@ -1,6 +1,7 @@
 """Install the template into a project, export a clean copy and stamp releases."""
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -105,12 +106,28 @@ def install(source: Path, target: Path, dry_run=False, merge=False, allow_modifi
         raise WorkspaceError('nothing was written. Conflicts:\n  ' + '\n  '.join(result['conflicts']) +
                              '\nUse --merge to merge AGENTS.md, CLAUDE.md and .gemini/settings.json')
     root = Path(result['target'])
-    for rel, text in payload.items():
-        atomic_write(root / rel, text)
-    from .validate import structure
-    errors = structure(root, strict=True)
-    if errors:
-        raise WorkspaceError('installed files fail validation: ' + '; '.join(errors))
+    # A failure part way leaves the target as it was: merged files get their old bytes, new files and folders go.
+    originals = {rel: (root / rel).read_bytes() for rel in result['merges']}
+    folders = {p for rel in payload for p in (root / rel).parents if p.is_dir()}
+    written = []
+    try:
+        for rel, text in payload.items():
+            atomic_write(root / rel, text)
+            written.append(rel)
+        from .validate import structure
+        errors = structure(root, strict=True)
+        if errors:
+            raise WorkspaceError('installed files fail validation: ' + '; '.join(errors))
+    except BaseException:
+        for rel in written:
+            if rel in originals:
+                (root / rel).write_bytes(originals[rel])
+            else:
+                (root / rel).unlink(missing_ok=True)
+        for folder in sorted({p for rel in written for p in (root / rel).parents} - folders, key=lambda p: -len(p.parts)):
+            with contextlib.suppress(OSError):
+                folder.rmdir()
+        raise
     return result
 
 

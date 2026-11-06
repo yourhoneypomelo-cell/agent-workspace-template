@@ -127,6 +127,20 @@ The static tier checks that every test named here exists.
 | 3.6.7 | An acceptance written as "`check: ...`" was run as a test | `test_regressions.Evidence.test_v3_backticked_check_is_a_check` | fails |
 | 3.6.7 | Test evidence did not count for a check acceptance, so rows read as checks from this version on would lose their evidence | `test_regressions.Evidence.test_n8_old_test_evidence_satisfies_a_check_acceptance` | fails |
 | 3.6.7 | `py -3.12 ...` ran the tool's own interpreter, which rejects the version switch | `test_regressions.Evidence.test_v4_py_launcher_version_switch_is_kept` | fails |
+| 3.6.7 | `ws brief` and `ws check` wrote the message cache although they are read-only | `test_regressions.Misc.test_u5_brief_with_a_transcript_writes_no_cache` | fails |
+| 3.6.7 | A task waiting on a dropped task was offered as ready next, though it could never be marked done | `test_regressions.Misc.test_u7_dropped_dependency_has_one_meaning` | fails |
+| 3.6.7 | A dependency cycle also named the tasks that only wait on it | `test_regressions.Misc.test_u7_cycle_names_only_members` | fails |
+| 3.6.7 | A snapshot lacked the chat index, the checkpoint manifest and the evidence a restored copy needs | `test_regressions.Misc.test_u7_snapshot_restores_to_a_checkable_workspace` | fails |
+| 3.6.7 | The checkpoint linted the card before writing it | `test_regressions.Misc.test_u2_first_checkpoint_has_no_lint_warning` | guard |
+| 3.6.7 | Codex gave the SessionEnd hook one second, too short to copy the transcript | `test_regressions.Misc.test_h4_codex_session_end_has_a_timeout` | fails |
+| 3.6.7 | West of UTC, an edit made with `ws set` in the evening was reported as a hand edit | `test_regressions.Misc.test_hand_edits_use_the_local_date` | fails |
+| 3.6.7 | A linked `.agents` folder made ws.py read and write the project it links to | `test_regressions.Misc.test_linked_agents_folder_is_refused` | fails |
+| 3.6.7 | `--move-detail` into a new spec folder was always refused | `test_regressions.Misc.test_move_detail_into_a_new_spec_folder` | fails |
+| 3.6.7 | The external DeepSeek Harness decoder had no size limit | `test_regressions.Misc.test_dsh_helper_stops_at_the_size_limit` | fails |
+| 3.6.7 | A chat from a folder whose name starts with the project's was taken as the project's, and a lowercase drive letter was missed | `test_regressions.Capture.test_c4_mentions_boundary_and_drive_case` | fails |
+| 3.6.7 | Scan results cached under the old matching rules were kept | `test_regressions.Capture.test_c4_scan_cache_from_older_rules_is_recomputed` | fails |
+| 3.6.7 | An install that failed part way left half its files in the target | `test_distribution.Install.test_i2_install_failure_leaves_the_target_unchanged` | fails |
+| 3.6.7 | A broken link in the project's own README.md blocked checkpoints | `test_distribution.Install.test_project_readme_links_are_not_checked` | fails |
 
 ## Release
 

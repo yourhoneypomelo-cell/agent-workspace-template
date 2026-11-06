@@ -323,12 +323,17 @@ def _json_string(raw: str) -> str:
 
 
 SCAN_CACHE = '.agents/cache/session-scan.json'
+# Part of each cached scan result's key: results found under older matching rules are scanned again.
+SCAN_RULES = 2
 
 
 def _markers(root: Path) -> list:
-    """Byte forms of the project path as it appears in host transcripts: plain, JSON-escaped and with slashes."""
+    """Byte forms of the project path as it appears in host transcripts: plain, JSON-escaped and with slashes, and
+    on Windows with the drive letter in either case."""
     text = str(root.resolve())
     forms = {text, text.replace('\\', '/')}
+    if re.match(r'[A-Za-z]:', text):
+        forms |= {f[0].swapcase() + f[1:] for f in forms}
     return sorted({f.encode('utf-8') for f in forms} | {json.dumps(f)[1:-1].encode('utf-8') for f in forms}
                   | {json.dumps(f, ensure_ascii=False)[1:-1].encode('utf-8') for f in forms})
 
@@ -337,6 +342,8 @@ def _mentions(root: Path, paths: list) -> list:
     """Paths whose text names this project. Results are cached by size and modification time, because a
     host store can hold gigabytes of transcripts that would otherwise be read at every session start."""
     markers = _markers(root)
+    # A mention ends where the path does: "E:/a/T8" does not mention E:/a/T80.
+    mention = re.compile(b'(?:' + b'|'.join(re.escape(m) for m in markers) + rb')(?=[\\/"\'\s])')
     cache_path = root / SCAN_CACHE
     try:
         cache = json.loads(cache_path.read_text(encoding='utf-8'))
@@ -349,7 +356,7 @@ def _mentions(root: Path, paths: list) -> list:
             info = path.stat()
         except OSError:
             continue
-        key = f'{info.st_size}:{info.st_mtime_ns}'
+        key = f'{SCAN_RULES}:{info.st_size}:{info.st_mtime_ns}'
         hit = cache.get(str(path))
         if isinstance(hit, list) and len(hit) == 2 and hit[0] == key and isinstance(hit[1], bool):
             match = hit[1]
@@ -359,10 +366,12 @@ def _mentions(root: Path, paths: list) -> list:
                 with path.open('rb') as stream:
                     tail = b''
                     for chunk in iter(lambda: stream.read(1 << 20), b''):
-                        if any(m in tail + chunk for m in markers):
+                        if mention.search(tail + chunk):
                             match = True
                             break
-                        tail = chunk[-512:]
+                        tail = (tail + chunk)[-512:]
+                    else:
+                        match = any(tail.endswith(m) for m in markers)
             except OSError:
                 continue
         fresh[str(path)] = [key, match]

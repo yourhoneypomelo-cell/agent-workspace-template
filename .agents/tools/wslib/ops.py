@@ -358,6 +358,12 @@ def checkpoint(root: Path, stop: str, next_step: str, sets: list, keep: bool, wr
         elif not hooked(root):
             notices.append('no chat of this tool is saved, so nobody can check that every user message was recorded. '
                            'Enable hooks or import chats: .agents/guides/HOSTS.md')
+        log_replaced(root, replaced_card_values(card(root), fields))
+        for rid, field, value in coverage.hand_edits(root, live, previous):
+            logs.append(root, 'CHANGE_LOG', {'ID': rid, 'Event': f'{field.lower()} edited outside ws',
+                                             'Detail': short('was: ' + value), 'Source': 'checkpoint'})
+        write(root, HANDOFF, card_text(read(root, HANDOFF), fields))
+        # Linted after the card is written, so the findings are about the card being saved.
         from .lint import NEED_LINK, fix_hint, state_findings
         touched = None if changes is None else {
             n for n in changes.get('added', []) + changes.get('modified', []) if n.startswith('docs/state/')}
@@ -367,11 +373,6 @@ def checkpoint(root: Path, stop: str, next_step: str, sets: list, keep: bool, wr
                            'First ones, with a fix that keeps every fact:' + ''.join(
                                f'\n    {short(f, 180)}\n      fix: {fix_hint(f)}' for f in grown[:3]) +
                            ('\n    ... run "ws lint" for the rest' if len(grown) > 3 else ''))
-        log_replaced(root, replaced_card_values(card(root), fields))
-        for rid, field, value in coverage.hand_edits(root, live, previous):
-            logs.append(root, 'CHANGE_LOG', {'ID': rid, 'Event': f'{field.lower()} edited outside ws',
-                                             'Detail': short('was: ' + value), 'Source': 'checkpoint'})
-        write(root, HANDOFF, card_text(read(root, HANDOFF), fields))
         files = 'first checkpoint' if changes is None else (
             f'{drift_count(changes)} files: ' + describe_drift(changes, 6) if drift_count(changes) else 'state only')
         from .verifying import unverified_counts

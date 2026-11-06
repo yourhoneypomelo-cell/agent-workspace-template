@@ -7,8 +7,8 @@ from pathlib import Path
 
 from . import evidence, logs, tables
 from .core import (
-    WorkspaceError, card, checkpoint_of, config, describe_drift, difference, fingerprint, goal, read, rewatch, safe_path,
-    sha, state_of,
+    WorkspaceError, card, checkpoint_of, config, describe_drift, difference, exists, fingerprint, goal, read, rewatch,
+    safe_path, sha, state_of,
 )
 from .schema import (
     ADAPTERS, BUDGETS, CARD_FIELDS, CLOSED, NEEDS_REASON, GUIDE_DIR, LOCK, LOG_DIR, LOG_NAMES, NONE, OPTIONAL_CARD_FIELDS,
@@ -79,7 +79,8 @@ def structure(root: Path, strict=False, adapters=False) -> list:
         if not text.startswith('---\n') or f'name: {name}' not in text or 'description:' not in text:
             errors.append(f'.agents/skills/{name}/SKILL.md needs front matter with name and description')
     if strict:
-        for rel in [p for p in STATIC_FILES if p.endswith('.md')] + ['README.md']:
+        # Only the template's own files: README.md is the project's page, and its links are the project's business.
+        for rel in [p for p in STATIC_FILES if p.endswith('.md')]:
             if rel in pending or not (root / rel).is_file():
                 continue
             text = re.sub(r'```.*?```', '', read(root, rel), flags=re.S)
@@ -269,8 +270,8 @@ def semantics(root: Path, ready=False, sealing=False, card_changes=None) -> list
                 if not SPEC_RE.fullmatch(detail):
                     errors.append(f'REQUIREMENTS.md: {row["ID"]} detail must be "inline" or docs/specs/<slug>/requirements.md')
                 else:
-                    folder = (root / detail).parent
-                    missing = [n for n in ('requirements', 'design', 'tasks') if not (folder / f'{n}.md').is_file()]
+                    folder = detail.rsplit('/', 1)[0]
+                    missing = [n for n in ('requirements', 'design', 'tasks') if not exists(root, f'{folder}/{n}.md')]
                     if missing:
                         errors.append(f'{detail}: spec folder is missing {", ".join(n + ".md" for n in missing)}')
         for row in live['tasks']:
@@ -320,10 +321,10 @@ def semantics(root: Path, ready=False, sealing=False, card_changes=None) -> list
                         errors.append(f'HANDOFF.md: current_task names {value}, which is {status or "closed"}. '
                                       'Set it to the tasks now in progress, or none')
         for rel in re.findall(r'`([^`]+)`', fields.get('extra_reads', '')):
-            if not safe_path(root, rel).exists():
+            if not exists(root, rel):
                 errors.append(f'HANDOFF.md: extra_reads names a missing path {rel}')
         baseline = fields.get('baseline', NONE).strip('`')
-        if baseline.lower() != NONE and not safe_path(root, baseline).exists():
+        if baseline.lower() != NONE and not exists(root, baseline):
             errors.append(f'HANDOFF.md: baseline path does not exist: {baseline}')
         if ready:
             errors += card_citations(all_ids, live_ids, fields)
@@ -387,19 +388,26 @@ def _refs(errors: list, label: str, rid: str, value: str, prefix: str, allow_non
 
 
 def _cycle(task_rows: dict) -> list:
+    """The tasks on a dependency cycle. A task that only waits on one is not named: changing it fixes nothing."""
     graph = {}
     for rid, row in task_rows.items():
         try:
             graph[rid] = set(tables.refs(row.get('Depends', NONE), 'T')) & set(task_rows)
         except WorkspaceError:
             graph[rid] = set()
-    pending = set(graph)
-    while pending:
-        leaves = {t for t in pending if not (graph[t] & pending)}
-        if not leaves:
-            return ['TASKS.md: dependency cycle among ' + ', '.join(sorted(pending))]
-        pending -= leaves
-    return []
+
+    def returns(start: str) -> bool:
+        seen, stack = set(), list(graph[start])
+        while stack:
+            node = stack.pop()
+            if node == start:
+                return True
+            if node not in seen:
+                seen.add(node)
+                stack.extend(graph[node])
+        return False
+    members = sorted(t for t in graph if returns(t))
+    return ['TASKS.md: dependency cycle among ' + ', '.join(members)] if members else []
 
 
 def _task_evidence(root: Path, state: dict, cp, task_rows: list) -> list:

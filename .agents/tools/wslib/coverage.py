@@ -4,7 +4,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .core import CREDENTIALS, WorkspaceError, checkpoint_of, difference, fingerprint, goal, rewatch, state_of, watched_files
+from .core import (
+    CREDENTIALS, WorkspaceError, checkpoint_of, difference, fingerprint, goal, local_date, rewatch, state_of, watched_files,
+)
 from .schema import CHAT_DIR, NON_SOURCE, TABLES
 
 COUNTED = ('requirements', 'questions', 'preferences', 'decisions', 'tasks', 'features')
@@ -432,7 +434,7 @@ def hand_edits(root: Path, live: dict, cp) -> list:
     old = (cp or {}).get('task_texts') or {}
     if not old:
         return []
-    since = (cp or {}).get('created_at', '')[:10]
+    since = local_date((cp or {}).get('created_at', ''))
     from . import logs
     try:
         logged = {(r['ID'], r['Event']) for r in logs.live_rows(root, 'CHANGE_LOG') if r.get('Date', '') >= since}
@@ -556,7 +558,7 @@ def outside_tasks(changed: list, live: dict, claimed=()) -> list:
     doing. A file of a task still todo is not covered: editing it before starting the task is what this warns about."""
     from . import evidence
     rows = [r for r in live.get('tasks', [])
-            if r['Status'] == 'done' and r.get('Evidence', 'none').lower() != 'none' or r['ID'] in claimed]
+            if (r['Status'] == 'done' and r.get('Evidence', 'none').lower() != 'none') or r['ID'] in claimed]
     scopes = [evidence.scope_paths(r, set(changed)) for r in rows]
     return [f for f in changed if not any(s and evidence.in_scope(f, s) for s in scopes)]
 
@@ -609,14 +611,26 @@ def requirement_coverage(live: dict, closed: list | None = None) -> tuple:
 
 
 def ready_task(live: dict):
-    """The first todo task whose dependencies are done, in ID order."""
+    """The first todo task whose dependencies are done, in ID order. A dropped dependency is not done: the task
+    needs its Depends changed first, as validation requires for a task marked done."""
     status = {r['ID']: r['Status'] for r in live.get('tasks', [])}
     todo = sorted((r for r in live.get('tasks', []) if r['Status'] == 'todo'), key=lambda r: int(r['ID'][1:]))
     for row in todo:
         needs = re.findall(r'\bT[1-9]\d*\b', row.get('Depends', ''))
-        if all(status.get(n, 'done') in ('done', 'dropped') for n in needs):
+        if all(status.get(n, 'done') == 'done' for n in needs):
             return row
     return None
+
+
+def dropped_needs(live: dict) -> list:
+    """(task, its dependencies left once the dropped ones go) for open tasks that wait on a dropped task."""
+    status = {r['ID']: r['Status'] for r in live.get('tasks', [])}
+    found = []
+    for row in live.get('tasks', []):
+        needs = re.findall(r'\bT[1-9]\d*\b', row.get('Depends', ''))
+        if row['Status'] in OPEN_TASK and any(status.get(n) == 'dropped' for n in needs):
+            found.append((row['ID'], [n for n in needs if status.get(n) != 'dropped']))
+    return found
 
 
 def untracked_carry(root: Path, live: dict, cp, now: dict) -> list:

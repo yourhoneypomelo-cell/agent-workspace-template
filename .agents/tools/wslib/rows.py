@@ -11,7 +11,7 @@ from .core import (
 )
 from .ops import bump, emit, guarded, ledger, previous_row_path, require_owner, short
 from .retired import RETIRE_AS, retired_match, retired_nearest
-from .schema import CARD_FIELDS, CLOSED, HANDOFF, NEEDS_REASON, NONE, REQUIREMENTS
+from .schema import CARD_FIELDS, CLOSED, HANDOFF, NEEDS_REASON, NONE, REQUIREMENTS, TEMPLATE_DIR
 
 
 # Rows and card
@@ -173,6 +173,12 @@ def set_row(root: Path, identifier: str, sets: list, source: str | None, writer=
         changes = {t.file: tables.upsert(read(root, t.file), t.headers, t.file, row)}
         if move_detail:
             changes[target] = moved_text
+            folder, name = target.rsplit('/', 1)
+            if target.startswith('docs/specs/') and name == 'requirements.md':
+                # A new spec folder is complete only with all three files; the other two start from the templates.
+                for other in ('design', 'tasks'):
+                    if not safe_path(root, f'{folder}/{other}.md').is_file():
+                        changes[f'{folder}/{other}.md'] = read(root, f'{TEMPLATE_DIR}/spec/{other}.md')
         # The full previous row is kept whenever a long cell is replaced, so shortening a row never loses a fact.
         kept = previous_row_path(identifier) if any(len(value) > 200 for _, value in overwritten) else None
         if kept:

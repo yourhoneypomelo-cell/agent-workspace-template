@@ -342,6 +342,8 @@ def brief(root: Path, sid=None) -> str:
     active += [r for r in live['tasks'] if r['ID'] in failures and r not in active]
     lines += [f'- {r["ID"]} {r["Status"]}: {short(r["Action"], 100)}' + failures.get(r['ID'], '') +
               (f' (blocked: {short(r["Reason"], 120)})' if r['Status'] == 'blocked' else '') for r in active] or ['- none']
+    for rid, rest in coverage.dropped_needs(live):
+        lines.append(f'- {rid} waits on a dropped task. If it is still wanted: ws set {rid} --set depends={", ".join(rest) or "none"}')
     ready = coverage.ready_task(live)
     if ready:
         lines.append(f'- ready next: {ready["ID"]} {short(ready["Action"], 80)} (acceptance: {short(ready["Acceptance"], 60)})')

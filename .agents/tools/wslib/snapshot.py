@@ -14,7 +14,8 @@ from .core import WorkspaceError, card, card_text, lock, now, read, safe_path, s
 from .schema import ADAPTERS, HANDOFF, PRUNE_DIRS, PRUNE_FILES, SECRET_SUFFIXES
 
 FOLDER = 'docs/archive/snapshots'
-DEFAULT_SCOPE = ('AGENTS.md', 'README.md', *ADAPTERS, 'docs/state', 'docs/specs', 'docs/guides', 'docs/logs', 'ops')
+DEFAULT_SCOPE = ('AGENTS.md', 'README.md', *ADAPTERS, 'docs/state', 'docs/specs', 'docs/guides', 'docs/logs', 'ops',
+                 'docs/chats/INDEX.md', 'docs/archive/logs', 'docs/archive/closed', 'docs/archive/rows')
 MAX_BYTES = 100 * 1024 * 1024
 MAX_FILES = 10_000
 KEEP_BYTES = 100 * 1024 * 1024
@@ -66,6 +67,30 @@ def files_in(root: Path, paths: list) -> dict:
     return found
 
 
+def recovery_files(root: Path, state: dict) -> list:
+    """What a copy of the documents needs to pass "ws check": the checkpoint manifest the state line names and the
+    evidence the task rows and the seal cite, with their reports."""
+    from .core import checkpoint_of
+    from .evidence import evidence_paths
+    from . import tables
+    from .schema import TABLES
+    try:
+        sealed = list((checkpoint_of(root, state) or {}).get('evidence') or {})
+    except (WorkspaceError, ValueError, OSError):
+        sealed = []
+    rows = tables.rows(root, TABLES['tasks']) + tables.closed_rows(root)
+    found = [state['checkpoint']['manifest']] if state.get('checkpoint') else []
+    for rel in sorted({p for r in rows for p in evidence_paths(r.get('Evidence', ''))} | set(sealed)):
+        found.append(rel)
+        try:
+            report = json.loads(read(root, rel)).get('report') if rel.endswith('.json') else None
+        except (OSError, ValueError, WorkspaceError):
+            report = None
+        if report:
+            found.append(report['path'])
+    return [rel for rel in dict.fromkeys(found) if (root / rel).is_file()]
+
+
 def _largest(files: dict) -> str:
     sizes = {}
     for rel, size in files.items():
@@ -89,7 +114,7 @@ def take(root: Path, label: str, paths: list, pin: bool) -> dict:
         require_alone(state, 'ws snapshot')
         for marker in conflict_markers(root)[:1]:
             raise WorkspaceError(marker)
-        files = files_in(root, paths)
+        files = files_in(root, [*paths, *recovery_files(root, state)])
         total = sum(files.values())
         if total > MAX_BYTES or len(files) > MAX_FILES:
             raise WorkspaceError(f'snapshot refused: {len(files)} files, {total / 1048576:.1f} MB; the limit is '

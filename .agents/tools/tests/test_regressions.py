@@ -411,6 +411,18 @@ class Evidence(Workspace):
         self.assertEqual(len(notes), 1)
         self.assertIn('ws verify T1', notes[0])
 
+    def test_13_evidence_rules_1_reads_differently_is_listed_for_a_rollback(self):
+        self.done()
+        rows = tables.rows(self.root, TABLES['tasks'])
+        self.assertEqual(evidence.refused_by_rules_1(self.root, rows), [])
+        rel = rows[0]['Evidence']
+        data = json.loads(self.read(rel))
+        output = 'connected: OK\nOK\nRan 1 test in 0.001s\n\nOK\n'
+        data.update(output=output, output_sha256=core.sha(output.encode('utf-8')), summary=evidence.summarize(output))
+        self.write(rel, json.dumps(data))
+        self.assertTrue(evidence.load(self.root, rel, 'test')['accepted'])
+        self.assertEqual(evidence.refused_by_rules_1(self.root, rows), [f'T1: {rel}'])
+
     def test_v3_program_printing_ok_keeps_the_unittest_summary(self):
         summary = evidence.summarize('connected: OK\nOK\nRan 1 test in 0.001s\n\nOK\n')
         self.assertTrue(evidence.passed(summary), summary)

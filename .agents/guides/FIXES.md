@@ -120,3 +120,5 @@ every test named here exists.
 | 3.7.0 | Hooks that ran another folder's ws.py, as in a copied project, went unnoticed | `test_doctor.Doctor.test_hooks_that_run_another_projects_tool` | fails |
 | 3.7.0 | Tool files that differ from the installed manifest, a mix of two versions, went unnoticed | `test_doctor.Doctor.test_tool_files_that_differ_from_the_manifest` | fails |
 | 3.7.0 | ws doctor writes nothing and finds no problem in a sound project | `test_doctor.Doctor.test_a_healthy_project_has_no_problems_and_nothing_is_written` | guard |
+| 3.7.0 | A rollback to 3.6.x did not say which evidence the older tool would refuse | `test_regressions.Evidence.test_13_evidence_rules_1_reads_differently_is_listed_for_a_rollback` | fails |
+| 3.7.0 | The two-window tests failed under a Python whose folder is not on PATH, such as one installed by uv | `test_field.Windows.test_a_window_without_a_session_variable_cannot_claim_twice` | fails |

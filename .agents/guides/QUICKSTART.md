@@ -81,15 +81,28 @@ each host supports and how to confirm the hook ran.
 
 ## Upgrading within version 3
 
-Copy four folders of the new template over the project's: `.agents/tools`, `.agents/guides`,
-`.agents/skills` and `.agents/template`. Do not delete the whole `.agents/` folder: `.agents/hooks.json`
-and `.agents/cache/` belong to the project. Keep `docs/`. Merge the new AGENTS.md into yours, or copy it
-if you never edited it. Log files added by a newer version, such as `docs/logs/RECONCILE_LOG.md`, are
-created on their first write.
+Run the tool of the new template folder against the project, first to see the plan:
 
-Until the next checkpoint, `ws check` reports the copied files as "files changed after the last
-checkpoint". That is expected, not damage. Run `ws start`, then `ws checkpoint`, and the workspace is
-READY again.
+```text
+python .agents/tools/ws.py upgrade --target "D:/code/my-app" --dry-run
+python .agents/tools/ws.py upgrade --target "D:/code/my-app"
+```
+
+Run it while no session works in the project. A template file the project never edited is replaced. An
+edited guide, skill or adapter is kept, and the new version goes to `docs/archive/upgrades/<folder>/new/`
+for a hand merge; the command then exits with 1. The rules under "## Project rules" in AGENTS.md are kept
+under the new contract. Tool code the project changed stops the upgrade before anything is written, so the
+tool never mixes two versions. `docs/` and `.agents/hooks.json` are not touched, and hook settings get this
+version's entries while the user's own stay. The checkpoint takes in the new files, so a READY workspace
+stays READY.
+
+Every replaced file is backed up in the upgrade folder. `--rollback <folder>` puts them back, and
+`ws doctor` checks hooks and tool files afterwards. A project without `.agents/template/MANIFEST.json`
+needs `--assume-base <the release zip or folder it came from>`; otherwise every file that differs from the
+new version counts as edited. `--scan <folder>` lists the workspaces under a folder with their versions.
+
+Before 3.7.0 there was no upgrade command: the four folders `.agents/tools`, `.agents/guides`,
+`.agents/skills` and `.agents/template` were copied over, followed by `ws start` and `ws checkpoint`.
 
 ## Upgrading from version 2
 
@@ -103,3 +116,25 @@ agent window and add `--force`; nothing it changed is discarded. The migration b
 every replaced file to `docs/archive/v2-backup/`, converts the tables and card, moves closed rows
 to CLOSED_ITEMS.md and marks completed tasks `unverified` so they are tested again.
 Afterwards open the project and say "Read AGENTS.md and continue."
+
+## Compatibility between versions
+
+A stored format changes only together with its version mark. A tool reads every older mark it knows and
+refuses a newer one with a message to upgrade, so an older tool never misreads newer data.
+
+| Part | Mark | In 3.7.0 | Older forms |
+| --- | --- | --- | --- |
+| State line in HANDOFF.md | `schema` | continuity.v3, unchanged | continuity.v2 is converted once by `ws migrate` |
+| Evidence in `docs/archive/checks/` | `rules` | Summary rules 2; evidence without the field is rules 1 | Read again with the rules it records, so it stays valid |
+| Checkpoint manifests | optional keys | `rebaselined` and `upgraded` after an upgrade | 3.6.x ignores them |
+| Template manifest | optional keys | `maintainer_files`, `source_modified` | 3.6.x ignores them |
+| Lock `.agents/cache/ws.lock` | none | Unchanged since 3.6.7 | |
+| Message IDs in RECONCILE_LOG | none | Unchanged | |
+
+Nothing is retired in 3.7.0. A later version that stops reading an older mark says so here first, one
+release ahead.
+
+Rules 2 reads two kinds of output differently from rules 1: a unittest run whose program prints an "OK"
+or "FAILED" line of its own, and a log line such as "FAILED to connect". To go back to 3.6.x, run
+`ws upgrade --rollback` from the newer template: it lists the evidence 3.6.x would refuse, and
+`ws verify` runs those tasks again.

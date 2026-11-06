@@ -175,6 +175,31 @@ def rules_notes(root: Path, task_rows: list) -> list:
     return notes
 
 
+def refused_by_rules_1(root: Path, task_rows: list) -> list:
+    """Done tasks whose evidence a tool that knows only summary rules 1 (3.6.x) refuses: the summary was recorded under
+    newer rules, and rules 1 reads the same output differently. A rollback to such a tool lists them."""
+    found = []
+    for row in task_rows:
+        if row.get('Status') != 'done':
+            continue
+        for rel in evidence_paths(row.get('Evidence', '')):
+            try:
+                data = json.loads(read(root, rel))
+            except (WorkspaceError, ValueError, OSError):
+                continue
+            if data.get('rules', 1) == 1:
+                continue
+            first, recorded = _summarize_v1(data.get('output', '')), data.get('summary') or {}
+            if data.get('report'):
+                # The counts come from the report; rules 1 still adds its own reading of a failure.
+                differs = first['explicit_failure'] and not recorded.get('explicit_failure')
+            else:
+                differs = first != recorded
+            if differs:
+                found.append(f'{row["ID"]}: {rel}')
+    return found
+
+
 TEST_CONFIG = re.compile(r'(?:^|/)(?:conftest\.py|pytest\.ini|tox\.ini|setup\.cfg|(?:jest|vitest)\.config\.[cm]?[jt]s)$')
 TEST_FILE = re.compile(r'(?:^|/)(?:tests?/|test_[^/]*\.py$|[^/]*_test\.(?:py|go)$|[^/]*\.(?:test|spec)\.[cm]?[jt]sx?$)')
 

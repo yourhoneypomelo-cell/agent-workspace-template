@@ -14,7 +14,7 @@ from unittest import mock
 
 from support import ENV, TEMPLATE, TOOLS, Workspace
 from test_distribution import v2_workspace
-from wslib import core, upgrade
+from wslib import core, evidence, upgrade
 from wslib.schema import MANIFEST
 
 OLD_TOOL = '.agents/tools/wslib/legacy.py'
@@ -199,7 +199,12 @@ class Upgrade(Workspace):
         self.run_ws(self.root, 'checkpoint', '--stop', 'worked after the upgrade', '--next', 'more')
         self.assertIn('sessions have written', self.upgrade(self.root, '--rollback', name, expect=2).stderr)
         handoff = self.read('docs/state/HANDOFF.md')
-        self.assertIn('next "ws checkpoint"', json.loads(self.upgrade(self.root, '--rollback', name, '--force').stdout)['note'])
+        # Going back to a tool that knows only summary rules 1 lists the evidence it would refuse.
+        with mock.patch.object(upgrade, '_rules_of', return_value=1), \
+                mock.patch.object(evidence, 'refused_by_rules_1', return_value=['T1: docs/archive/checks/x.json']):
+            done = upgrade.rollback(self.root, name, force=True)
+        self.assertIn('next "ws checkpoint"', done['note'])
+        self.assertEqual(done['verify_again'], ['T1: docs/archive/checks/x.json'])
         self.assertTrue((self.root / OLD_TOOL).exists())
         self.assertEqual(self.read('docs/state/HANDOFF.md'), handoff)
 

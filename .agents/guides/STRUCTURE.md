@@ -28,11 +28,11 @@ project/
     ├── logs/                    history tables and CLOSED_ITEMS.md
     ├── specs/<slug>/            requirements.md, design.md, tasks.md
     ├── chats/                   copied transcripts and INDEX.md
-    └── archive/                 checks/, checkpoints/, logs/
+    └── archive/                 checks/, checkpoints/, logs/, upgrades/
 ```
 
-The split is simple: `.agents/` is the same in every project and can be replaced on upgrade.
-`docs/` belongs to the project and is never overwritten by the template.
+The split is simple: `.agents/` is the same in every project, and `ws upgrade` replaces what the project
+did not edit. `docs/` belongs to the project and is never overwritten by the template.
 Never put project files in `.agents/`: `ws check` lists them, because an upgrade may delete them.
 Reports go in `docs/reports/`, throwaway scripts and command output in `.tmp/`.
 

@@ -165,6 +165,10 @@ class Windows(Workspace):
         import time
         exe = self.parent / (name + Path(sys.executable).suffix)
         shutil.copy(sys.executable, exe)
+        # A copied python.exe finds its DLLs next to itself or on PATH, and a standalone build such as uv's is not there.
+        for dll in Path(sys.executable).parent.glob('*.dll'):
+            if not (self.parent / dll.name).exists():
+                shutil.copy(dll, self.parent / dll.name)
         loop = self.parent / 'host_loop.py'
         loop.write_text(HOST_LOOP, encoding='utf-8')
         inbox = self.parent / (name + '.inbox')

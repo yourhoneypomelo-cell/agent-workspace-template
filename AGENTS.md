@@ -196,5 +196,5 @@ The user's explicit instructions override this file. Host safety and permission 
 | Act on an error `ws` printed | `.agents/skills/maintain-project-state/SKILL.md`, "Recover" |
 | Change behavior, retire a feature or fix a bug | `.agents/skills/spec-workflow/SKILL.md` |
 | Write a long state row or a report | `.agents/guides/STRUCTURE.md`, "Short rows, complete records" |
-| Enable hooks, import chats or set up another tool | `.agents/guides/HOSTS.md`, `.agents/skills/save-session-log/SKILL.md` |
+| Enable hooks, import chats, set up another tool, or upgrade the workspace tool | `.agents/guides/HOSTS.md`, `.agents/skills/save-session-log/SKILL.md`; for an upgrade `.agents/guides/QUICKSTART.md` |
 | Look up a command option or table format | `.agents/guides/PROTOCOL.md`, "Commands" and "Tables" |

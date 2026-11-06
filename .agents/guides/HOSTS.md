@@ -1,21 +1,32 @@
 # Hosts
 
 How each agent tool finds AGENTS.md and which hooks `ws hooks enable` writes.
-Documentation was checked on 2026-10-31. A row is a documented claim until a trial confirms it.
+Documentation was checked on 2026-10-31.
 
 ## Entry files
 
+### Tried
+
+A trial ran these hosts end to end with the version named; "Trials" below has the runs.
+
+| Host and version tried | Loads the contract through | Notes |
+| --- | --- | --- |
+| Kimi Code 2.4.1 | `AGENTS.md` | Skills from `.agents/skills/` |
+| OpenAI Codex 0.166.0 | `AGENTS.md` | Project instruction cap is 32 KiB by default |
+| Antigravity CLI `agy` 1.4.12 | `AGENTS.md` and `.agents/skills/` | 24,000 bytes per rule file |
+
+### Entry files only
+
+These rows come from each host's documentation. They stay documented claims until a trial confirms them.
+
 | Host | Loads the contract through | Notes |
 | --- | --- | --- |
-| Claude Code | `CLAUDE.md` with the line `@AGENTS.md` | Reads AGENTS.md natively only when no CLAUDE.md exists |
-| OpenAI Codex | `AGENTS.md` | Project instruction cap is 32 KiB by default |
+| Claude Code | `CLAUDE.md` with the line `@AGENTS.md` | Reads AGENTS.md natively only when no CLAUDE.md exists. The trial of 2.1.316 did not run: the model provider returned 403 |
 | Cursor | `AGENTS.md` | Nested AGENTS.md files apply to their folders |
-| Gemini CLI | `.gemini/settings.json`, `context.fileName` | Default is GEMINI.md, so the setting lists both |
-| Antigravity | `AGENTS.md` and `.agents/skills/` | 24,000 bytes per rule file |
+| Gemini CLI | `.gemini/settings.json`, `context.fileName` | Default is GEMINI.md, so the setting lists both. Not tried: individual Code Assist accounts are no longer served |
 | GitHub Copilot | `AGENTS.md` | Also reads `.github/copilot-instructions.md` if present |
-| Kiro | `AGENTS.md` and `.kiro/steering/workspace.md` | Steering file uses `inclusion: always` |
-| Kimi Code | `AGENTS.md` | Skills from `.agents/skills/` |
-| Grok CLI | `AGENTS.md` after the folder is trusted | Skills from `.grok/skills/` and `~/.agents/skills/`. Also runs `.claude/settings.json` hooks unless `compat.claude.hooks=false` |
+| Kiro | `AGENTS.md` and `.kiro/steering/workspace.md` | Steering file uses `inclusion: always`. The trial of Kiro CLI 2.37.0 stopped at the device login |
+| Grok CLI | `AGENTS.md` after the folder is trusted | Skills from `.grok/skills/` and `~/.agents/skills/`. Also runs `.claude/settings.json` hooks unless `compat.claude.hooks=false`. The trial of 1.0.70 did not run: the endpoint returned HTTP 530 |
 | DeepSeek Harness | `AGENTS.md` and `.agents/skills/` | 65,536 bytes per instruction chain |
 | CodeBuddy and WorkBuddy | `AGENTS.md` when no `CODEBUDDY.md` exists | Keep project rules in AGENTS.md, not CODEBUDDY.md. On Windows hooks run through Git Bash; edits made outside the app need approval in `/hooks` |
 | Qwen Code | `AGENTS.md` and `.agents/skills/` | Project hooks load only in a trusted folder |
@@ -62,6 +73,12 @@ Hook commands use paths relative to the project root, except Antigravity's, whic
 <command>` writes another. An older Python prints which version ws.py needs, and a hook then exits quietly.
 `ws hooks disable <host>` takes the tool's entries out again: the file gets its bytes from before the first
 enable back when nothing else changed, and a file left with no hooks is removed.
+
+`ws upgrade` rewrites the tool's entries in every settings file that holds them, so the hook changes of a
+new version reach the project. `ws doctor` reports, each with the command that fixes it, a settings file
+whose entries are missing or come from an older version, name an interpreter that does not run Python 3.10
+here, or run the ws.py of another folder, as the absolute paths of a copied project do. It also reports
+when the host it runs in has no hooks in this project.
 
 | Host | Settings file | Session start | Every turn | Transcript copy |
 | --- | --- | --- | --- | --- |
@@ -161,7 +178,7 @@ the task's acceptance to create evidence.
 
 ## Confirming a hook
 
-1. Enable the hook and start a new session in that host.
+1. Enable the hook, run `python .agents/tools/ws.py doctor`, and start a new session in that host.
 2. Ask one question, then end the session.
 3. Check `docs/chats/INDEX.md` for a new row and open the transcript file.
 4. For the session start hook, ask the agent what the brief said. It should name the stop point.

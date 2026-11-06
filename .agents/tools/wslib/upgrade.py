@@ -15,6 +15,7 @@ from pathlib import Path
 
 from . import logs
 from .core import WorkspaceError, checkpoint_of, fingerprint, lock, now, save_state, sha, state_of
+from .evidence import RULES
 from .schema import HOOK_FILES, MAINTAINER_FILES, MANIFEST, RUNTIME_FILES, SCHEMA, SEARCH_IGNORE, VERSION
 
 # Files the template owns in a project. Only these and the hook settings may be taken into a checkpoint by a
@@ -448,7 +449,25 @@ def rollback(target: Path, name: str, force=False) -> dict:
     if moved_on:
         done['note'] = ('the state the sessions wrote stays, so the checkpoint still records the upgraded files: the '
                         'next "ws checkpoint" takes the restored ones')
+    if _rules_of(target) < RULES:
+        from . import tables
+        from .evidence import refused_by_rules_1
+        from .schema import TABLES
+        try:
+            again = refused_by_rules_1(target, tables.rows(target, TABLES['tasks']))
+        except (WorkspaceError, ValueError, OSError):
+            again = []
+        if again:
+            done['verify_again'] = again
+            done['verify_note'] = ('the restored tool reads the output of these runs with summary rules 1 and refuses '
+                                   'it: run "ws verify <task>" for each again')
     return done
+
+
+def _rules_of(target: Path) -> int:
+    """The newest summary rules the project's own tool knows; a tool from before 3.7.0 knows only rules 1."""
+    found = re.search(r'^RULES = (\d+)', _local(target, '.agents/tools/wslib/evidence.py') or '', re.M)
+    return int(found[1]) if found else 1
 
 
 def scan(source: Path, root: Path, depth=3) -> list:

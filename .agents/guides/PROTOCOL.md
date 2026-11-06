@@ -23,7 +23,7 @@ every watched file, so the next session can tell which files changed after the l
 ## Commands
 
 All commands run from the project root as `python .agents/tools/ws.py <command>`.
-Read-only commands (`brief`, `turn`, `status`, `check`, `lint`) never write a file, not even the hash cache
+Read-only commands (`brief`, `turn`, `status`, `check`, `lint`, `doctor`) never write a file, not even the hash cache
 in `.agents/cache/`. The one exception is the per-turn hook, `turn --hook`, which keeps two small markers there
 for the Stop nudge.
 
@@ -44,12 +44,14 @@ for the Stop nudge.
 | `checkpoint --stop T --next T [--keep]` | yes | Seals and logs the session. Releases ownership unless `--keep` |
 | `compact [--dry-run]` | yes | Moves closed rows to CLOSED_ITEMS.md, full rows to `docs/archive/closed/`, and rolls long logs |
 | `snapshot --label L [PATHS]` | yes | Zips the documents and named paths to `docs/archive/snapshots/` and sets the card `baseline` |
-| `hooks enable HOST` | yes | Writes brief, per-turn and transcript hooks for one host |
+| `hooks enable\|show\|disable HOST` | yes, except `show` | Writes, prints or removes the brief, per-turn and transcript hooks of one host. `disable` gives back the file from before the first enable |
+| `doctor [--json]` | no | Hooks, interpreter, session identity, lock and tool files at a glance. Exits with 1 when it finds a problem, and names the fix for each |
 | `capture --host H --event E` | yes | Hook target. Copies the transcript named in the payload, or saves the message text it holds |
 | `chats import HOST` | yes | Copies this project's sessions from a host store: kimi, codex, antigravity, kiro, cursor, workbuddy, codebuddy, qoder, qwen, gemini or dsh |
 | `reconcile [ID --ids \| --reason]` | yes when marking | Lists saved user messages no row accounts for, or marks one |
 | `lint` | no | Advisory layout and wording checks |
 | `install`, `export`, `migrate`, `release` | yes | Distribution, see QUICKSTART.md |
+| `upgrade --target DIR` | yes | Run from a newer template folder: brings the project's template files and hook entries to that version, keeps edited files for a hand merge and takes the new files into the checkpoint. `--dry-run`, `--rollback NAME`, `--scan FOLDER`; see QUICKSTART.md |
 | `tidy [--dry-run] [--force]` | yes | Deletes template maintainer files an older install left in a project and adds `.ignore` and `.cursorindexingignore`. Files that differ from this release are listed and kept; `--force` deletes them too |
 
 Field names in `--set` are the column names in lower case. Values are one line.
@@ -262,6 +264,10 @@ Use a script for pipelines. The command is accepted when all of these hold:
 Recognized summaries: Python unittest, pytest, Node TAP, Jest and Vitest. For other runners write a
 report with `--report json` (schema `test-summary.v1`) or `--report junit`. The examples in
 `.agents/template/examples/` show both.
+
+Evidence records which version of these reading rules summarized its output (`rules`, 2 since 3.7.0) and is
+always read again with those rules, so a newer tool never invalidates older evidence. `ws check` notes a done
+task whose evidence passed under older rules but would not under the current ones.
 
 The command must match the Acceptance column of each named task, after removing a `check:` prefix
 and backticks. Otherwise verify refuses and names both commands. Change the acceptance with

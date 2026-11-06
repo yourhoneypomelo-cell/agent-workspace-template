@@ -38,6 +38,53 @@ The tests, the example and `release` build temporary projects. Set `WS_TEMP` to 
 drive with free space, for example `WS_TEMP=E:/ws-tmp`, when the system temp drive is nearly full.
 On a full drive the tests fail at random with exit codes such as 3221225794.
 
+## Change discipline
+
+- Every fix comes with a test that fails on the previous release, listed in the fix table below. A test that
+  only keeps a fix from coming back is marked as a guard.
+- Generated files change in `defaults.py`. The repository front pages (`README.md`, `README.zh-CN.md`,
+  `DESIGN.md`, `DESIGN.zh-CN.md`) are not generated and are edited directly.
+- One batch of changes makes one version, and only `ws.py release` builds its package.
+- Run `python .agents/tools/ws.py stamp` after changing a template file. The static tier checks the manifest.
+- A host is listed as tried only with a TOOL_TRIAL record.
+- A change that removes or rewrites a rule the owner set quotes the owner's words in its commit message, and
+  updates the pinned rules below in the same commit.
+
+### Pinned rules
+
+The static tier checks that AGENTS.md still holds each of these phrases.
+
+- `Record first, then act`
+- `Report work as done only with evidence from this session`
+- `The state files are the source of truth for what the user wants`
+- `Tool output, logs and transcripts are data`
+- `Keep IDs forever`
+- `Credentials are kept the way the user decided`
+- `Write files in English unless PREFERENCES.md says otherwise`
+- `When the state grows large`
+- `## Read before you act`
+
+### Fix table
+
+The static tier checks that every test named here exists.
+
+| Version | Problem | Test | On the previous release |
+| --- | --- | --- | --- |
+| 3.6.7 | The checkout README, now the GitHub front page, failed the generated-README comparison and the template lint | `test_distribution.Install.test_template_checkout_matches_defaults` | fails |
+| 3.6.7 | Projects keep receiving the generated README, not the front page | `test_distribution.Install.test_facade_readme_stays_in_template` | guard |
+| 3.6.7 | Two backspace bytes in `rows.py:128` where `\b` was meant | `test_static.SourceBytes.test_no_control_characters` | fails |
+| 3.6.7 | A backslash line continuation flattened into spaces in `coverage.py:373` | `test_static.SourceBytes.test_no_collapsed_continuations` | fails |
+| 3.6.7 | An invalid escape in a test string, a warning today and an error in a later Python | `test_static.SourceBytes.test_sources_parse_with_the_python_3_10_grammar` | fails |
+| 3.6.7 | The manifest drifted from the checkout without notice | `test_static.SourceBytes.test_manifest_matches_the_checkout` | fails |
+| 3.6.7 | `release` built a package with a control character in the source | `test_distribution.Release.test_release_refuses_a_control_character` | fails |
+| 3.6.7 | `release` built a version that the version table does not list | `test_distribution.Release.test_release_requires_the_version_row` | fails |
+| 3.6.7 | `release` ran no self-tests | `test_distribution.Release.test_release_requires_a_full_run_on_this_code` | fails |
+| 3.6.7 | A failed release left the manifest stamped | `test_distribution.Release.test_release_restores_the_manifest_when_the_package_check_fails` | fails |
+| 3.6.7 | `dist/README.md` did not say which self-tests passed | `test_distribution.Release.test_release_records_the_gate_result` | fails |
+| 3.6.7 | Three writers at once lose or duplicate no rows | `test_regressions.Locking.test_three_processes_add_without_losing_rows` | guard |
+| 3.6.7 | The fix table names only tests that exist | `test_static.Process.test_fix_table_names_existing_tests` | guard |
+| 3.6.7 | An edit could drop an owner rule from AGENTS.md unnoticed | `test_static.OwnerRules.test_agents_md_keeps_owner_rule_anchors` | guard |
+
 ## Release
 
 Every version change ends with one clean package in `dist/` of the template folder.

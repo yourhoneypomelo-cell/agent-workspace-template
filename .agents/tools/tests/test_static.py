@@ -1,7 +1,9 @@
-"""Source hygiene: damage a writing tool can do to the source without breaking any other test, and the grammar of
-the oldest Python the tool supports."""
+"""Source hygiene and maintainer process: damage a writing tool can do to the source without breaking any other
+test, the grammar of the oldest Python the tool supports, and the records MAINTAINING.md keeps."""
 import ast
+import importlib
 import json
+import re
 import unittest
 import warnings
 
@@ -9,6 +11,11 @@ from support import TEMPLATE
 from wslib import distribution
 from wslib.core import sha
 from wslib.schema import MANIFEST, STATIC_FILES
+
+
+def maintaining_section(title: str) -> str:
+    text = (TEMPLATE / '.agents/guides/MAINTAINING.md').read_text(encoding='utf-8')
+    return re.split(r'^##', text.split(f'### {title}\n', 1)[1], maxsplit=1, flags=re.M)[0]
 
 
 class SourceBytes(unittest.TestCase):
@@ -30,6 +37,26 @@ class SourceBytes(unittest.TestCase):
         changed = [rel for rel in STATIC_FILES if recorded.get(rel) !=
                    sha((TEMPLATE / rel).read_text(encoding='utf-8').replace('\r\n', '\n').encode('utf-8'))]
         self.assertEqual(changed, [], 'run "python .agents/tools/ws.py stamp" after changing a template file')
+
+
+class Process(unittest.TestCase):
+    def test_fix_table_names_existing_tests(self):
+        names = re.findall(r'`(test_\w+\.\w+\.test_\w+)`', maintaining_section('Fix table'))
+        self.assertTrue(names)
+        missing = []
+        for name in names:
+            module, case, method = name.split('.')
+            if not callable(getattr(getattr(importlib.import_module(module), case, None), method, None)):
+                missing.append(name)
+        self.assertEqual(missing, [])
+
+
+class OwnerRules(unittest.TestCase):
+    def test_agents_md_keeps_owner_rule_anchors(self):
+        anchors = re.findall(r'^- `(.+)`$', maintaining_section('Pinned rules'), re.M)
+        self.assertGreaterEqual(len(anchors), 9)
+        contract = (TEMPLATE / 'AGENTS.md').read_text(encoding='utf-8')
+        self.assertEqual([anchor for anchor in anchors if anchor not in contract], [])
 
 
 if __name__ == '__main__':

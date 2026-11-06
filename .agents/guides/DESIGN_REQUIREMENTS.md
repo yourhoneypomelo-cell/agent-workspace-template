@@ -88,7 +88,7 @@ How each tool's chat reaches `docs/chats/`:
 | U30 | Installing into an existing project overwrites nothing | met | `ws install --dry-run`, `--merge`. `test_install_keeps_existing_files_and_reports_conflicts` |
 | U31 | Projects on older versions can upgrade | partial | `ws migrate` for version 2, skipped in tests without the v2 fixture. Within version 3, new optional logs are created on first write (`test_older_project_without_the_log_reads_and_writes`) |
 | U32 | The contract works with no shell or no Python | partial | AGENTS.md gives the manual path. No trial on such a host |
-| U33 | Parallel work on separate copies merges cleanly | partial | One writer per copy is enforced. Git conflict markers in state or log files block writes and READY (`test_conflict_markers_block_writes_and_ready`). Merging copies, including ID collisions, is left to version control |
+| U33 | Parallel work on separate copies merges cleanly | partial | Git conflict markers in state or log files block writes and READY (`test_conflict_markers_block_writes_and_ready`). Merging copies, including ID collisions, is left to version control. Parallel sessions inside one copy are U47 |
 
 ## Further requirements from the 2.x summary
 
@@ -107,6 +107,12 @@ How each tool's chat reaches `docs/chats/`:
 | U44 | Structured test reports (JSON, JUnit) | met | `test_structured_json_report` |
 | U45 | A clean re-export carries no chats or state from another project | met | `test_export_writes_clean_zip`, the package check in `release` |
 | U46 | Handoff quality is measured: time, re-explanations, missed constraints | partial | Offline probe test of what a fresh agent can read before and after compact (`test_probes`); TOOL_TRIAL.md with four planted traps and a seven-item answer key. Behavior after a switch is still measured by hand |
+| U47 | Several sessions work in one copy at once, on separate tasks, without losing or overwriting work | partial | `ws start --task` claims tasks beside a working session (3.6.3); the owner confirmed on 2026-11-06 that this stays. Review findings P2 to P5 on the guards stay open until their fixes are listed in MAINTAINING.md |
+| U48 | The owner's five hard rules stay in the contract: completion needs verification in the same turn, confidence needs evidence, hard constraints are positive specifications, facts are checked and calculations use tools, and facts that cross sessions are saved to the workspace. An explicit instruction from the user overrides other procedures, not these rules | not met | AGENTS.md keeps parts of them in Rules 1 to 3. Restoring them is an open decision of the owner |
+| U49 | Each delivery answers three questions apart: is the workspace saved and ready to hand over, does the product meet the requirement, can a named tool take over without the old chat | partial | `checkpoint` and `check --ready` answer the first, task evidence the second, TOOL_TRIAL.md the third. No output keeps the three apart yet |
+| U50 | Recording stays cheap enough that it is not skipped | partial | One command per row, `ws note` for progress, revision receipts. Warnings that repeat at every checkpoint (review findings U1 and U2) are open |
+| U51 | Accuracy tasks run on one path: no multi-run voting on code, specs, checks or record wording | not met | Dropped in 2.0. Open decision of the owner |
+| U52 | Tool use has limits: check before a call, mark gaps when evidence is missing, cap the tool loop of one task | not met | The 2.x loop caps were removed in 2.0. Open decision of the owner |
 
 ## Limits
 
@@ -154,7 +160,7 @@ Reviewers proposed these; the owner did not adopt them as rules.
 | A Stop hook that blocks every N messages | MemPalace dropped it after users found it noisy; the nudge here fires only when a turn wrote nothing |
 | Hash IDs or IDs with a branch suffix (beads, git-bug) | They do not stop Markdown tables from conflicting (two branches adding R7 and R9 still conflicted), users of three trackers asked for numbers back, and no ws project of the owner is under git |
 | `ws merge`, a union merge driver or a custom git merge driver | No ws project is under git; parallel copies are folders never merged back. beads shipped a merge driver and removed it. GitHub web merges ignore `.gitattributes` |
-| Refusing a takeover when the owner wrote recently | It would have refused 17 of 31 real takeovers, mostly sub-sessions that cannot ask the user, and agents already forced writes with `ws start | Out-Null`. `start` warns instead |
+| Refusing a takeover when the owner wrote recently | Rejected for 3.5: it would have refused 17 of 31 real takeovers, mostly sub-sessions that cannot ask the user, and agents already forced writes with `ws start | Out-Null`. Since 3.6.3 `start` does refuse while the owner wrote in the last 20 minutes and no session variable tells two chats in one window apart (`test_a_window_without_a_session_variable_cannot_claim_twice`); sub-sessions are told to set `WS_ROLE=worker`. Whether such hosts may resume instead is an open decision of the owner |
 | A similarity hint for new rows against retired ones | 0 to 8.5% recall on Chinese rewrites and 18 to 31% false hints on templated ops rows. The brief lists retired rows instead |
 | Checking that backticked paths in state files exist | 315 unresolved paths in 7 real projects, none a stale repository path; they were remote server paths, image names and routes |
 | Warning when a state section shrinks sharply | 6 of 12 real restructures and all 33 section flags in 49 snapshot pairs were deliberate |

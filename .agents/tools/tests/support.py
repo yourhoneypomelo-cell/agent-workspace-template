@@ -12,7 +12,7 @@ TEMPLATE = TOOLS.parents[1]
 sys.path.insert(0, str(TOOLS))
 sys.dont_write_bytecode = True
 
-from wslib import distribution  # noqa: E402
+from wslib import core, distribution  # noqa: E402
 
 # A command blocked by a held lock gives up after 5 s instead of 30 s, which keeps the lock tests short.
 ENV = dict(os.environ, PYTHONUTF8='1', PYTHONDONTWRITEBYTECODE='1', WS_IMPORT='0', WS_LOCK_WAIT='5')
@@ -22,8 +22,7 @@ for _name in ('QWEN_HOME', 'QODER_HOME', 'WORKBUDDY_HOME', 'CODEBUDDY_CONFIG_DIR
               'CODEX_HOME', 'KIMI_CODE_HOME'):
     ENV.pop(_name, None)
 # The host session running the tests must not become the session of every test project.
-for _name in ('WS_SESSION_ID', 'CLAUDE_CODE_SESSION_ID', 'CODEX_SESSION_ID', 'QWEN_CODE_SESSION_ID', 'ZCODE_SESSION_ID',
-              'KIRO_SESSION_ID'):
+for _name in core.SESSION_VARS:
     ENV.pop(_name, None)
 
 

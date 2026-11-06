@@ -145,6 +145,7 @@ and helper windows"). How to set it per host:
 | --- | --- | --- |
 | Claude Code | Agent tool, workflows | Start each prompt with "WS_ROLE=worker: run shell commands as `WS_ROLE=worker <command>`; never run ws writes or edit docs/state/" |
 | Codex | Spawned threads share `CODEX_SESSION_ID` | The same prompt line; the parent records results |
+| Cursor | Task subagents get their own `CURSOR_CONVERSATION_ID` | Their writes are refused even without `WS_ROLE`; still put the prompt line in each task, so they do not try |
 | Kiro | Workflow steps are new sessions | Put the prompt line in every step; only the final step, or the orchestrator, runs ws writes |
 | Any host | A second window for a side question | Set `WS_ROLE=readonly` in that terminal, or tell the agent it is read-only |
 

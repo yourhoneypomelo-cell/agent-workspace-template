@@ -3,9 +3,9 @@ import json
 import unittest
 
 from support import Workspace
+from wslib.core import SESSION_VARS
 
-VARS = ('WS_SESSION_ID', 'CLAUDE_CODE_SESSION_ID', 'CODEX_SESSION_ID', 'CODEX_THREAD_ID', 'QWEN_CODE_SESSION_ID',
-        'ZCODE_SESSION_ID', 'KIRO_SESSION_ID')
+VARS = (*SESSION_VARS, 'CODEX_THREAD_ID')
 
 
 def host(**names):

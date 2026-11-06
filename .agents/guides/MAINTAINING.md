@@ -100,6 +100,13 @@ The static tier checks that every test named here exists.
 | 3.6.7 | A check that stopped at a broken row let every write pass unchecked | `test_regressions.Guarded.test_check_that_stops_early_refuses_every_write` | fails |
 | 3.6.7 | The resumed claim is saved with a valid state line, so its first write is still checked | `test_regressions.Resume.test_l5_first_write_after_release_is_validated` | guard |
 | 3.6.7 | `--rev` names the revision read before the resume, also across the two locks of a checkpoint | `test_regressions.Resume.test_l5_rev_matches_the_revision_before_resume` | guard |
+| 3.6.7 | Cursor conversations were one session to the tool, so the same conversation could not run `ws start` again | `test_regressions.Identity.test_l3_cursor_conversation_resumes_and_another_is_refused` | fails |
+| 3.6.7 | A Cursor subagent wrote to the workspace as its parent | `test_regressions.Identity.test_cursor_subagent_conversation_cannot_write` | fails |
+| 3.6.7 | A second `ws start` in the owner's window gave no hint that the caller may be the conversation holding the workspace | `test_regressions.Identity.test_l3_refusal_names_the_same_window_case` | fails |
+| 3.6.7 | The Cursor turn hook warned another conversation only when the owner had claimed through the brief key | `test_regressions.Identity.test_cursor_turn_hook_names_another_conversation` | fails |
+| 3.6.7 | The Cursor chat around a host CLI started from its agent shell could write under that CLI's claim | `test_regressions.Identity.test_a_host_started_from_a_cursor_shell_is_the_session` | fails |
+| 3.6.7 | The turn hook warns a conversation that holds nothing, never one with a parallel claim | `test_regressions.ClaimedTurnHook.test_turn_hook_spares_a_conversation_with_a_parallel_claim` | fails |
+| 3.6.7 | Tests run inside a host conversation would give every test project that conversation | `test_static.Process.test_test_environment_clears_every_session_variable` | guard |
 
 ## Release
 

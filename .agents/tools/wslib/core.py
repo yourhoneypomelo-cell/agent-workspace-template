@@ -550,8 +550,10 @@ def writer_label() -> str:
 # values mean nested hosts.
 # Kiro sets KIRO_SESSION_ID to the root conversation for agent shell commands and hooks (kiro-agent extension.js,
 # Kse.snapshot passed as sessionEnv to the shell spawn); its subagents share it.
+# Cursor sets CURSOR_CONVERSATION_ID in agent shell commands to the conversation_id its hooks receive. It stays the
+# same through compaction, and a Cursor subagent has its own.
 SESSION_VARS = ('WS_SESSION_ID', 'CLAUDE_CODE_SESSION_ID', 'CODEX_SESSION_ID', 'QWEN_CODE_SESSION_ID', 'ZCODE_SESSION_ID',
-                'KIRO_SESSION_ID')
+                'KIRO_SESSION_ID', 'CURSOR_CONVERSATION_ID')
 
 
 def session_key(raw: str) -> str:
@@ -559,8 +561,12 @@ def session_key(raw: str) -> str:
 
 
 def env_session() -> str | None:
-    """The key of the host session named by the environment, or None when no variable or several values are set."""
-    found = {os.environ[n] for n in SESSION_VARS if os.environ.get(n)}
+    """The key of the host session named by the environment, or None when no variable or several values are set.
+    A host started from a Cursor agent shell inherits CURSOR_CONVERSATION_ID, so that variable gives way to the others."""
+    named = {n: os.environ[n] for n in SESSION_VARS if os.environ.get(n)}
+    if len(set(named.values())) > 1:
+        named.pop('CURSOR_CONVERSATION_ID', None)
+    found = set(named.values())
     return session_key(found.pop()) if len(found) == 1 else None
 
 
@@ -700,6 +706,12 @@ def other_session(state: dict, mine: dict | None = None) -> bool:
     return bool(mine) and mine['via'] == 'env' and bool(owner.get('id')) and mine['id'] != owner['id']
 
 
+def other_session_text(owner: str, who: str = 'this session') -> str:
+    return (f'{owner} holds the workspace for another conversation, so {who} must stop writing. A subagent reports its '
+            f'result to the conversation that started it. Otherwise {owner} took over the workspace: re-read '
+            'docs/state/HANDOFF.md before doing anything else')
+
+
 def other_host(state: dict) -> bool:
     """A write from another application window while the owner's window still runs. A host session variable, when
     set, already decides; two chats inside one application share a process and cannot be told apart here."""
@@ -731,8 +743,7 @@ def require_session(root: Path, state: dict):
         from .ops import resume_released
         resume_released(root, state)
     if other_session(state):
-        raise WorkspaceError(f'{state.get("writer")} took over the workspace, so this session must stop writing. '
-                             'Re-read docs/state/HANDOFF.md before doing anything else')
+        raise WorkspaceError(other_session_text(state.get('writer')))
     if other_host(state):
         raise WorkspaceError(f'{state.get("writer")} owns the workspace from another window that is still running '
                              f'({live_host_text(state["host"])}), so this window must not write')

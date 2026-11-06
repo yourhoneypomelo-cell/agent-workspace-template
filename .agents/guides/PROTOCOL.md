@@ -143,7 +143,7 @@ they claim; see "Parallel sessions" below. Each session has a label such as `s-2
 
 | Setting | Behavior |
 | --- | --- |
-| `"ownership": "solo"` (default) | One person, one agent at a time. `ws start` takes over from a stale owner and logs it, with a warning when the owner wrote less than 20 minutes ago |
+| `"ownership": "solo"` (default) | One person. `ws start` takes over and logs it when the owner stopped: its window exited, or, where windows cannot be told apart, it wrote nothing for 20 minutes. Otherwise `ws start` is refused until the user confirms with `--force --reason`; `--task` claims tasks beside the owner |
 | `"ownership": "shared"` | Several writers on one checkout. Writes need `--writer` and `--rev`. Takeover needs `start --force --reason` |
 
 Set the mode in the WORKSPACE block of ARCHITECTURE.md.
@@ -183,10 +183,12 @@ a file in its scope changes.
 A session that loses ownership gets an error on its next write that names the new owner, when it
 passes `--writer`, or when both it and the new owner run on a host that names its session in an
 environment variable (`CLAUDE_CODE_SESSION_ID`, `CODEX_SESSION_ID`, `QWEN_CODE_SESSION_ID`,
-`ZCODE_SESSION_ID`, `KIRO_SESSION_ID`, or `WS_SESSION_ID` set by hand). It must stop and re-read HANDOFF.md.
-Cursor names no conversation to shell commands. There the per-turn hook compares the conversation in its payload
-with the one that claimed the workspace through the brief key, and tells an old conversation to stop at its next
-message.
+`ZCODE_SESSION_ID`, `KIRO_SESSION_ID`, `CURSOR_CONVERSATION_ID`, or `WS_SESSION_ID` set by hand). It must stop and
+re-read HANDOFF.md. A Cursor subagent has a `CURSOR_CONVERSATION_ID` of its own, so its writes get the same error,
+which tells it to report to the conversation that started it. A host started from a Cursor agent shell inherits
+`CURSOR_CONVERSATION_ID`, so any other of these variables wins over it. The per-turn hook compares the conversation
+in its payload with the owner, when the owner claimed through the brief key or, on Cursor, through its variable, and
+tells another conversation to stop at its next message. A conversation that holds a parallel claim is not told.
 
 Every host is also identified by its window process: the nearest ancestor of ws.py that is not a shell or
 interpreter, recorded with its start time when a session claims the workspace. While that process runs, another
@@ -208,7 +210,9 @@ ownership and logs `resume`. The resume takes a revision of its own; `--rev` sti
 it. Other sessions still need `ws start`.
 
 When the owner's window cannot be checked (its process chain was broken, or it was claimed before 3.6.3) and it
-wrote less than 20 minutes ago, the brief's Next line says "do not claim yet" and `ws start` warns.
+wrote less than 20 minutes ago, the brief's Next line says "do not claim yet" and `ws start` is refused until the
+user confirms with `--force --reason`. In the owner's own window with no session variable, the refusal says that
+the conversation holding the workspace goes on without a new start, and that another one asks the user.
 
 ### Subagents and helper windows
 

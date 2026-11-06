@@ -392,9 +392,10 @@ TURN_EVENTS = {'claude': 'UserPromptSubmit', 'codex': 'UserPromptSubmit', 'gemin
 PROMPT_IN_PAYLOAD = ('kiro', 'cursor')
 
 
-def taken_over(root: Path, payload) -> str:
-    """For hosts with no session variable (Cursor): the hook payload names this conversation. When the workspace
-    was claimed with another conversation's key, tell this one to stop writing before it does anything."""
+def taken_over(root: Path, payload, host: str) -> str:
+    """The hook payload names this conversation. When the workspace was claimed with another conversation's brief key,
+    or on Cursor under another CURSOR_CONVERSATION_ID, tell this one to stop writing before it does anything. Cursor's
+    conversation_id is that variable's value; other hosts' payload ids are not known to match their variables."""
     try:
         raw = capture._first(payload, capture.SESSION_KEYS) if isinstance(payload, dict) else None
         if not raw:
@@ -402,9 +403,11 @@ def taken_over(root: Path, payload) -> str:
         from wslib.core import session_key, state_of
         state = state_of(root)
         owner = state.get('session') or {}
-        if not state.get('writer') or owner.get('via') != 'key':
+        if not state.get('writer') or owner.get('via') not in (('key', 'env') if host == 'cursor' else ('key',)):
             return ''
-        if owner.get('id') == session_key(session_key(raw)):
+        mine = session_key(session_key(raw))
+        claimed = {(c.get('session') or {}).get('id') for c in (state.get('claims') or {}).values() if not c.get('released_at')}
+        if mine == owner.get('id') or mine in claimed:
             return ''
         return (f'Workspace: {state["writer"]} took over this workspace in another conversation. Do not write with ws '
                 'or edit files; tell the user, re-read docs/state/HANDOFF.md, and continue only if the user says this '
@@ -448,7 +451,7 @@ def hook_turn(root: Path, host: str):
         text = ops.turn_context(root)
     except Exception:  # a hook must never break the host session
         text = ops.TURN_REMINDER
-    taken = taken_over(root, payload)
+    taken = taken_over(root, payload, host)
     if taken:
         text = taken + '\n\n' + text
     if kinds:

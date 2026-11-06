@@ -61,7 +61,7 @@ def conflicts(mine: dict, other: dict) -> list:
         reasons.append('task ' + ', '.join(shared_tasks))
     paths = _overlap(mine['paths'], other['paths'])
     if paths:
-        reasons.append('paths ' + ', '.join(paths[:4]))
+        reasons.append(paths[0] if paths == ['the whole tree'] else 'paths ' + ', '.join(paths[:4]))
     resources = sorted(set(mine['resources']) & set(other['resources']))
     if resources:
         reasons.append('resource ' + ', '.join(resources))

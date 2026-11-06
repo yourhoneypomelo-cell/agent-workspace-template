@@ -4,8 +4,11 @@ import ast
 import importlib
 import json
 import re
+import subprocess
+import sys
 import unittest
 import warnings
+from pathlib import Path
 
 from support import TEMPLATE
 from wslib import distribution
@@ -49,6 +52,15 @@ class Process(unittest.TestCase):
             if not callable(getattr(getattr(importlib.import_module(module), case, None), method, None)):
                 missing.append(name)
         self.assertEqual(missing, [])
+
+    def test_test_environment_clears_every_session_variable(self):
+        # Run inside a host conversation, the tests would otherwise give every test project that conversation.
+        code = ('import os, sys; sys.path.insert(0, ".."); from wslib.core import SESSION_VARS; '
+                'os.environ.update({n: "outer" for n in SESSION_VARS}); import support; '
+                'print(",".join(n for n in SESSION_VARS if support.ENV.get(n)))')
+        run = subprocess.run([sys.executable, '-c', code], cwd=Path(__file__).parent, capture_output=True, text=True,
+                             encoding='utf-8')
+        self.assertEqual((run.returncode, run.stdout.strip()), (0, ''), run.stderr[-600:])
 
 
 class OwnerRules(unittest.TestCase):

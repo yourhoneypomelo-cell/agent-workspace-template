@@ -17,9 +17,20 @@ WRITER = ('import subprocess, sys\n'
           '                   stdout=subprocess.DEVNULL)\n')
 
 
+def host(**names):
+    """Environment of a command run by a host session: only the given session variables are set."""
+    return {**{n: '' for n in core.SESSION_VARS}, **names}
+
+
 def window(name):
     """Environment of a command run by host conversation `name`."""
-    return {**{n: '' for n in core.SESSION_VARS}, 'WS_SESSION_ID': name}
+    return host(WS_SESSION_ID=name)
+
+
+def turn_context(test, conversation):
+    """What the Cursor per-turn hook adds for a prompt of this conversation. Hooks get no session variable."""
+    payload = json.dumps({'conversation_id': conversation, 'prompt': 'go on'})
+    return json.loads(test.ws('turn', '--hook', 'cursor', stdin=payload, env=host()).stdout)['additional_context']
 
 
 class Imports(unittest.TestCase):
@@ -91,6 +102,12 @@ class Retire(Pair):
         self.ws('set', 'R1', '--set', 'status=removed', '--set', 'reason=x', env=self.a)
 
 
+class ClaimedTurnHook(Pair):
+    def test_turn_hook_spares_a_conversation_with_a_parallel_claim(self):
+        self.assertNotIn('took over', turn_context(self, 'win-b'))
+        self.assertIn('took over this workspace in another conversation', turn_context(self, 'win-c'))
+
+
 class RetireMatching(unittest.TestCase):
     def test_r1_does_not_match_r10(self):
         tasks = {'T1': {'Requirements': 'R10'}, 'T2': {'Requirements': 'R1, R3'}}
@@ -159,6 +176,39 @@ class Resume(Workspace):
                 env=self.a)
         self.release('--writer', writer, '--rev', str(core.state_of(self.root)['revision']))
         self.release('--keep', '--writer', writer, '--rev', str(core.state_of(self.root)['revision']))
+
+
+class Identity(Workspace):
+    def test_l3_cursor_conversation_resumes_and_another_is_refused(self):
+        a, b = host(CURSOR_CONVERSATION_ID='conv-a'), host(CURSOR_CONVERSATION_ID='conv-b')
+        self.ws('init', '--goal', 'Demo', env=a)
+        self.assertTrue(json.loads(self.ws('start', env=a).stdout.splitlines()[0]).get('resumed'))
+        self.assertIn('collides with work in progress', self.ws('start', env=b, expect=2).stderr)
+
+    def test_cursor_subagent_conversation_cannot_write(self):
+        parent, subagent = host(CURSOR_CONVERSATION_ID='conv-parent'), host(CURSOR_CONVERSATION_ID='conv-subagent')
+        self.ws('init', '--goal', 'Demo', env=parent)
+        refused = self.ws('add', 'question', '--set', 'question=from the subagent', env=subagent, expect=2).stderr
+        self.assertIn('A subagent reports its result to the conversation that started it', refused)
+        self.ws('add', 'question', '--set', 'question=from the parent', env=parent)
+
+    def test_l3_refusal_names_the_same_window_case(self):
+        self.init()
+        refused = self.ws('start', expect=2).stderr
+        self.assertIn('This window already holds the workspace', refused)
+        self.assertIn('go on without a new start', refused)
+
+    def test_cursor_turn_hook_names_another_conversation(self):
+        self.ws('init', '--goal', 'Demo', env=host(CURSOR_CONVERSATION_ID='conv-a'))
+        self.assertIn('took over this workspace in another conversation', turn_context(self, 'conv-b'))
+        self.assertNotIn('took over', turn_context(self, 'conv-a'))
+
+    def test_a_host_started_from_a_cursor_shell_is_the_session(self):
+        inner = host(CURSOR_CONVERSATION_ID='conv-a', CLAUDE_CODE_SESSION_ID='claude-a')
+        self.ws('init', '--goal', 'Demo', env=inner)
+        self.ws('add', 'question', '--set', 'question=from the inner host', env=host(CLAUDE_CODE_SESSION_ID='claude-a'))
+        self.ws('add', 'question', '--set', 'question=from the outer chat', env=host(CURSOR_CONVERSATION_ID='conv-a'),
+                expect=2)
 
 
 class Guarded(Workspace):

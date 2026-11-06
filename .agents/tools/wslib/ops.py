@@ -11,7 +11,7 @@ from .coverage import redact
 from .core import (
     WorkspaceError, atomic_write, card, card_text, checkpoint_of, config, describe_drift, difference, drift_count,
     fingerprint, goal_of, lock, now, preview, read, safe_path, save_state, sha, state_of, today, with_goal,
-    with_state, write, writer_label, session_identity, same_session, other_session, delegated,
+    with_state, write, writer_label, session_identity, same_session, other_session, other_session_text, delegated,
     host_process, host_alive, same_host, other_host, live_host_text,
 )
 from .schema import CARD_FIELDS, CHECKPOINTS_KEPT, CLOSED, NEEDS_REASON, HANDOFF, LOG_NAMES, NONE, REQUIREMENTS, SCHEMA, TABLES
@@ -58,8 +58,7 @@ def require_owner(root: Path, state: dict, writer: str | None, rev: int | None) 
     if cfg['ownership'] == 'shared' and (not writer or rev is None):
         raise WorkspaceError('shared ownership requires --writer and --rev on every write')
     if writer and writer != owner or other_session(state):
-        raise WorkspaceError(f'{owner} took over the workspace, so {writer or "this session"} must stop writing. '
-                             'Re-read docs/state/HANDOFF.md before doing anything else')
+        raise WorkspaceError(other_session_text(owner, writer or 'this session'))
     if other_host(state):
         raise WorkspaceError(f'{owner} owns the workspace from another window that is still running '
                              f'({live_host_text(state["host"])}), so this window must not write. If you are a subagent '
@@ -184,6 +183,18 @@ def start(root: Path, writer: str | None, force: bool, reason: str | None, sessi
             # Someone is working. Claim beside them when the scopes do not meet, refuse when they do.
             scope = claims.scope_of(root, list(tasks)) if tasks else claims.WHOLE
             found = claims.clashes(state, scope)
+            # Nothing tells two chats in one window apart, so the caller may be the conversation that holds it.
+            same_window = (not mine and previous in dict(found) and same_host(state.get('host'), host_process())
+                           and (state.get('session') or {}).get('via') != 'env')
+            if found and not force and same_window:
+                minutes = recent_minutes(state)
+                raise WorkspaceError(
+                    f'this claim collides with work in progress: {claims.clash_text(found)}. This window already holds '
+                    f'the workspace as {previous}' + (f', last written {minutes} min ago' if minutes is not None else '') +
+                    '. If you are that conversation, go on without a new start. If you are another conversation in this '
+                    'window, ask the user, or claim tasks whose Scope names other paths and resources with '
+                    '"ws start --task <ID>". If the user says that conversation is finished, add --force --reason '
+                    '"<what the user said>"')
             if found and not force:
                 raise WorkspaceError(
                     f'this claim collides with work in progress: {claims.clash_text(found)}. Ask the user. To claim '

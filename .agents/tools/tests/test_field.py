@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from support import Workspace
+from wslib.core import SESSION_VARS
 
 
 class FieldReview(Workspace):
@@ -132,8 +133,7 @@ class Writing(Workspace):
         self.assertNotIn('findings in the state files changed this session', out)
 
 
-VARS_TO_CLEAR = ('WS_SESSION_ID', 'CLAUDE_CODE_SESSION_ID', 'CODEX_SESSION_ID', 'QWEN_CODE_SESSION_ID', 'ZCODE_SESSION_ID',
-                 'KIRO_SESSION_ID', 'CLAUDE_SESSION_ID', 'WS_ROLE', 'WS_HOST_PID')
+VARS_TO_CLEAR = (*SESSION_VARS, 'CLAUDE_SESSION_ID', 'WS_ROLE', 'WS_HOST_PID')
 
 # A stand-in agent window: a long-lived process that runs each ws command written to its inbox file.
 HOST_LOOP = '''

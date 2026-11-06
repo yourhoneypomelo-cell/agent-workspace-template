@@ -82,6 +82,11 @@ python .agents/tools/ws.py install --target /path/to/your/project --merge
 
 `--merge` preserves your existing AGENTS.md by appending it under "Project rules".
 
+## Design
+
+[DESIGN.md](DESIGN.md) explains the reasoning behind the structure: why files instead of a
+database, why record-before-act, how evidence works, and which alternatives were rejected.
+
 ## Guides
 
 | Guide | Use |

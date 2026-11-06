@@ -1,15 +1,17 @@
 """Install, export, release package and continuity.v2 migration."""
 import json
 import os
+import re
 import shutil
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 from support import TEMPLATE, Workspace
 from wslib import defaults, distribution, migrate, tables
 from wslib.core import WorkspaceError, state_of
-from wslib.schema import MAINTAINER_FILES, SEARCH_IGNORE, STATIC_FILES, TABLES
+from wslib.schema import MAINTAINER_FILES, MANIFEST, SEARCH_IGNORE, SELFTEST, STATIC_FILES, TABLES, VERSION
 
 V2_BACKUP = Path(os.environ.get('WS_V2_FIXTURE', TEMPLATE.parent / 'agent-workspace-template-v2.3.3.backup-20261031'))
 
@@ -76,7 +78,7 @@ class Install(Workspace):
         shutil.copytree(TEMPLATE, source, ignore=shutil.ignore_patterns('cache', 'archive', 'dist'))
         (source / 'dist').mkdir()
         (source / 'dist/agent-workspace-0.9.0.zip').write_bytes(b'old')
-        first = distribution.release(source)
+        first = distribution.release(source, gated=False)
         self.assertEqual(first['removed'], ['agent-workspace-0.9.0.zip'])
         packages = sorted(p.name for p in (source / 'dist').glob('*.zip'))
         self.assertEqual(packages, [Path(first['package']).name])
@@ -90,7 +92,7 @@ class Install(Workspace):
             bundle.extractall(unpacked)
         self.assertEqual(state_of(unpacked)['mode'], 'bootstrap')
         self.assertIn(first['sha256'], (source / 'dist/README.md').read_text(encoding='utf-8'))
-        second = distribution.release(source)
+        second = distribution.release(source, gated=False)
         self.assertEqual(sorted(p.name for p in (source / 'dist').glob('*.zip')), [Path(second['package']).name])
 
     def test_project_folder_cannot_release(self):
@@ -153,6 +155,57 @@ class Install(Workspace):
     def test_payload_has_no_large_files(self):
         for rel in STATIC_FILES:
             self.assertLess((TEMPLATE / rel).stat().st_size, 40000, rel)
+
+
+class Release(Workspace):
+    def copy(self):
+        source = self.parent / 'template-copy'
+        shutil.copytree(TEMPLATE, source, ignore=shutil.ignore_patterns('cache', 'archive', 'dist'))
+        return source
+
+    def test_release_refuses_a_control_character(self):
+        source = self.copy()
+        path = source / '.agents/tools/wslib/tables.py'
+        path.write_text(path.read_text(encoding='utf-8') + '# \x08\n', encoding='utf-8')
+        with self.assertRaisesRegex(WorkspaceError, r'tables\.py:\d+: control character'):
+            distribution.gate(source)
+
+    def test_release_requires_the_version_row(self):
+        source = self.copy()
+        path = source / '.agents/guides/MAINTAINING.md'
+        path.write_text(re.sub(rf'^\| {re.escape(VERSION)} \|.*\n', '', path.read_text(encoding='utf-8'), flags=re.M),
+                        encoding='utf-8')
+        with self.assertRaisesRegex(WorkspaceError, f'no row for {re.escape(VERSION)}'):
+            distribution.gate(source)
+
+    def test_release_requires_a_full_run_on_this_code(self):
+        source = self.copy()
+        with mock.patch.object(distribution, 'run_tier', return_value={'tests': 1, 'seconds': 0.1}):
+            with self.assertRaisesRegex(WorkspaceError, 'no full self-test run is recorded'):
+                distribution.gate(source)
+            self.assertEqual(distribution.gate(source, 'hotfix')['full'], {'skipped': 'hotfix'})
+
+    def test_release_restores_the_manifest_when_the_package_check_fails(self):
+        source = self.copy()
+        before = (source / MANIFEST).read_bytes()
+        with mock.patch.object(distribution, 'check_package', side_effect=WorkspaceError('package check failed')):
+            with self.assertRaisesRegex(WorkspaceError, 'package check failed'):
+                distribution.release(source, gated=False)
+        self.assertEqual((source / MANIFEST).read_bytes(), before)
+
+    def test_release_records_the_gate_result(self):
+        source = self.copy()
+        record = {'passed': True, 'tree': distribution.tree_digest(source), 'tests': 290, 'seconds': 1100.0,
+                  'python': '3.11.2', 'at': '2026-11-07T00:00:00+00:00'}
+        (source / SELFTEST).parent.mkdir(parents=True, exist_ok=True)
+        (source / SELFTEST).write_text(json.dumps(record), encoding='utf-8')
+        with mock.patch.dict(os.environ), mock.patch.object(distribution, 'run_tier', return_value={'tests': 120, 'seconds': 200.0}):
+            os.environ.pop('WS_IN_GATE', None)
+            result = distribution.release(source)
+        notes = (source / 'dist/README.md').read_text(encoding='utf-8')
+        self.assertIn('fast tier 120 tests in 200.0 s', notes)
+        self.assertIn('full tier 290 tests in 1100.0 s on Python 3.11.2', notes)
+        self.assertEqual(result['self_tests']['full']['tests'], 290)
 
 
 @unittest.skipUnless((V2_BACKUP / 'docs/state/TODO.md').is_file(), 'continuity.v2 backup not available')

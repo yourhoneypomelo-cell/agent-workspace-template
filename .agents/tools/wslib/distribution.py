@@ -9,9 +9,9 @@ import zipfile
 from pathlib import Path
 
 from . import defaults
-from .core import WorkspaceError, atomic_write, now, sha
-from .schema import (ADAPTERS, DIST_DIR, LOG_DIR, MAINTAINER_FILES, MANIFEST, PACKAGE_PREFIX, RUNTIME_FILES, SEARCH_IGNORE,
-                     SEARCH_IGNORE_TEXT, STATE_DIR, STATIC_FILES, TEMPLATE_MARKER, VERSION)
+from .core import WorkspaceError, atomic_write, digest, now, sha
+from .schema import (ADAPTERS, DIST_DIR, GUIDE_DIR, LOG_DIR, MAINTAINER_FILES, MANIFEST, PACKAGE_PREFIX, RUNTIME_FILES,
+                     SEARCH_IGNORE, SEARCH_IGNORE_TEXT, SELFTEST, STATE_DIR, STATIC_FILES, TEMPLATE_MARKER, TOOLS_DIR, VERSION)
 
 MERGEABLE = ('AGENTS.md', 'CLAUDE.md', 'CODEBUDDY.md', '.gemini/settings.json')
 
@@ -222,20 +222,134 @@ def check_package(archive: Path) -> dict:
     return {'files': len(names), 'checked': 'unpacked, validated, init, checkpoint, ready'}
 
 
-def release(source: Path, keep_old=False) -> dict:
-    """Stamp the manifest and replace dist/ with one verified clean package for this version."""
-    result = stamp(source)
+# Damage a writing tool has done to this source without breaking a test: rows.py held two backspace bytes where
+# "\b" was meant, and coverage.py a backslash line continuation flattened into spaces.
+CONTROL_BYTE = re.compile(rb'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
+
+
+def control_bytes(source: Path) -> list:
+    """file:line of every control character other than tab and line ends in the template's files."""
+    found = []
+    for rel in STATIC_FILES:
+        path = source / rel
+        if path.is_file():
+            found += [f'{rel}:{number}: control character' for number, line in enumerate(path.read_bytes().split(b'\n'), 1)
+                      if CONTROL_BYTE.search(line)]
+    return found
+
+
+def collapsed_continuations(source: Path) -> list:
+    """file:line where two tokens of one line stand five or more spaces apart, the mark of a flattened continuation."""
+    import io
+    import tokenize
+    breaks = {tokenize.COMMENT, tokenize.NL, tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT, tokenize.ENDMARKER}
+    found = []
+    for rel in (r for r in STATIC_FILES if r.endswith('.py') and (source / r).is_file()):
+        previous = None
+        try:
+            for token in tokenize.generate_tokens(io.StringIO((source / rel).read_text(encoding='utf-8')).readline):
+                if token.type in breaks:
+                    previous = None
+                    continue
+                if previous and previous.end[0] == token.start[0] and token.start[1] - previous.end[1] >= 5:
+                    found.append(f'{rel}:{token.start[0]}: tokens five or more spaces apart; was a line continuation lost?')
+                previous = token
+        except (tokenize.TokenError, SyntaxError) as error:
+            found.append(f'{rel}: cannot be tokenized: {error}')
+    return found
+
+
+def tree_digest(source: Path) -> str:
+    """One hash over the static files, so a recorded self-test run can be matched to the code it ran on."""
+    return digest({rel: sha((source / rel).read_bytes().replace(b'\r\n', b'\n')) for rel in STATIC_FILES
+                   if (source / rel).is_file()})
+
+
+def run_tier(source: Path, tier: str) -> dict:
+    """One tier of the self-tests in a child process. WS_IN_GATE stops the release tests inside it from gating again."""
+    import subprocess
+    import sys
+    import time
+    script = source / f'{TOOLS_DIR}/tests/run.py'
+    env = dict(os.environ, WS_IN_GATE='1', WS_IMPORT='0', PYTHONDONTWRITEBYTECODE='1', PYTHONUTF8='1')
+    started = time.monotonic()
+    run = subprocess.run([sys.executable, str(script), '--tier', tier], cwd=script.parent, capture_output=True, text=True,
+                         encoding='utf-8', errors='replace', env=env)
+    output = run.stdout + run.stderr
+    if run.returncode != 0:
+        raise WorkspaceError(f'release refused: the {tier} self-tests failed:\n' + '\n'.join(output.strip().splitlines()[-40:]))
+    ran = re.findall(r'^Ran (\d+) tests? in', output, re.M)
+    return {'tests': int(ran[-1]) if ran else 0, 'seconds': round(time.monotonic() - started, 1)}
+
+
+def full_run(source: Path, skip_full: str | None = None) -> dict:
+    """The record a passing "run.py --tier full" leaves, accepted only for the code it ran on."""
+    try:
+        record = json.loads((source / SELFTEST).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        record = {}
+    if record.get('passed') is True and record.get('tree') == tree_digest(source):
+        return {key: record.get(key) for key in ('tests', 'seconds', 'python', 'at')}
+    if skip_full:
+        return {'skipped': ' '.join(skip_full.split())}
+    if not record:
+        reason = 'no full self-test run is recorded'
+    elif record.get('passed') is not True:
+        reason = 'the last full self-test run failed'
+    else:
+        reason = 'the code changed after the last full self-test run'
+    raise WorkspaceError(f'release refused: {reason}. Run "python {TOOLS_DIR}/tests/run.py --tier full", or give '
+                         '--skip-full "<reason>"; the reason is printed in dist/README.md')
+
+
+def gate(source: Path, skip_full: str | None = None) -> dict:
+    """What a release must pass before it stamps the manifest. Returns the self-test runs for dist/README.md."""
+    from . import lint
+    from .validate import structure
+    problems = control_bytes(source) + collapsed_continuations(source) + lint.run(source) + structure(source, strict=True)
+    versions = (source / f'{GUIDE_DIR}/MAINTAINING.md').read_text(encoding='utf-8')
+    if not re.search(rf'^\| {re.escape(VERSION)} \|', versions, re.M):
+        problems.append(f'MAINTAINING.md: the version table has no row for {VERSION}')
+    if problems:
+        raise WorkspaceError('release refused; fix these first:\n  ' + '\n  '.join(problems[:20]))
+    return {'fast': run_tier(source, 'fast'), 'full': full_run(source, skip_full)}
+
+
+def _tests_text(checks: dict | None) -> str:
+    if checks is None:
+        return 'not run: release was called without its gate'
+    fast, full = checks['fast'], checks['full']
+    text = f'fast tier {fast["tests"]} tests in {fast["seconds"]} s; '
+    if 'skipped' in full:
+        return text + 'full tier skipped: ' + full['skipped'].replace('|', '/')
+    return text + f'full tier {full["tests"]} tests in {full["seconds"]} s on Python {full["python"]}, {full["at"]}'
+
+
+def release(source: Path, keep_old=False, skip_full: str | None = None, gated=True) -> dict:
+    """Pass the gate, stamp the manifest and replace dist/ with one verified clean package for this version.
+    A failed build puts the previous manifest back, so the checkout never describes a package that was not built."""
+    checks = gate(source, skip_full) if gated and not os.environ.get('WS_IN_GATE') else None
+    manifest = source / MANIFEST
+    previous = manifest.read_bytes() if manifest.is_file() else None
     dist = source / DIST_DIR
-    dist.mkdir(exist_ok=True)
     name = f'{PACKAGE_PREFIX}{VERSION}'
     final = dist / f'{name}.zip'
-    with tempfile.TemporaryDirectory(prefix='ws-release-', dir=scratch_dir()) as folder:
-        staging = Path(folder) / name
-        install(source, staging)
-        built = Path(folder) / f'{name}.zip'
-        _write_zip(staging, built)
-        check = check_package(built)
-        data = built.read_bytes()
+    try:
+        result = stamp(source)
+        dist.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='ws-release-', dir=scratch_dir()) as folder:
+            staging = Path(folder) / name
+            install(source, staging)
+            built = Path(folder) / f'{name}.zip'
+            _write_zip(staging, built)
+            check = check_package(built)
+            data = built.read_bytes()
+    except BaseException:
+        if previous is None:
+            manifest.unlink(missing_ok=True)
+        else:
+            manifest.write_bytes(previous)
+        raise
     temporary = dist / f'.{name}.zip.tmp'
     temporary.write_bytes(data)
     os.replace(temporary, final)
@@ -248,11 +362,12 @@ def release(source: Path, keep_old=False) -> dict:
     notes = dist / 'README.md'
     atomic_write(notes, f'# Release package\n\nOne clean package per template version, rebuilt by `ws.py release`.\n\n'
                         f'| Field | Value |\n| --- | --- |\n| File | `{final.name}` |\n| Version | {VERSION} |\n'
-                        f'| Files | {check["files"]} |\n| SHA-256 | `{sha(data)}` |\n| Built | {now()} |\n\n'
+                        f'| Files | {check["files"]} |\n| SHA-256 | `{sha(data)}` |\n| Built | {now()} |\n'
+                        f'| Self-tests | {_tests_text(checks)} |\n\n'
                         '## Start a project\n\n1. Unzip the package into an empty folder. The archive has no top-level folder.\n'
                         '2. Open that folder in an agent tool and say: "Read AGENTS.md and start. The goal is: ..."\n')
     return {**result, 'package': f'{DIST_DIR}/{final.name}', 'sha256': sha(data), 'bytes': len(data),
-            'files': check['files'], 'removed': removed, 'verified': check['checked']}
+            'files': check['files'], 'removed': removed, 'verified': check['checked'], 'self_tests': checks}
 
 
 def adapters_present(root: Path) -> list:

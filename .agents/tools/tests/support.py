@@ -14,7 +14,8 @@ sys.dont_write_bytecode = True
 
 from wslib import distribution  # noqa: E402
 
-ENV = dict(os.environ, PYTHONUTF8='1', PYTHONDONTWRITEBYTECODE='1', WS_IMPORT='0')
+# A command blocked by a held lock gives up after 5 s instead of 30 s, which keeps the lock tests short.
+ENV = dict(os.environ, PYTHONUTF8='1', PYTHONDONTWRITEBYTECODE='1', WS_IMPORT='0', WS_LOCK_WAIT='5')
 ENV.pop('WS_ROLE', None)
 # Host store locations from this machine must not leak into tests that build a fake home.
 for _name in ('QWEN_HOME', 'QODER_HOME', 'WORKBUDDY_HOME', 'CODEBUDDY_CONFIG_DIR', 'GEMINI_HOME', 'KIRO_HOME',

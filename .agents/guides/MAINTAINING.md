@@ -8,12 +8,20 @@ Update a row there when a change moves it between met, partial and limit.
 
 The tests build temporary workspaces and drive the tool as separate processes.
 They live under `.agents/tools/tests/`, so product test discovery never collects them.
+`run.py` in that folder runs them by tier:
 
 ```text
-python -m unittest discover -s .agents/tools/tests
+python .agents/tools/tests/run.py --tier static   # source bytes, grammar and template documents, in seconds
+python .agents/tools/tests/run.py --tier fast     # the static tier and the quicker modules, a few minutes
+python .agents/tools/tests/run.py --tier full     # every module, about 20 minutes
 ```
 
-Run them after any change to `.agents/tools/`, the adapter files or the generated defaults.
+`--list` prints the tests of a tier. A passing full run leaves `.agents/cache/selftest.json` with a hash of the
+static files, and `release` accepts it only for the code it ran on. `python -m unittest discover -s
+.agents/tools/tests` also runs every module, but leaves no record.
+
+Run the fast tier after any change to `.agents/tools/`, the adapter files or the generated defaults, and the
+full tier before a release.
 A new lint rule records, next to its pattern, the rate it measured on human writing and its count of
 findings on a real project. A high ratio alone hid the loudest rule of 3.6.
 Then check the template checkout itself:
@@ -35,13 +43,19 @@ On a full drive the tests fail at random with exit codes such as 3221225794.
 Every version change ends with one clean package in `dist/` of the template folder.
 
 1. Raise `VERSION` in `.agents/tools/wslib/schema.py` and add a row to the version table below.
-2. Run the self-tests and the checks above.
+2. Run the full tier: `python .agents/tools/tests/run.py --tier full`.
 3. Build the package: `python .agents/tools/ws.py release`.
 
-`release` stamps the manifest, assembles a fresh project in a temporary folder and zips it as
+`release` first runs a gate and stops when any check fails: a control character or a flattened line
+continuation in the source, a lint finding in the template documents, a `check --strict` error, no row for
+the version in the table below, a failing fast tier, or no passing full run on this exact code.
+`--skip-full "<reason>"` releases without the full run and prints the reason in `dist/README.md`.
+
+After the gate, `release` stamps the manifest, assembles a fresh project in a temporary folder and zips it as
 `dist/agent-workspace-<version>.zip`. Before keeping the zip it unpacks it into another temporary
-folder and runs `check --strict`, `init`, `checkpoint` and `check --ready` there. Older packages are
-deleted unless `--keep-old` is given. `dist/README.md` records the file name, size and SHA-256.
+folder and runs `check --strict`, `init`, `checkpoint` and `check --ready` there. When any of that fails,
+the previous manifest is put back. Older packages are deleted unless `--keep-old` is given.
+`dist/README.md` records the file name, size, SHA-256 and the self-test runs.
 
 The zip has no top-level folder. Unzip it into an empty folder and that folder is a new project.
 It holds no project data, no caches, no evidence and no `dist/` folder.

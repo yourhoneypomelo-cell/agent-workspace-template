@@ -37,6 +37,7 @@ CHAT_INDEX = 'docs/chats/INDEX.md'
 HEADING_NOTE = r'(?: \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ)?(?: \(after compaction\))?'
 LOCK = '.agents/cache/ws.lock'
 FINGERPRINT_CACHE = '.agents/cache/fingerprint.json'
+SELFTEST = '.agents/cache/selftest.json'
 
 T0 = ('AGENTS.md', 'docs/state/HANDOFF.md', 'docs/state/REQUIREMENTS.md', 'docs/state/PREFERENCES.md')
 T1 = T0 + ('docs/state/FEATURES.md', 'docs/state/TASKS.md', 'docs/state/ARCHITECTURE.md', 'docs/state/DESIGN.md')
@@ -44,7 +45,8 @@ T1 = T0 + ('docs/state/FEATURES.md', 'docs/state/TASKS.md', 'docs/state/ARCHITEC
 LIB_MODULES = ('__init__', 'schema', 'core', 'tables', 'evidence', 'logs', 'validate', 'views', 'ops', 'capture', 'nudge', 'words', 'coverage',
                'reconcile', 'runs', 'rows', 'claims', 'distribution', 'defaults', 'lint', 'migrate', 'snapshot', 'dsh', 'verifying', 'retired')
 TEST_MODULES = ('support', 'test_core', 'test_workflow', 'test_distribution', 'test_reconcile', 'test_capture', 'test_tracking',
-                'test_nudge', 'test_review', 'test_session', 'test_messages', 'test_probes', 'test_v36', 'test_field')
+                'test_nudge', 'test_review', 'test_session', 'test_messages', 'test_probes', 'test_v36', 'test_field',
+                'test_static', 'test_regressions', 'run')
 # Files only the template maintainer uses. They stay in the template folder and are never installed into a project:
 # a business agent searching its project should not find the template's own requirements, history or self-tests.
 MAINTAINER_GUIDES = ('MAINTAINING', 'DESIGN_REQUIREMENTS')

@@ -55,7 +55,7 @@ COMMANDS = '''commands:
   install --target DIR       copy this template into a project (from the template folder)
   export --output DIR        write a clean template copy and a zip
   migrate                    convert a continuity.v2 workspace in place
-  release [--keep-old]       maintainer: stamp the manifest, build and test dist/agent-workspace-<version>.zip
+  release [--keep-old] [--skip-full REASON]   maintainer: gate, stamp, build and test dist/agent-workspace-<version>.zip
   stamp                      maintainer: update .agents/template/MANIFEST.json only
 
 tables: requirements, questions, preferences, features, tasks, decisions
@@ -162,6 +162,8 @@ def parser() -> argparse.ArgumentParser:
     mig.add_argument('--force', action='store_true', help='migrate even though a v2 writer still holds the workspace')
     rel = subs.add_parser('release')
     rel.add_argument('--keep-old', action='store_true', help='keep packages of earlier versions in dist/')
+    rel.add_argument('--skip-full', metavar='REASON', help='release without a passing full self-test run on this code; '
+                     'the reason is printed in dist/README.md')
     subs.add_parser('stamp')
     return p
 
@@ -663,7 +665,7 @@ def main(argv=None) -> int:
             if root != TEMPLATE_ROOT or ops.status(root)['mode'] != 'bootstrap':
                 raise WorkspaceError('release runs only in the template folder, which stays in bootstrap mode. '
                                      'A project folder cannot publish the template')
-            print(json.dumps(distribution.release(TEMPLATE_ROOT, args.keep_old), ensure_ascii=False, indent=2))
+            print(json.dumps(distribution.release(TEMPLATE_ROOT, args.keep_old, args.skip_full), ensure_ascii=False, indent=2))
         elif args.command == 'stamp':
             print(json.dumps(distribution.stamp(TEMPLATE_ROOT), ensure_ascii=False))
     except (WorkspaceError, ValueError, OSError, KeyError, TypeError, AttributeError) as error:

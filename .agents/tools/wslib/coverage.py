@@ -370,7 +370,8 @@ def find_secrets(text: str) -> list:
 def project_file_in_agents(rel: str) -> bool:
     """A file under .agents/ that the template does not own: a report, script or note an agent put there."""
     from .schema import STATIC_FILES
-    return rel.startswith('.agents/') and not rel.startswith(('.agents/cache/', '.agents/template/'))         and rel not in STATIC_FILES and rel not in ('.agents/.gitattributes', '.agents/.gitignore', '.agents/hooks.json')
+    return (rel.startswith('.agents/') and not rel.startswith(('.agents/cache/', '.agents/template/'))
+            and rel not in STATIC_FILES and rel not in ('.agents/.gitattributes', '.agents/.gitignore', '.agents/hooks.json'))
 
 
 def secret_warnings(root: Path) -> list:

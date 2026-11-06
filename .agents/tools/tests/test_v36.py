@@ -315,7 +315,7 @@ class CaptureFixes(Workspace):
     def test_legacy_closed_rows_with_odd_endings_upgrade(self):
         from wslib import tables
         legacy = ('# C\n\n| ID | Status | Summary | Reason | Replacement | Evidence | Closed |\n'
-                  '| --- | --- | --- | --- | --- | --- | --- |\n| R1 | removed | a \| b | why | none | none ||\n')
+                  '| --- | --- | --- | --- | --- | --- | --- |\n| R1 | removed | a \\| b | why | none | none ||\n')
         up = tables.upgrade_closed(legacy)
         self.assertEqual(tables.parse(up, tables.CLOSED_HEADERS, 'x')[0]['Summary'], 'a | b')
         pasted = up + '| R2 | removed | c | d | none | none | 2026-01-01 |\n'

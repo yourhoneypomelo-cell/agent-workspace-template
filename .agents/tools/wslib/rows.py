@@ -125,7 +125,7 @@ def set_row(root: Path, identifier: str, sets: list, source: str | None, writer=
         elif t.key in ('requirements', 'features') and fields.get('Status') in t.retired:
             # Retiring a row that another session's claimed task builds on would pull the ground from under it.
             cited = [rid for rid, row in claims.task_rows(root).items()
-                     if re.search(rf'{identifier}', row.get('Requirements', '') + ' ' + row.get('Scope', ''))]
+                     if re.search(rf'\b{re.escape(identifier)}\b', row.get('Requirements', '') + ' ' + row.get('Scope', ''))]
             claims.guard_tasks(state, cited, f'retire {identifier}, which a claimed task cites; the task')
         current = {r['ID']: r for r in tables.rows(root, t)}
         if identifier not in current:

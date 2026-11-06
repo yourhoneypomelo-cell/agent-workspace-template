@@ -84,6 +84,49 @@ flowchart TB
 **`docs/` 记忆**——`state/` 里的当前事实，加上 `logs/`、`chats/`、`archive/` 的历史。
 状态文件在下一次会话开始时被重新读取，闭环就此完成。
 
+## 仓库结构
+
+```text
+agent-workspace-template/
+├── AGENTS.md                     每个代理首先读取的根契约
+├── CLAUDE.md                     Claude Code 适配器：一行 "@AGENTS.md"
+├── CODEBUDDY.md                  CodeBuddy / WorkBuddy 适配器
+├── DESIGN.md                     结构为什么这样设计
+├── README.md · README.zh-CN.md   本文件（英文与中文）
+├── LICENSE                       MIT
+├── .gemini/settings.json         Gemini CLI / Antigravity 适配器
+├── .kiro/steering/workspace.md   Kiro 适配器
+├── .trae/rules/workspace.md      Trae 适配器
+├── .agents/                      系统文件，每个项目里完全相同
+│   ├── guides/                   QUICKSTART · PROTOCOL · STRUCTURE · HOSTS
+│   ├── skills/                   按需加载的工作流
+│   ├── template/                 规格与试验模板、测试结果解析器
+│   │   ├── spec/                 requirements.md · design.md · tasks.md
+│   │   └── examples/             unittest_json · pytest_junit · go_json
+│   └── tools/                    命令行工具
+│       ├── ws.py                 每个代理运行的工具
+│       ├── wslib/                它的模块（core、validate、evidence 等）
+│       └── tests/                模板自测（不会安装进项目）
+├── docs/                         项目的记忆——在每个项目里生成
+│   ├── state/                    当前事实，每次会话开始必读
+│   │   ├── HANDOFF.md            停止点 · 下一步 · 所有权
+│   │   ├── REQUIREMENTS.md       用户想要什么，附验收标准
+│   │   ├── PREFERENCES.md        稳定的用户偏好
+│   │   ├── FEATURES.md           当前与已退役的功能
+│   │   ├── TASKS.md              工作项 · 验收 · 证据
+│   │   ├── ARCHITECTURE.md       入口点 · 命令 · 环境
+│   │   └── DESIGN.md             决策 · 被否决的选项
+│   ├── logs/                     工具写入的历史表
+│   ├── chats/                    钩子复制的聊天记录
+│   ├── archive/                  checks/ · checkpoints/ · closed/ · snapshots/
+│   └── specs/<slug>/             单个大需求的详细内容
+└── dist/                         发布包（附在 GitHub Releases）
+```
+
+把模板安装到项目时只写入运行文件：各适配器、guides、skills、templates、`ws.py` 及其模块，
+以及生成的 `docs/` 骨架。维护者文件——`MAINTAINING.md`、`DESIGN_REQUIREMENTS.md`、自测、
+文件夹预览——留在本仓库，永远不会复制进项目，所以业务代理的搜索不会找到模板自己的历史。
+
 ## 快速上手
 
 1. **下载**最新发布包：

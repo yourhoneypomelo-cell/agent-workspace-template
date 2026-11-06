@@ -90,6 +90,51 @@ the **`ws.py` tool**, and the **`docs/` memory** — the current facts in `state
 `logs/`, `chats/` and `archive/` history. The loop closes when the state files are re-read at
 the start of the next session.
 
+## Repository layout
+
+```text
+agent-workspace-template/
+├── AGENTS.md                     the root contract every agent reads first
+├── CLAUDE.md                     Claude Code adapter: the line "@AGENTS.md"
+├── CODEBUDDY.md                  CodeBuddy / WorkBuddy adapter
+├── DESIGN.md                     why the structure is the way it is
+├── README.md · README.zh-CN.md   this file, in English and Chinese
+├── LICENSE                       MIT
+├── .gemini/settings.json         Gemini CLI / Antigravity adapter
+├── .kiro/steering/workspace.md   Kiro adapter
+├── .trae/rules/workspace.md      Trae adapter
+├── .agents/                      system files, identical in every project
+│   ├── guides/                   QUICKSTART · PROTOCOL · STRUCTURE · HOSTS
+│   ├── skills/                   workflows loaded on demand
+│   ├── template/                 spec & trial templates, test-result parsers
+│   │   ├── spec/                 requirements.md · design.md · tasks.md
+│   │   └── examples/             unittest_json · pytest_junit · go_json
+│   └── tools/                    the CLI
+│       ├── ws.py                 the tool every agent runs
+│       ├── wslib/                its modules (core, validate, evidence, …)
+│       └── tests/                the template's self-tests (not installed)
+├── docs/                         the project's memory — created in each project
+│   ├── state/                    current facts, read at every session start
+│   │   ├── HANDOFF.md            stop point · next step · ownership
+│   │   ├── REQUIREMENTS.md       what the user wants, with acceptance
+│   │   ├── PREFERENCES.md        stable user preferences
+│   │   ├── FEATURES.md           current and retired capabilities
+│   │   ├── TASKS.md              work items · acceptance · evidence
+│   │   ├── ARCHITECTURE.md       entry points · commands · environment
+│   │   └── DESIGN.md             decisions · rejected options
+│   ├── logs/                     history tables written by the tool
+│   ├── chats/                    transcripts copied by hooks
+│   ├── archive/                  checks/ · checkpoints/ · closed/ · snapshots/
+│   └── specs/<slug>/             detail for one large requirement
+└── dist/                         release zips (attached to GitHub Releases)
+```
+
+Installing the template into a project writes only the runtime files: the adapters, the guides,
+skills and templates, `ws.py` and its modules, and the generated `docs/` skeleton. The maintainer
+files — `MAINTAINING.md`, `DESIGN_REQUIREMENTS.md`, the self-tests, the folder previews — stay in
+this repository and are never copied into a project, so a business agent's search never finds the
+template's own history.
+
 ## Quick start
 
 1. **Download** the latest release ZIP from

@@ -35,7 +35,7 @@ for the Stop nudge.
 | `check [--ready] [--strict]` | no | Validate. `--ready` also requires a released, sealed, covered workspace |
 | `note TEXT` | yes | One progress line in SESSION_LOG. No validation, no seal |
 | `init --goal TEXT` | yes | First run only. Records the goal and claims the workspace |
-| `start [--session KEY]` | yes | Claims the workspace, lists unsaved files, imports sessions from the host stores. The same session resumes instead of taking over |
+| `start [--session KEY]` | yes | Claims the workspace, lists unsaved files, imports sessions from the host stores (`WS_IMPORT=0` skips the import). The same session resumes instead of taking over |
 | `add TABLE --set f=v` | yes | Adds a row with the next free ID and logs it |
 | `set ID --set f=v` | yes | Changes a row. Status changes and summary edits are logged |
 | `card --set f=v` | yes | Changes handoff card fields |
@@ -456,6 +456,10 @@ cannot run at all, edit the tables by hand in the formats above and run `ws chec
 - The lock is cooperative. A process that edits files without `ws` bypasses it.
 - Hashes detect accidental change, not deliberate forgery by someone who can edit the evidence.
 - The validator checks structure and references. It cannot judge whether a requirement is right or a test is sufficient.
+- `ws verify` proves that the recorded acceptance ran and passed. It does not stop anyone from changing the test or
+  the code until it passes.
+- READY means the workspace is saved, released and consistent. It does not mean the product works or meets every
+  requirement.
 - Coverage checks catch an empty requirement table and untracked code. They cannot tell whether
   one requirement out of several was missed.
 - The credential scan matches common patterns. A secret in an unusual form can pass it.

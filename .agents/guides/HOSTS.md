@@ -49,7 +49,7 @@ Notes that apply across hosts:
   the AGENTS.md chain at 32 KiB. `ws check` warns about both.
 
 Skills in `.agents/skills/` are discovered natively by Codex, Antigravity, Kimi Code, DeepSeek
-Harness, Qwen Code, Trae and Grok. Other hosts reach them through the "More detail" table in AGENTS.md.
+Harness, Qwen Code, Trae and Grok. Other hosts reach them through the "Read before you act" table in AGENTS.md.
 
 ## Hooks
 

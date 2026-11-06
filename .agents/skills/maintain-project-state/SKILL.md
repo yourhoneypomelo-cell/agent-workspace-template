@@ -52,7 +52,7 @@ The next step is an action a new session can start without asking.
 | `change rejected; no change can be checked until these are repaired` | Repair what it lists first: a broken row by hand, a changed or missing archive file from version control or a snapshot. Ask the user before you touch the CONTINUITY line |
 | `files changed after the last checkpoint` | Inspect them, then checkpoint |
 | `owns the workspace from another window that is still running` | Do not write. Ask the user; if that window is finished, `ws start --force --reason "<what the user said>"` |
-| `another ws.py command is running` | Wait and retry: a long `ws verify` holds the lock. Delete `.agents/cache/ws.lock` only when no other window runs `ws` |
+| `another ws.py command is running` | Wait and retry. Delete `.agents/cache/ws.lock` only when no other window runs `ws`; a lock that names no process is removed after 60 s |
 | `<ID> was removed. IDs are permanent` | Restore the row, or close it and run `ws compact` |
 | `ws` cannot run (no shell, no Python) | Edit the tables by hand in the PROTOCOL.md formats; run `ws check` when it can run again |
 

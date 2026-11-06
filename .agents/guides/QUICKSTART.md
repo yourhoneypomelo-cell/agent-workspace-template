@@ -81,10 +81,15 @@ each host supports and how to confirm the hook ran.
 
 ## Upgrading within version 3
 
-Replace the project's `.agents/` folder with the one from the new template and keep `docs/`.
-Log files added by a newer version, such as `docs/logs/RECONCILE_LOG.md`, are created on their
-first write. Merge the new AGENTS.md into yours, or copy it if you never edited it. The replaced
-files show as unsaved changes until you run `ws start` and `ws checkpoint`.
+Copy four folders of the new template over the project's: `.agents/tools`, `.agents/guides`,
+`.agents/skills` and `.agents/template`. Do not delete the whole `.agents/` folder: `.agents/hooks.json`
+and `.agents/cache/` belong to the project. Keep `docs/`. Merge the new AGENTS.md into yours, or copy it
+if you never edited it. Log files added by a newer version, such as `docs/logs/RECONCILE_LOG.md`, are
+created on their first write.
+
+Until the next checkpoint, `ws check` reports the copied files as "files changed after the last
+checkpoint". That is expected, not damage. Run `ws start`, then `ws checkpoint`, and the workspace is
+READY again.
 
 ## Upgrading from version 2
 

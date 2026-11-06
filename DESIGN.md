@@ -18,12 +18,13 @@ is gone. Context compaction makes the window smaller. Switching tools throws it 
 
 Move the memory out of the context window and into files. Plain Markdown, in the project folder,
 readable by any tool and any human. The agent reads them at session start, writes to them during
-work, and seals them at checkpoints. The next session — same tool or different — picks up exactly
-where the last one stopped.
+work, and seals them at checkpoints. The next session — same tool or different — picks up from
+what the last one recorded.
 
 This is not a new idea. What makes it work here is the tooling: a CLI that validates every write,
 assigns IDs, runs acceptance tests, and refuses to seal a checkpoint when the state is inconsistent.
-The agent cannot skip the record-keeping because the tool enforces it.
+It cannot make an agent record what the agent never writes down; "Evidence and limits" below says what
+it can check.
 
 ## The flow
 
@@ -190,5 +191,10 @@ Several approaches were tried and rejected:
 
 | Alternative | Why rejected |
 | --- | --- |
+| A database or a server | Adds a dependency, a point of failure and a barrier to reading the workspace |
+| Facts extracted by a model | Needs model calls the tool cannot make; the failures seen were facts overwritten or duplicated |
+| One large AGENTS.md | Hosts cut it at 24 to 32 KB; the contract must live beside the project's own rules |
+| Deleting finished rows automatically | The user may need to see why something was done or removed |
+| Hash-based IDs (beads, git-bug) | They do not prevent Markdown table conflicts and make the files harder to read |
 | A merge driver for parallel copies | No project of the owner is under git; parallel copies are folders never merged back |
 | Blocking a prompt that contains a credential | Hosts handle blocks inconsistently; the hook warns instead |

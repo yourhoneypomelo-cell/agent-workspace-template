@@ -12,6 +12,17 @@
 | Entry | Direct `ws.py` commands |
 | Hooks enabled | no |
 
+## Correction, 2026-11-07
+
+This was a scripted run with no host and no model, so it is not a host trial. Two statements below go
+beyond what it showed and are withdrawn:
+
+- "The constraint survives any compaction": no compaction happened. The run shows only that P1 and D1
+  are on disk.
+- "The tool does not allow editing a test to pass": `ws verify` runs the recorded acceptance, so a test
+  edited until it passes is accepted. It refuses a different command and notes a run that tests less
+  than before; it does not stop deliberate edits.
+
 ## Steps and results
 
 ### Step 10: Compaction constraint
@@ -42,7 +53,7 @@ both rows to point at R2, verify passed and checkpoint sealed.
 
 | Check | Result |
 | --- | --- |
-| Constraint recorded in state files, survives compaction | PASS |
+| Constraint recorded in state files (compaction not tried) | PASS |
 | Contradictory test refused by verify | PASS |
 | Late requirement impact detected with fix commands | PASS |
 | Impacted rows updated, verify passes, checkpoint seals | PASS |

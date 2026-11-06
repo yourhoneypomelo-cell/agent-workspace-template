@@ -1,5 +1,7 @@
 # Agent workspace template
 
+**[中文](README.zh-CN.md)** | English
+
 A file-based memory system for AI coding agents. It gives any agent tool — Claude Code, Codex,
 Cursor, Kimi Code, Kiro, DeepSeek Harness, and others — a shared, persistent memory that survives
 window switches, context compaction, and tool changes.

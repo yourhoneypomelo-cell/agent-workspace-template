@@ -1,5 +1,7 @@
 # Design
 
+**[中文](DESIGN.zh-CN.md)** | English
+
 Why this template exists, what problems it solves, and the reasoning behind its structure.
 
 ## The problem

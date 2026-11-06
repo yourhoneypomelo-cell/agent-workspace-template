@@ -197,8 +197,11 @@ class Release(Workspace):
     def test_release_requires_the_version_row(self):
         source = self.copy()
         path = source / '.agents/guides/MAINTAINING.md'
-        path.write_text(re.sub(rf'^\| {re.escape(VERSION)} \|.*\n', '', path.read_text(encoding='utf-8'), flags=re.M),
-                        encoding='utf-8')
+        head, sep, rest = path.read_text(encoding='utf-8').partition('\n## Versions\n')
+        section, tail = rest.split('\n## ', 1)
+        # Rows of the other tables that start with the version stay; they must not count as its row.
+        section = re.sub(rf'^\| {re.escape(VERSION)} \|.*\n', '', section, flags=re.M)
+        path.write_text(head + sep + section + '\n## ' + tail, encoding='utf-8')
         with self.assertRaisesRegex(WorkspaceError, f'no row for {re.escape(VERSION)}'):
             distribution.gate(source)
 

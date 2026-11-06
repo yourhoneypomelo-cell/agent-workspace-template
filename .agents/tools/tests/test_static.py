@@ -48,7 +48,7 @@ class SourceBytes(unittest.TestCase):
 
 class Process(unittest.TestCase):
     def test_fix_table_names_existing_tests(self):
-        names = re.findall(r'`(test_\w+\.\w+\.test_\w+)`', maintaining_section('Fix table'))
+        names = re.findall(r'`(test_\w+\.\w+\.test_\w+)`', (TEMPLATE / '.agents/guides/FIXES.md').read_text(encoding='utf-8'))
         self.assertTrue(names)
         missing = []
         for name in names:

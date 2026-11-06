@@ -324,8 +324,9 @@ def gate(source: Path, skip_full: str | None = None) -> dict:
     from . import lint
     from .validate import structure
     problems = control_bytes(source) + collapsed_continuations(source) + lint.run(source) + structure(source, strict=True)
-    versions = (source / f'{GUIDE_DIR}/MAINTAINING.md').read_text(encoding='utf-8')
-    if not re.search(rf'^\| {re.escape(VERSION)} \|', versions, re.M):
+    # Only the "Versions" section counts: rows of the other tables start with a version too.
+    _, found, rest = (source / f'{GUIDE_DIR}/MAINTAINING.md').read_text(encoding='utf-8').partition('\n## Versions\n')
+    if not found or not re.search(rf'^\| {re.escape(VERSION)} \|', rest.split('\n## ', 1)[0], re.M):
         problems.append(f'MAINTAINING.md: the version table has no row for {VERSION}')
     if problems:
         raise WorkspaceError('release refused; fix these first:\n  ' + '\n  '.join(problems[:20]))

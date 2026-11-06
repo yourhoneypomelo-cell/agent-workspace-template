@@ -131,7 +131,7 @@ agent-workspace-template/
 
 Installing the template into a project writes only the runtime files: the adapters, the guides,
 skills and templates, `ws.py` and its modules, and the generated `docs/` skeleton. The maintainer
-files — `MAINTAINING.md`, `DESIGN_REQUIREMENTS.md`, the self-tests, the folder previews — stay in
+files — `MAINTAINING.md`, `DESIGN_REQUIREMENTS.md`, `FIXES.md`, the self-tests, the folder previews — stay in
 this repository and are never copied into a project, so a business agent's search never finds the
 template's own history.
 

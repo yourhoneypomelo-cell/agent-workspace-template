@@ -124,7 +124,7 @@ agent-workspace-template/
 ```
 
 把模板安装到项目时只写入运行文件：各适配器、guides、skills、templates、`ws.py` 及其模块，
-以及生成的 `docs/` 骨架。维护者文件——`MAINTAINING.md`、`DESIGN_REQUIREMENTS.md`、自测、
+以及生成的 `docs/` 骨架。维护者文件——`MAINTAINING.md`、`DESIGN_REQUIREMENTS.md`、`FIXES.md`、自测、
 文件夹预览——留在本仓库，永远不会复制进项目，所以业务代理的搜索不会找到模板自己的历史。
 
 ## 快速上手

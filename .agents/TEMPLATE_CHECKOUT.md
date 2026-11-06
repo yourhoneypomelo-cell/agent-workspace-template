@@ -7,5 +7,6 @@ Projects never receive this file. `ws tidy` and the leftover check in `ws check`
 | --- | --- |
 | [MAINTAINING.md](guides/MAINTAINING.md) | Self-tests, release steps, version history, reviews |
 | [DESIGN_REQUIREMENTS.md](guides/DESIGN_REQUIREMENTS.md) | What the template must achieve and why |
+| [FIXES.md](guides/FIXES.md) | Each fixed defect and the regression test that keeps it fixed |
 | `tools/tests/` | Self-tests, run from `.agents/tools` |
 | `template/examples/minimal_cycle.py` | A scripted session that maintainers run as a smoke test |

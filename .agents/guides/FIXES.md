@@ -93,3 +93,6 @@ every test named here exists.
 | 3.7.0 | A rebaseline takes in template files only, so other drift is still reported | \	est_upgrade.Rebaseline.test_rebaseline_keeps_other_drift\ | guard |
 | 3.7.0 | A rebaseline refuses project files | \	est_upgrade.Rebaseline.test_rebaseline_takes_only_template_files\ | guard |
 | 3.7.0 | A rebaseline waits until the workspace is released | \	est_upgrade.Rebaseline.test_rebaseline_needs_a_released_workspace\ | guard |
+| 3.7.0 | There was no way to take the tool's hooks out of a host settings file | \	est_regressions.Install.test_x3_hooks_disable_restores_the_settings_file\ | fails |
+| 3.7.0 | \install --merge\ showed no preview of a merge and kept no copy of the merged files | \	est_regressions.Install.test_x3_merge_dry_run_prints_a_diff\ | fails |
+| 3.7.0 | An install with --allow-modified recorded the template's hashes, not those of the files it copied | \	est_regressions.Install.test_manifest_matches_written_files\ | fails |

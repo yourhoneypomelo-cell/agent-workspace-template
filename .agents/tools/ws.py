@@ -29,7 +29,7 @@ from wslib.core import READ_ONLY, WorkspaceError, configure_stdout, read, sessio
 
 READ_ONLY_COMMANDS = ('brief', 'turn', 'status', 'check', 'lint')
 from wslib.hooks import (  # noqa: E402,F401  (the tests use hook_settings, _commands, _is_ours, interpreter)
-    CLAUDE_SHAPED, HOSTS, _commands, _is_ours, enable_hooks, hook_settings, interpreter,
+    CLAUDE_SHAPED, HOSTS, _commands, _is_ours, disable_hooks, enable_hooks, hook_settings, interpreter,
 )
 from wslib.schema import VERSION  # noqa: E402
 
@@ -53,7 +53,7 @@ COMMANDS = '''commands:
   checkpoint --stop TEXT --next TEXT [--keep]   save and seal; releases the workspace unless --keep
   compact [--dry-run] [--prune-evidence]        move closed rows to CLOSED_ITEMS.md, roll logs
   snapshot --label NAME [PATHS]                 zip the documents before a large reorganization; no restore
-  hooks enable|show HOST     write hook settings: claude, codex, cursor, gemini, copilot, kiro, antigravity,
+  hooks enable|show|disable HOST  write or remove hook settings: claude, codex, cursor, gemini, copilot, kiro, antigravity,
                              grok, codebuddy, workbuddy, qoder, qwen; --python CMD sets the interpreter command
   capture --host H --event E read a hook payload on stdin and copy the transcript
   chats import HOST          copy this project's sessions from a local store: kimi, codex, antigravity,
@@ -61,7 +61,8 @@ COMMANDS = '''commands:
   reconcile [ID --ids R1,T2 | --reason "chat: ..."]   list user messages not yet matched to rows, or mark one
   lint                       advisory layout and wording checks for reusable documents
   tidy [--dry-run] [--force] remove template maintainer files an older install left here; add search ignore files
-  install --target DIR       copy this template into a project (from the template folder)
+  install --target DIR       copy this template into a project (from the template folder); --merge --dry-run --diff
+                             shows what merging would change
   export --output DIR        write a clean template copy and a zip
   migrate                    convert a continuity.v2 workspace in place
   release [--keep-old] [--skip-full REASON]   maintainer: gate, stamp, build and test dist/agent-workspace-<version>.zip
@@ -140,7 +141,7 @@ def parser() -> argparse.ArgumentParser:
     snap.add_argument('--label', required=True, help='for example before-docs-merge')
     snap.add_argument('--pin', action='store_true', help='never prune this snapshot')
     hooks = subs.add_parser('hooks')
-    hooks.add_argument('action', choices=('enable', 'show'))
+    hooks.add_argument('action', choices=('enable', 'show', 'disable'))
     hooks.add_argument('host', choices=HOSTS)
     hooks.add_argument('--python', metavar='CMD', help='interpreter command the hooks run, such as python3 or "py -3"; '
                        'by default the first of python, python3 and py -3 that is 3.10 or newer')
@@ -164,6 +165,7 @@ def parser() -> argparse.ArgumentParser:
     install.add_argument('--dry-run', action='store_true')
     install.add_argument('--merge', action='store_true', help='merge an existing AGENTS.md, CLAUDE.md and .gemini/settings.json')
     install.add_argument('--allow-modified', action='store_true')
+    install.add_argument('--diff', action='store_true', help='with --dry-run, print each merge as a diff')
     export = subs.add_parser('export')
     export.add_argument('--output', type=Path, required=True)
     export.add_argument('--allow-modified', action='store_true')
@@ -471,6 +473,8 @@ def main(argv=None) -> int:
             result = snapshot.take(root, args.label, args.paths, args.pin)
             print(json.dumps(result, ensure_ascii=False))
             print(f'Saved. Nothing restores it in place: extract with "{result["extract"]}", compare, copy back by hand.')
+        elif args.command == 'hooks' and args.action == 'disable':
+            disable_hooks(root, args.host)
         elif args.command == 'hooks':
             enable_hooks(root, args.host, args.action == 'show', args.python)
         elif args.command == 'capture':
@@ -525,8 +529,12 @@ def main(argv=None) -> int:
                 print(issue)
             print(f'Lint: {len(issues)} findings (advisory)')
         elif args.command == 'install':
-            result = distribution.install(TEMPLATE_ROOT, args.target, args.dry_run, args.merge, args.allow_modified)
+            result = distribution.install(TEMPLATE_ROOT, args.target, args.dry_run, args.merge, args.allow_modified,
+                                          args.diff)
+            diffs = result.pop('diff', {})
             print(json.dumps(result, ensure_ascii=False, indent=2))
+            for text in diffs.values():
+                print(text)
             if args.dry_run and result['conflicts']:
                 return 1
         elif args.command == 'export':

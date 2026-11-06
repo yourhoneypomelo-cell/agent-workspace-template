@@ -633,6 +633,51 @@ class Entry(Workspace):
         self.assertEqual(run('turn', '--hook', 'cursor').returncode, 0)
 
 
+class Install(Workspace):
+    def test_x3_hooks_disable_restores_the_settings_file(self):
+        self.init()
+        original = b'{\n    "permissions": {"allow": ["Bash(ls)"]}\n}\n'
+        (self.root / '.claude').mkdir()
+        (self.root / '.claude/settings.json').write_bytes(original)
+        self.ws('hooks', 'enable', 'claude')
+        self.assertIn('ws.py', self.read('.claude/settings.json'))
+        self.ws('hooks', 'disable', 'claude')
+        self.assertEqual((self.root / '.claude/settings.json').read_bytes(), original)
+        self.ws('hooks', 'enable', 'cursor')
+        self.ws('hooks', 'disable', 'cursor')
+        self.assertFalse((self.root / '.cursor/hooks.json').exists())
+
+    def test_x3_merge_dry_run_prints_a_diff(self):
+        target = self.parent / 'product'
+        target.mkdir()
+        (target / 'AGENTS.md').write_bytes(b'# Old rules\n\nUse tabs.\n')
+
+        def install(*flags):
+            return subprocess.run([sys.executable, str(TOOLS / 'ws.py'), 'install', '--target', str(target), '--merge', *flags],
+                                  env=ENV, capture_output=True, text=True, encoding='utf-8')
+        dry = install('--dry-run', '--diff')
+        self.assertIn('+++ AGENTS.md', dry.stdout)
+        self.assertIn('## Project rules', dry.stdout)
+        self.assertEqual(sorted(p.name for p in target.iterdir()), ['AGENTS.md'])
+        self.assertEqual(install().returncode, 0)
+        backups = list((target / 'docs/archive/install-backup').glob('*/AGENTS.md'))
+        self.assertEqual([b.read_bytes() for b in backups], [b'# Old rules\n\nUse tabs.\n'])
+
+    def test_manifest_matches_written_files(self):
+        import shutil
+        from wslib import distribution
+        source = self.parent / 'template'
+        shutil.copytree(TEMPLATE, source, ignore=shutil.ignore_patterns('.git', 'dist', 'cache'))
+        guide = source / '.agents/guides/HOSTS.md'
+        guide.write_bytes(guide.read_bytes() + b'\nA local note.\n')
+        target = self.parent / 'product'
+        distribution.install(source, target, allow_modified=True)
+        manifest = json.loads((target / schema.MANIFEST).read_text(encoding='utf-8'))
+        self.assertTrue(manifest.get('source_modified'))
+        for rel, value in manifest['files'].items():
+            self.assertEqual(core.sha((target / rel).read_bytes().replace(b'\r\n', b'\n')), value, rel)
+
+
 class Guarded(Workspace):
     def test_invalid_state_line_refuses_every_write(self):
         self.init()

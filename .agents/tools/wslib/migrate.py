@@ -8,7 +8,7 @@ from pathlib import Path
 
 from . import defaults, tables
 from .core import WorkspaceError, atomic_write, card_text, default_state, now, today, with_goal, with_state
-from .distribution import static_payload
+from .distribution import installed_manifest, static_payload
 from .schema import CLOSED, MANIFEST, NONE, SCHEMA, TABLES
 
 CARD = {'阶段': 'phase', '当前任务': 'current_task', '当前功能': 'current_feature', '停止点': 'stop_point',
@@ -168,7 +168,7 @@ def migrate(source: Path, target: Path, dry_run=False, force=False) -> dict:
     files['docs/state/HANDOFF.md'] = with_state(handoff, state)
     payload = static_payload(source, allow_modified=True)
     payload.update(files)
-    payload[MANIFEST] = _read(source / MANIFEST) or '{}\n'
+    payload[MANIFEST] = installed_manifest(source, payload)
     removals = [rel for rel in V2_SYSTEM if (target / rel).is_file()]
     report = {'target': str(target), 'writes': sorted(payload), 'removals': removals, 'closed_rows': moved,
               'goal': goal_text, 'backup': 'docs/archive/v2-backup/'}

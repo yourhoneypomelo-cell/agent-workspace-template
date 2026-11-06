@@ -212,14 +212,78 @@ def enable_hooks(root: Path, host: str, show: bool, python: str | None = None):
     if show:
         print(f'# {rel}\n{text}')
         return
+    backup = root / backup_path(rel)
+    if path.is_file() and not backup.exists() and without_ours(existing) == existing:
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        backup.write_bytes(path.read_bytes())
     atomic_write(path, text)
     print(json.dumps({'written': rel, 'host': host}))
     print('Hooks are active in new sessions. See .agents/guides/HOSTS.md for what each hook does.')
-    if rel in ADAPTERS:
-        from .upgrade import rebaseline
-        try:
-            rebaseline(root, [rel], f'hooks enable {host}: {rel} rewritten')
-            print(f'{rel} is also a watched project file; the workspace was released, so its checkpoint now holds it.')
-        except WorkspaceError:
-            print(f'{rel} is also a watched project file, so the workspace shows it as changed until "ws checkpoint" '
-                  'saves it.')
+    _settle(root, rel, f'hooks enable {host}: {rel} rewritten')
+
+
+# The settings file as it was before the first "hooks enable", so "hooks disable" can give it back byte for byte.
+HOOK_BACKUPS = 'docs/archive/hook-backups'
+
+
+def backup_path(rel: str) -> str:
+    return f'{HOOK_BACKUPS}/{rel.replace("/", "__")}'
+
+
+def without_ours(data: dict) -> dict:
+    """A settings object without this tool's hook entries and named groups."""
+    result = {k: v for k, v in data.items() if not k.startswith('workspace-')}
+    hooks = result.get('hooks')
+    if isinstance(hooks, list):
+        result['hooks'] = [item for item in hooks if not _is_ours(item)]
+    elif isinstance(hooks, dict):
+        kept = {event: [i for i in v if not _is_ours(i)] if isinstance(v, list) else v for event, v in hooks.items()}
+        result['hooks'] = {event: v for event, v in kept.items() if v != [] or hooks[event] == []}
+    return result
+
+
+def disable_hooks(root: Path, host: str):
+    """Take this tool's entries out of a host settings file. The file gets its bytes from before the first enable
+    back when nothing else changed since; a file left with no hooks at all is removed."""
+    rel = HOOK_FILES[host]
+    path, backup = root / rel, root / backup_path(rel)
+    if not path.is_file():
+        print(json.dumps({'removed': False, 'host': host, 'file': rel}))
+        return
+    try:
+        current = json.loads(path.read_text(encoding='utf-8') or '{}')
+    except ValueError as error:
+        raise WorkspaceError(f'{rel} is not valid JSON ({error}); fix it before disabling hooks')
+    if not isinstance(current, dict):
+        raise WorkspaceError(f'{rel} must hold a JSON object at the top level')
+    left = without_ours(current)
+
+    def bare(data: dict) -> dict:
+        return {k: v for k, v in data.items() if not (k == 'hooks' and not v)}
+    try:
+        saved = backup.read_bytes().decode('utf-8') if backup.is_file() else None
+        restored = saved is not None and bare(json.loads(saved or '{}')) == bare(left)
+    except ValueError:
+        saved, restored = None, False
+    if restored:
+        atomic_write(path, saved)
+    elif all(k == 'version' or (k == 'hooks' and not v) for k, v in left.items()):
+        path.unlink()
+    else:
+        atomic_write(path, json.dumps(left, indent=2) + '\n')
+    backup.unlink(missing_ok=True)
+    print(json.dumps({'removed': True, 'host': host, 'file': rel, 'restored': restored, 'deleted': not path.exists()}))
+    _settle(root, rel, f'hooks disable {host}: {rel} rewritten')
+
+
+def _settle(root: Path, rel: str, note: str):
+    """A hook file that is also a watched adapter goes into the checkpoint of a released workspace at once."""
+    if rel not in ADAPTERS:
+        return
+    from .upgrade import rebaseline
+    try:
+        rebaseline(root, [rel], note)
+        print(f'{rel} is also a watched project file; the workspace was released, so its checkpoint now holds it.')
+    except WorkspaceError:
+        print(f'{rel} is also a watched project file, so the workspace shows it as changed until "ws checkpoint" '
+              'saves it.')

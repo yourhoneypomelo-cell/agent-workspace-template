@@ -45,6 +45,22 @@ def static_payload(source: Path, allow_modified=False) -> dict:
     return payload
 
 
+def installed_manifest(source: Path, payload: dict) -> str:
+    """The manifest a project receives: hashes of the template files as copied, before any merge. ws upgrade compares
+    the project with it, so it records what was copied even when that differs from the template's own manifest."""
+    files = {rel: sha(payload[rel].encode('utf-8')) for rel in RUNTIME_FILES}
+    try:
+        recorded = json.loads((source / MANIFEST).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        recorded = {}
+    manifest = {'schema': 'template-manifest.v3', 'version': VERSION, 'created_at': recorded.get('created_at') or now(),
+                'files': files, 'maintainer_files': {rel: value for rel, value in (recorded.get('files') or {}).items()
+                                                     if rel in MAINTAINER_FILES}}
+    if any((recorded.get('files') or {}).get(rel) != value for rel, value in files.items()):
+        manifest['source_modified'] = True
+    return json.dumps(manifest, indent=1, sort_keys=True) + '\n'
+
+
 def plan(source: Path, target: Path, merge: bool, allow_modified: bool) -> dict:
     target = target.absolute()
     if target.resolve() == source.resolve() or target.resolve().is_relative_to(source.resolve()):
@@ -52,8 +68,9 @@ def plan(source: Path, target: Path, merge: bool, allow_modified: bool) -> dict:
     if target.exists() and not target.is_dir():
         raise WorkspaceError('the target must be a directory')
     payload = static_payload(source, allow_modified)
+    manifest = installed_manifest(source, payload)
     payload.update(defaults.documents())
-    payload[MANIFEST] = (source / MANIFEST).read_text(encoding='utf-8') if (source / MANIFEST).is_file() else '{}\n'
+    payload[MANIFEST] = manifest
     payload['.agents/.gitattributes'] = defaults.GITATTRIBUTES
     payload['.agents/.gitignore'] = '# Rebuildable hash cache and command lock.\ncache/\n'
     for rel in SEARCH_IGNORE:
@@ -97,10 +114,15 @@ def merged(rel: str, existing: str, ours: str) -> str:
     return json.dumps(data, indent=2) + '\n'
 
 
-def install(source: Path, target: Path, dry_run=False, merge=False, allow_modified=False) -> dict:
+def install(source: Path, target: Path, dry_run=False, merge=False, allow_modified=False, diff=False) -> dict:
     result = plan(source, target, merge, allow_modified)
     payload = result.pop('_payload')
     if dry_run:
+        if diff:
+            import difflib
+            result['diff'] = {rel: ''.join(difflib.unified_diff(
+                (Path(result['target']) / rel).read_text(encoding='utf-8').splitlines(keepends=True),
+                payload[rel].splitlines(keepends=True), f'{rel} (before)', rel)) for rel in result['merges']}
         return result
     if result['conflicts']:
         raise WorkspaceError('nothing was written. Conflicts:\n  ' + '\n  '.join(result['conflicts']) +
@@ -108,9 +130,16 @@ def install(source: Path, target: Path, dry_run=False, merge=False, allow_modifi
     root = Path(result['target'])
     # A failure part way leaves the target as it was: merged files get their old bytes, new files and folders go.
     originals = {rel: (root / rel).read_bytes() for rel in result['merges']}
-    folders = {p for rel in payload for p in (root / rel).parents if p.is_dir()}
+    # Each merged file is kept as it was, outside the watched files, so the merge can be undone by hand.
+    stamp = re.sub(r'[^0-9]', '', now())[:14]
+    backups = {f'docs/archive/install-backup/{stamp}/{rel}': data for rel, data in originals.items()}
+    folders = {p for rel in [*payload, *backups] for p in (root / rel).parents if p.is_dir()}
     written = []
     try:
+        for rel, data in backups.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_bytes(data)
+            written.append(rel)
         for rel, text in payload.items():
             atomic_write(root / rel, text)
             written.append(rel)
@@ -145,10 +174,12 @@ def tidy(root: Path, dry_run=False, force=False) -> dict:
     if (root / TEMPLATE_MARKER).is_file():
         raise WorkspaceError('this is the template checkout; its maintainer files belong here')
     manifest = json.loads((root / MANIFEST).read_text(encoding='utf-8')) if (root / MANIFEST).is_file() else {}
+    # Manifests from 3.7.0 on keep maintainer hashes apart; earlier ones list them among the files.
+    known = {**manifest.get('files', {}), **manifest.get('maintainer_files', {})}
     removed, kept, added = [], [], []
     for rel in maintainer_leftovers(root):
         text = (root / rel).read_text(encoding='utf-8', errors='replace').replace('\r\n', '\n')
-        if force or manifest.get('files', {}).get(rel) == sha(text.encode('utf-8')):
+        if force or known.get(rel) == sha(text.encode('utf-8')):
             removed.append(rel)
             if not dry_run:
                 (root / rel).unlink()

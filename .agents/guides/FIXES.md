@@ -116,3 +116,7 @@ every test named here exists.
 | 3.7.0 | An upgrade refuses a project whose .agents folder is a link | `test_upgrade.Upgrade.test_linked_agents_folder_is_refused` | guard |
 | 3.7.0 | upgrade --scan lists the workspaces under a folder and writes nothing | `test_upgrade.Upgrade.test_scan_lists_versions_and_writes_nothing` | guard |
 | 3.7.0 | A rebaseline cannot drop the entry of a project file, or of a file that still exists | `test_upgrade.Rebaseline.test_removed_entries_are_template_files_that_are_gone` | guard |
+| 3.7.0 | Nothing told a session that the host it runs in had no hooks in the project, so new sessions started without the brief | `test_doctor.Doctor.test_missing_hooks_of_the_host_that_runs_it` | fails |
+| 3.7.0 | Hooks that ran another folder's ws.py, as in a copied project, went unnoticed | `test_doctor.Doctor.test_hooks_that_run_another_projects_tool` | fails |
+| 3.7.0 | Tool files that differ from the installed manifest, a mix of two versions, went unnoticed | `test_doctor.Doctor.test_tool_files_that_differ_from_the_manifest` | fails |
+| 3.7.0 | ws doctor writes nothing and finds no problem in a sound project | `test_doctor.Doctor.test_a_healthy_project_has_no_problems_and_nothing_is_written` | guard |

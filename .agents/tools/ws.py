@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from wslib import capture, distribution, lint, migrate, ops, validate  # noqa: E402
 from wslib.core import READ_ONLY, WorkspaceError, configure_stdout, read, session_key  # noqa: E402
 
-READ_ONLY_COMMANDS = ('brief', 'turn', 'status', 'check', 'lint')
+READ_ONLY_COMMANDS = ('brief', 'turn', 'status', 'check', 'lint', 'doctor')
 from wslib.hooks import (  # noqa: E402,F401  (the tests use hook_settings, _commands, _is_ours, interpreter)
     CLAUDE_SHAPED, HOSTS, _commands, _is_ours, disable_hooks, enable_hooks, hook_settings, interpreter,
 )
@@ -60,6 +60,8 @@ COMMANDS = '''commands:
                              kiro, cursor, workbuddy, codebuddy, qoder, qwen, gemini, dsh
   reconcile [ID --ids R1,T2 | --reason "chat: ..."]   list user messages not yet matched to rows, or mark one
   lint                       advisory layout and wording checks for reusable documents
+  doctor [--json]            hooks, interpreter, session identity and tool files at a glance, each problem with its
+                             fix (read-only); exit 1 when a problem is found
   tidy [--dry-run] [--force] remove template maintainer files an older install left here; add search ignore files
   upgrade --target DIR       bring a project to this template version (from the new template folder); --dry-run
                              first, --rollback NAME to undo, --scan FOLDER to list the workspaces under a folder
@@ -168,6 +170,8 @@ def parser() -> argparse.ArgumentParser:
     install.add_argument('--merge', action='store_true', help='merge an existing AGENTS.md, CLAUDE.md and .gemini/settings.json')
     install.add_argument('--allow-modified', action='store_true')
     install.add_argument('--diff', action='store_true', help='with --dry-run, print each merge as a diff')
+    doctor = subs.add_parser('doctor', help='hooks, interpreter, session identity and tool files at a glance')
+    doctor.add_argument('--json', action='store_true')
     up = subs.add_parser('upgrade', help='bring a project to this template version; run from the new template folder')
     up.add_argument('--target', type=Path)
     up.add_argument('--dry-run', action='store_true', help='show the plan and write nothing')
@@ -543,6 +547,11 @@ def main(argv=None) -> int:
             for issue in issues:
                 print(issue)
             print(f'Lint: {len(issues)} findings (advisory)')
+        elif args.command == 'doctor':
+            from wslib import doctor
+            report = doctor.run(root)
+            print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else doctor.render(report), end='')
+            return 1 if report['problems'] else 0
         elif args.command == 'upgrade':
             from wslib import upgrade
             if args.scan:

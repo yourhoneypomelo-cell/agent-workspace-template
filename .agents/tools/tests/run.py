@@ -28,6 +28,7 @@ STATIC = ('test_static', 'test_core.Lint', 'test_distribution.Install.test_gener
 # test_workflow, test_session, test_capture, test_field, test_v36, test_review and test_reconcile run only in full:
 # together they take most of its twenty minutes. So do the classes of test_regressions that set up several windows.
 FAST = STATIC + ('test_core', 'test_distribution', 'test_tracking', 'test_nudge', 'test_messages', 'test_probes',
+                 'test_doctor',
                  *(f'test_regressions.{name}' for name in ('Imports', 'Locking', 'RetireMatching', 'Hooks', 'Evidence',
                                                           'Misc', 'Capture', 'Entry', 'Guarded')))
 

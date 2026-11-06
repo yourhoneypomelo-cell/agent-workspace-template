@@ -164,6 +164,15 @@ def guard_tasks(state: dict, ids, what='change') -> None:
                                  f'not {what} it. Ask the user; that session records its own tasks')
 
 
+def guard_retire(state: dict, identifier: str, tasks) -> None:
+    """Refuse retiring a requirement or feature that a task of another working session builds on."""
+    for label, scope in holders(state, exclude=label_of(state)):
+        taken = sorted(set(scope['tasks']) & set(tasks))
+        if taken:
+            raise WorkspaceError(f'{", ".join(taken)} builds on {identifier} and belongs to {label}, which is still working, '
+                                 f'so this session must not retire {identifier}. Ask the user; that session records its own tasks')
+
+
 def require_alone(state: dict, what: str) -> None:
     """Workspace-wide changes wait until no other session is working."""
     others = holders(state, exclude=label_of(state))

@@ -294,6 +294,7 @@ def note(root: Path, text: str):
 
 # Checkpoint
 def checkpoint(root: Path, stop: str, next_step: str, sets: list, keep: bool, writer=None, rev=None):
+    from .rows import card_fields, log_replaced, replaced_card_values
     stop, next_step = redact(' '.join(stop.split())), redact(' '.join(next_step.split()))
     if not stop or not next_step:
         raise WorkspaceError('--stop and --next need one-line descriptions')
@@ -408,6 +409,7 @@ SYNC_PENDING = '<!-- SYNC-PENDING -->'
 def sync_pending(root: Path, state: dict, owner: str, fields: dict, errors: list):
     """Save what a refused checkpoint can save: the card and one SESSION_LOG row. Nothing is sealed, the owner
     keeps the workspace, and check --ready keeps failing on the marker until the errors are fixed."""
+    from .rows import log_replaced, replaced_card_values
     log_replaced(root, replaced_card_values(card(root), fields))
     write(root, HANDOFF, card_text(read(root, HANDOFF), fields))
     logs.append(root, 'SESSION_LOG', {
@@ -427,6 +429,7 @@ def claims_working(state: dict) -> list:
 def parallel_checkpoint(root: Path, state: dict, label: str, stop: str, next_step: str, keep: bool):
     """Checkpoint of a parallel session: its own tasks are checked and its row in "Parallel sessions" is updated.
     The workspace seal and the card stay with the main session, so nothing another session works on is sealed."""
+    from .rows import log_replaced, replaced_card_values
     entry = state['claims'][label]
     mine = set(entry['scope']['tasks'])
     errors = [e for e in validate.validate(root, strict=True, sealing=True)
@@ -596,8 +599,18 @@ def compact(root: Path, dry_run: bool, prune: bool, writer=None, rev=None) -> di
     return report
 
 
-from .runs import SHELL_OPERATORS, acceptance_argv, previous_evidence, ship_features, verdict_text, verify  # noqa: E402,F401
-from .rows import (  # noqa: E402,F401
-    DETAIL_DIRS, add, card_fields, log_replaced, replaced_card_values, set_card, set_goal, set_row, similar_rows,
-    split_source, task_edits,
-)
+MOVED = {
+    'runs': ('SHELL_OPERATORS', 'acceptance_argv', 'previous_evidence', 'ship_features', 'verdict_text', 'verify'),
+    'rows': ('DETAIL_DIRS', 'add', 'card_fields', 'log_replaced', 'replaced_card_values', 'set_card', 'set_goal',
+             'set_row', 'similar_rows', 'split_source', 'task_edits'),
+}
+
+
+def __getattr__(name):
+    """Names that moved to runs.py and rows.py, loaded on first use: both import this module, so importing them here
+    at load time would break whichever of the three is imported first."""
+    for module, names in MOVED.items():
+        if name in names:
+            import importlib
+            return getattr(importlib.import_module(f'{__package__}.{module}'), name)
+    raise AttributeError(f'module {__name__} has no attribute {name}')

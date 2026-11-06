@@ -103,6 +103,14 @@ def add(root: Path, table_name: str, sets: list, source: str | None, writer=None
 DETAIL_DIRS = ('docs/specs/', 'docs/reports/')
 
 
+def builders(table: str, identifier: str, current: dict, tasks: dict) -> list:
+    """Tasks that build on a requirement or feature: the tasks whose Requirements cite the requirement, or the tasks
+    the feature lists in its Tasks column."""
+    if table == 'requirements':
+        return [rid for rid, row in tasks.items() if identifier in re.findall(r'\bR[1-9]\d*\b', row.get('Requirements', ''))]
+    return re.findall(r'\bT[1-9]\d*\b', (current.get(identifier) or {}).get('Tasks', ''))
+
+
 def set_row(root: Path, identifier: str, sets: list, source: str | None, writer=None, rev=None, move_detail=None):
     t = tables.table_for_id(identifier)
     sets, source = split_source(t, sets, source)
@@ -120,14 +128,12 @@ def set_row(root: Path, identifier: str, sets: list, source: str | None, writer=
         state = state_of(root)
         require_owner(root, state, writer, rev)
         from . import claims
+        current = {r['ID']: r for r in tables.rows(root, t)}
         if t.key == 'tasks':
             claims.guard_tasks(state, [identifier])
         elif t.key in ('requirements', 'features') and fields.get('Status') in t.retired:
             # Retiring a row that another session's claimed task builds on would pull the ground from under it.
-            cited = [rid for rid, row in claims.task_rows(root).items()
-                     if re.search(rf'\b{re.escape(identifier)}\b', row.get('Requirements', '') + ' ' + row.get('Scope', ''))]
-            claims.guard_tasks(state, cited, f'retire {identifier}, which a claimed task cites; the task')
-        current = {r['ID']: r for r in tables.rows(root, t)}
+            claims.guard_retire(state, identifier, builders(t.key, identifier, current, claims.task_rows(root)))
         if identifier not in current:
             closed = {r['ID'] for r in tables.closed_rows(root)}
             if identifier in closed:

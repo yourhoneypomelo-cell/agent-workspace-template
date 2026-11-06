@@ -87,6 +87,11 @@ The static tier checks that every test named here exists.
 | 3.6.7 | A waiting command deleted the lock of a live holder whose generation lagged after a takeover | `test_session.SessionIdentity.test_live_lock_is_not_reclaimed_even_with_an_older_generation` | fails |
 | 3.6.7 | Leaving the lock deleted it even after another process had taken it | `test_regressions.Locking.test_l1_release_keeps_a_lock_that_is_not_ours` | fails |
 | 3.6.7 | On Windows a process this user may not open was taken for dead, so its lock was reclaimed | `test_regressions.Locking.test_access_denied_counts_as_alive` | fails |
+| 3.6.7 | Retiring a requirement that another session's claimed task cites was allowed, then refused with a broken sentence | `test_regressions.Retire.test_p1_retire_requirement_cited_by_claimed_task_is_refused` | fails |
+| 3.6.7 | Retiring a feature whose Tasks column holds another session's claimed task was allowed | `test_regressions.Retire.test_p1_retire_feature_whose_tasks_column_holds_claimed_task_is_refused` | fails |
+| 3.6.7 | Retiring what only your own task builds on stays allowed | `test_regressions.Retire.test_retiring_what_only_your_own_task_builds_on_is_allowed` | guard |
+| 3.6.7 | R1 matches neither R10 nor R12, T2 not T12 | `test_regressions.RetireMatching.test_r1_does_not_match_r10` | guard |
+| 3.6.7 | Importing `wslib.rows` or `wslib.runs` before `wslib.ops` failed with a circular import | `test_regressions.Imports.test_every_module_imports_alone` | fails |
 
 ## Release
 

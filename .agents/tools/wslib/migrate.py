@@ -112,10 +112,11 @@ def migrate(source: Path, target: Path, dry_run=False, force=False) -> dict:
         live = []
         for row in rows:
             if row['Status'] in t.closed and row['ID'] not in keep_live:
-                closed_text = tables.append(closed_text, tables.CLOSED_HEADERS, CLOSED, {
-                    'ID': row['ID'], 'Status': row['Status'], 'Summary': row.get(t.summary, ''),
-                    'Reason': row.get('Reason', NONE), 'Replacement': row.get('Replacement', NONE),
-                    'Evidence': row.get('Evidence', NONE), 'Closed': today()})
+                entry = tables.closed_entry(t, row, NONE, today())
+                if entry['Evidence'].lower() != NONE:
+                    # Verified under continuity.v2 and never run again in v3, so coverage counts it apart.
+                    entry['Evidence'] = 'v2: ' + entry['Evidence']
+                closed_text = tables.append(closed_text, tables.CLOSED_HEADERS, CLOSED, entry)
                 moved.append(row['ID'])
                 continue
             if key == 'tasks' and row['Status'] == 'done':

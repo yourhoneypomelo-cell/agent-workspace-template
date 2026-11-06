@@ -591,6 +591,19 @@ def orphaned(live: dict, closed_ids: set) -> list:
     return result
 
 
+def _prefix_ids(summary: str) -> list:
+    """The requirement IDs of a closed task: the "R1, R2: " prefix of its summary. "Implement R1 (leave R2 for later)"
+    does not verify R2."""
+    found = re.match(r'^((?:R[1-9]\d*)(?:,\s*R[1-9]\d*)*):\s', summary or '')
+    return re.findall(r'R[1-9]\d*', found[1]) if found else []
+
+
+def v2_cited(closed: list | None) -> set:
+    """Requirements that closed tasks verified under continuity.v2, which were never run again in v3."""
+    return {rid for row in closed or [] if row['ID'].startswith('T') and row.get('Evidence', '').startswith('v2:')
+            for rid in _prefix_ids(row.get('Summary', ''))}
+
+
 def requirement_coverage(live: dict, closed: list | None = None) -> tuple:
     """(verified, total, unverified IDs): an active requirement counts when a done task with evidence cites it and
     no open task cites it, because an open task means part of the requirement is still unbuilt.
@@ -604,8 +617,9 @@ def requirement_coverage(live: dict, closed: list | None = None) -> tuple:
         elif task['Status'] in OPEN_TASK:
             pending |= set(_cited(task.get('Requirements', '')))
     for row in closed or []:
-        if row['ID'].startswith('T') and row.get('Status') == 'done' and row.get('Evidence', 'none').lower() != 'none':
-            proven |= set(_cited(row.get('Summary', '') + ' ' + row.get('Reason', '')))
+        evidence = row.get('Evidence', 'none')
+        if row['ID'].startswith('T') and row.get('Status') == 'done' and evidence.lower() != 'none' and not evidence.startswith('v2:'):
+            proven |= set(_prefix_ids(row.get('Summary', '')))
     missing = [rid for rid in active if rid not in proven or rid in pending]
     return len(active) - len(missing), len(active), missing
 

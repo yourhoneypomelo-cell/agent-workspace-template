@@ -99,6 +99,17 @@ def closed_rows(root: Path) -> list:
     return parse(upgrade_closed(read(root, CLOSED)), CLOSED_HEADERS, CLOSED)
 
 
+def closed_entry(t: Table, row: dict, full: str, closed: str) -> dict:
+    """The CLOSED_ITEMS row for a closed row of table t. A task's summary starts with its requirement IDs: once the
+    task is closed, requirement coverage reads them from there and nowhere else."""
+    from .ops import short
+    cited = row.get('Requirements', NONE) if t.key == 'tasks' else NONE
+    return {'ID': row['ID'], 'Status': row['Status'],
+            'Summary': short(('' if cited.lower() == NONE else f'{cited}: ') + row.get(t.summary, ''), 200),
+            'Reason': short(row.get('Reason') or row.get('Answer') or NONE, 160),
+            'Replacement': row.get('Replacement', NONE), 'Evidence': row.get('Evidence', NONE), 'Closed': closed, 'Row': full}
+
+
 def render_row(headers: tuple, row: dict) -> str:
     return '| ' + ' | '.join(escape_cell(row.get(h, NONE)) or NONE for h in headers) + ' |'
 

@@ -605,12 +605,8 @@ def compact(root: Path, dry_run: bool, prune: bool, writer=None, rev=None) -> di
                 full = closed_row_path(row['ID'])
                 archived_rows[full] = closed_row_text(t, row)
                 if row['ID'] not in already:
-                    closed_text = tables.append(closed_text, tables.CLOSED_HEADERS, CLOSED, {
-                        'ID': row['ID'], 'Status': row['Status'],
-                        'Summary': short((f'{row["Requirements"]}: ' if t.key == 'tasks' else '') + row[t.summary], 200),
-                        'Reason': short(row.get('Reason') or row.get('Answer') or NONE, 160),
-                        'Replacement': row.get('Replacement', NONE), 'Evidence': row.get('Evidence', NONE),
-                        'Closed': today(), 'Row': full})
+                    closed_text = tables.append(closed_text, tables.CLOSED_HEADERS, CLOSED,
+                                                tables.closed_entry(t, row, full, today()))
                 moved.append(row['ID'])
             changes[t.file] = tables.remove(text, t.headers, t.file, {r['ID'] for r in closed_rows})
         if moved:

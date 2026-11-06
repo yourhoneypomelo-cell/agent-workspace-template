@@ -13,7 +13,30 @@ from wslib import defaults, distribution, migrate, tables
 from wslib.core import WorkspaceError, state_of
 from wslib.schema import MAINTAINER_FILES, MANIFEST, SEARCH_IGNORE, SELFTEST, STATIC_FILES, TABLES, VERSION
 
-V2_BACKUP = Path(os.environ.get('WS_V2_FIXTURE', TEMPLATE.parent / 'agent-workspace-template-v2.3.3.backup-20261031'))
+# A real continuity.v2 copy for the migration tests; without it they use the synthetic workspace below.
+V2_BACKUP = os.environ.get('WS_V2_FIXTURE')
+V2_TODO = ('# TODO\n\n<!-- CONTINUITY:START -->\n{"schema": "continuity.v2", "mode": "bootstrap", "revision": 0, '
+           '"writer": null}\n<!-- CONTINUITY:END -->\n\n<!-- HANDOFF:START -->\n当前任务：无\n当前功能：无\n'
+           '停止点：the todo CLI lists and adds items\n<!-- HANDOFF:END -->\n')
+
+
+def v2_workspace(target: Path):
+    """A continuity.v2 workspace shaped like the v2.3.5 release, with no rows. Every value is made up."""
+    files = {
+        'docs/state/TODO.md': V2_TODO,
+        'docs/state/REQUIREMENTS.md': '# Requirements\n\n<!-- GOAL:START -->\n<!-- GOAL:END -->\n\n'
+                                      '| ID | 状态 | 需求 | 验收 | 详情 | 原因 |\n| --- | --- | --- | --- | --- | --- |\n',
+        'docs/state/TASKS.md': '# Tasks\n\n| ID | 状态 | 需求 | 范围 | 动作 | 验收 | 依赖 | 证据 | 原因 |\n'
+                               '| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n',
+        'docs/state/FEATURES.md': '# Features\n\n| ID | 状态 | 行为 | 需求 | 任务 | 原因 | 替代 |\n'
+                                  '| --- | --- | --- | --- | --- | --- | --- |\n',
+        'docs/state/PREFERENCES.md': '# Preferences\n\n| ID | 偏好 | 来源 | 证据 | 置信度 |\n| --- | --- | --- | --- | --- |\n',
+        'docs/chats/CURRENT.md': '# Current\n',
+        'scripts/continuity.py': '# v2 script\n',
+    }
+    for rel, text in files.items():
+        (target / rel).parent.mkdir(parents=True, exist_ok=True)
+        (target / rel).write_bytes(text.encode('utf-8'))
 
 
 class Install(Workspace):
@@ -235,11 +258,13 @@ class Release(Workspace):
         self.assertEqual(result['self_tests']['full']['tests'], 290)
 
 
-@unittest.skipUnless((V2_BACKUP / 'docs/state/TODO.md').is_file(), 'continuity.v2 backup not available')
 class Migration(Workspace):
     def v2_project(self):
         target = self.parent / 'v2'
-        shutil.copytree(V2_BACKUP, target)
+        if V2_BACKUP:
+            shutil.copytree(V2_BACKUP, target)
+        else:
+            v2_workspace(target)
         todo = target / 'docs/state/TODO.md'
         text = todo.read_text(encoding='utf-8').replace('"mode": "bootstrap"', '"mode": "active"').replace('"revision": 0', '"revision": 7')
         todo.write_text(text.replace('当前任务：无', '当前任务：T2'), encoding='utf-8')
@@ -275,6 +300,27 @@ class Migration(Workspace):
         self.assertFalse((target / 'docs/state/TODO.md').exists())
         from wslib.validate import validate
         self.assertEqual(validate(target, sealing=True), [])
+
+    def test_14_migrated_closed_tasks_keep_requirement_ids(self):
+        target = self.v2_project()
+        migrate.migrate(TEMPLATE, target)
+        closed = {r['ID']: r for r in tables.closed_rows(target)}
+        self.assertTrue(closed['T1']['Summary'].startswith('R1: '), closed['T1'])
+        self.assertEqual(closed['T1']['Evidence'], 'v2: docs/archive/checks/x.json')
+
+    def test_s4_coverage_reads_only_the_requirement_prefix(self):
+        from wslib import coverage
+        live = {'requirements': [{'ID': 'R1', 'Status': 'active'}, {'ID': 'R2', 'Status': 'active'}], 'tasks': []}
+        closed = [{'ID': 'T1', 'Status': 'done', 'Summary': 'R1: Implement R1 (leave R2 for later)',
+                   'Reason': 'R2 needs a decision', 'Evidence': 'docs/archive/checks/a.json'}]
+        self.assertEqual(coverage.requirement_coverage(live, closed), (1, 2, ['R2']))
+
+    def test_v2_closed_rows_are_counted_apart(self):
+        from wslib import coverage
+        live = {'requirements': [{'ID': 'R1', 'Status': 'active'}], 'tasks': []}
+        closed = [{'ID': 'T1', 'Status': 'done', 'Summary': 'R1: add', 'Reason': 'none', 'Evidence': 'v2: checks/x.json'}]
+        self.assertEqual(coverage.requirement_coverage(live, closed), (0, 1, ['R1']))
+        self.assertEqual(coverage.v2_cited(closed), {'R1'})
 
     def test_migration_refuses_owned_workspace_unless_forced(self):
         target = self.v2_project()

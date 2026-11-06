@@ -323,8 +323,10 @@ def brief(root: Path, sid=None) -> str:
     lines.append('Recorded: ' + ', '.join(f'{number[k]} {k}' for k in coverage.COUNTED))
     verified, total, missing = coverage.requirement_coverage(live, data.get('closed'))
     if total:
+        v2 = [rid for rid in missing if rid in coverage.v2_cited(data.get('closed'))]
         lines.append(f'Requirements verified: {verified}/{total}' +
-                     (f' (not yet: {", ".join(missing[:8])}{" and more" if len(missing) > 8 else ""})' if missing else ''))
+                     (f' (not yet: {", ".join(missing[:8])}{" and more" if len(missing) > 8 else ""})' if missing else '') +
+                     (f'; verified under v2 only, not run again in v3: {", ".join(v2[:8])}' if v2 else ''))
     lines += coverage.inferred_line(root, live)
     lines.append('')
     lines.append('## Handoff')

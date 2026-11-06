@@ -96,3 +96,6 @@ every test named here exists.
 | 3.7.0 | There was no way to take the tool's hooks out of a host settings file | `test_regressions.Install.test_x3_hooks_disable_restores_the_settings_file` | fails |
 | 3.7.0 | `install --merge` showed no preview of a merge and kept no copy of the merged files | `test_regressions.Install.test_x3_merge_dry_run_prints_a_diff` | fails |
 | 3.7.0 | An install with --allow-modified recorded the template's hashes, not those of the files it copied | `test_regressions.Install.test_manifest_matches_written_files` | fails |
+| 3.7.0 | Migrated v2 tasks lost their requirement IDs in CLOSED_ITEMS, so coverage dropped after a migration | `test_distribution.Migration.test_14_migrated_closed_tasks_keep_requirement_ids` | fails |
+| 3.7.0 | Coverage counted every requirement ID anywhere in a closed task's text, so "leave R2 for later" verified R2 | `test_distribution.Migration.test_s4_coverage_reads_only_the_requirement_prefix` | fails |
+| 3.7.0 | Tasks verified under continuity.v2 counted as verified in v3 without a run | `test_distribution.Migration.test_v2_closed_rows_are_counted_apart` | fails |

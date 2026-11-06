@@ -43,7 +43,8 @@ T0 = ('AGENTS.md', 'docs/state/HANDOFF.md', 'docs/state/REQUIREMENTS.md', 'docs/
 T1 = T0 + ('docs/state/FEATURES.md', 'docs/state/TASKS.md', 'docs/state/ARCHITECTURE.md', 'docs/state/DESIGN.md')
 
 LIB_MODULES = ('__init__', 'schema', 'core', 'tables', 'evidence', 'logs', 'validate', 'views', 'ops', 'capture', 'nudge', 'words', 'coverage',
-               'reconcile', 'runs', 'rows', 'claims', 'distribution', 'defaults', 'lint', 'migrate', 'snapshot', 'dsh', 'verifying', 'retired')
+               'reconcile', 'runs', 'rows', 'claims', 'distribution', 'defaults', 'lint', 'migrate', 'snapshot', 'dsh', 'verifying', 'retired',
+               'hooks')
 TEST_MODULES = ('support', 'test_core', 'test_workflow', 'test_distribution', 'test_reconcile', 'test_capture', 'test_tracking',
                 'test_nudge', 'test_review', 'test_session', 'test_messages', 'test_probes', 'test_v36', 'test_field',
                 'test_static', 'test_regressions', 'run')

@@ -1,5 +1,5 @@
 {
- "created_at": "2026-11-06T20:08:49+00:00",
+ "created_at": "2026-11-06T20:12:39+00:00",
  "files": {
   ".agents/README.md": "e339e27d20c0874353796a72add8121a698b1878977ff659198509c7a16fc012",
   ".agents/TEMPLATE_CHECKOUT.md": "b8c8e0fc07afbbe432393e09de5fa0f2d82cef9632f7bf9296288e5d26f4265e",
@@ -43,7 +43,7 @@
   ".agents/tools/tests/test_tracking.py": "6845abc0267d8f2ae6db70e8c336df4b42464120d2f231162d668ff4eb06caec",
   ".agents/tools/tests/test_v36.py": "5bfa71e9e3f464afabe829fec3f7b4df58e5ccd7c0594a7a14b51f8c712fa251",
   ".agents/tools/tests/test_workflow.py": "a0e263df011f0115c5085c53196897d15d99168f3320918984a68b9ff7a47b40",
-  ".agents/tools/ws.py": "5293ed08978132f6f5f0bcd92db1bce147ee429ee02ec3d65ec865d8bab3c7b0",
+  ".agents/tools/ws.py": "8d90b2e1b76b4d46e183c7e467840775df9616faaad65ecc21da94c6a927fab2",
   ".agents/tools/wslib/__init__.py": "94a2e392b5b4221525e6cf36d5f417338fa3198da853aa579f03aef97cd27808",
   ".agents/tools/wslib/capture.py": "5d661bf711061d005957ce4d489d104876d7b3b4a65057db6a6207d810bb52d4",
   ".agents/tools/wslib/claims.py": "fc4b2a988495975d9d0a6e25a63db9d97a559fe418bd70685bdac16623c729f7",
@@ -53,6 +53,7 @@
   ".agents/tools/wslib/distribution.py": "30b9b7aea6f017dbb30f79994c698a17dd21c2c03bb980c0e6e7d32d59186bc4",
   ".agents/tools/wslib/dsh.py": "3627bcf93d102c20adb951401f7c6c27256cbd8f92ac00a7dc723d073c0e6e58",
   ".agents/tools/wslib/evidence.py": "3cf5d16694dd8033ebc5b1c09b79dc4f425fda5a1fceedce9d7d79b3d4c554f2",
+  ".agents/tools/wslib/hooks.py": "612010d481b2a3d22e456a83f1bf25a0ad2be43fe87b290bc437e976d0c4df40",
   ".agents/tools/wslib/lint.py": "4b40bf5d1897081041b2941a826d91d6b203ab99e1bee27c790db1e595398ea2",
   ".agents/tools/wslib/logs.py": "99d6535ac2653576fa195f43ac521f4273490e097af56ba27ec39dbab5a49a9a",
   ".agents/tools/wslib/migrate.py": "8dc83ff257e9aa048247beac9f4b6ddfa829d549221d550aceef7098321f8bb8",
@@ -62,7 +63,7 @@
   ".agents/tools/wslib/retired.py": "34d060048f154126f1e0c3d3cdf7e3bed21d8db0c0223700b7969a073b73dbb3",
   ".agents/tools/wslib/rows.py": "b37267412f6ccb420d8e696ba66310ae2867b2f3fef5fce607ccefb14c7decdc",
   ".agents/tools/wslib/runs.py": "1b7ef247c86c10f27ee7a048df48350ea23299daaf8d999140817f051b371154",
-  ".agents/tools/wslib/schema.py": "e9118170d180d1a39390c9e4d924bcd801f79b4b765908c98a8fe380f987c670",
+  ".agents/tools/wslib/schema.py": "83ba6d13c0b3d5b1c275ee9a71570af0217e0cdd0f237eb15e9e5aec796a2639",
   ".agents/tools/wslib/snapshot.py": "c608534c7b232820deb89f7ab1255174b03b8a05951aa774e716066acae3aced",
   ".agents/tools/wslib/tables.py": "f7e24c0bbc07135f2cc20b7ea4fae6d08f84e74f787bb5f9b25830ce9014b6ad",
   ".agents/tools/wslib/validate.py": "50b591e050fee7864fd39deabd93e7efea551b357caa6fe26446eddc3ae17c9b",

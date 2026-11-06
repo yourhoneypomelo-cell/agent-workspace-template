@@ -452,7 +452,7 @@ def hook_turn(root: Path, host: str):
     try:
         text = ops.turn_context(root)
     except Exception:  # a hook must never break the host session
-        text = ops.TURN_REMINDER
+        text = ops.turn_reminder(root)
     taken = taken_over(root, payload, host)
     if taken:
         text = taken + '\n\n' + text

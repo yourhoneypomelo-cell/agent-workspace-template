@@ -16,7 +16,9 @@ from .core import (
 )
 from .schema import CARD_FIELDS, CHECKPOINTS_KEPT, CLOSED, NEEDS_REASON, HANDOFF, LOG_NAMES, NONE, REQUIREMENTS, SCHEMA, TABLES
 from .retired import RETIRE_AS, retired_match, retired_nearest
-from .views import INIT_CARD, TURN_REMINDER, brief, recent_minutes, stale_card_fields, status, turn_context  # noqa: F401  (re-exported)
+from .views import (  # noqa: F401  (re-exported)
+    INIT_CARD, TURN_REMINDER, brief, recent_minutes, stale_card_fields, status, turn_context, turn_reminder,
+)
 
 SUMMARY_LIMIT = 160
 

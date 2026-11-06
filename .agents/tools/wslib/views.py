@@ -29,18 +29,33 @@ def stale_card_fields(fields: dict, root: Path) -> list:
     return [k for k, v in INIT_CARD.items() if fields.get(k) == v]
 
 
-TURN_REMINDER = ('Workspace rule for this turn: requirements, changes, decisions, preferences and open questions in the '
-                 'user message are recorded with "python .agents/tools/ws.py add ..." or "ws set ..." before other work, '
-                 'because the next session sees only the files. They include corrections ("no, not that"), prohibitions '
-                 '("do not touch X"), rules on how to work, a requirement inside a question and an accepted unusual '
-                 'choice. A restatement of your own is not one. '
-                 'Clear requirements get an ID now; only open details go to the Idea pool. Passwords and keys the user sent '
-                 'are never repeated or written to a file.')
+TURN_RULE = ('Workspace rule for this turn: requirements, changes, decisions, preferences and open questions in the '
+             'user message are recorded with "python .agents/tools/ws.py add ..." or "ws set ..." before other work, '
+             'because the next session sees only the files. They include corrections ("no, not that"), prohibitions '
+             '("do not touch X"), rules on how to work, a requirement inside a question and an accepted unusual '
+             'choice. A restatement of your own is not one. '
+             'Clear requirements get an ID now; only open details go to the Idea pool.')
+# The last sentence follows the "credentials" setting in ARCHITECTURE.md (PROTOCOL.md, "Credentials").
+CREDENTIAL_SENTENCES = {
+    'ask': 'Passwords and keys the user sent are never repeated or written to a file.',
+    'redact': 'Passwords and keys the user sent are never repeated or written to a file; name the variable or file '
+              'that holds each one.',
+    'plain': 'Passwords and keys the user sent are kept as written, where the user said they go.',
+}
+TURN_REMINDER = TURN_RULE + ' ' + CREDENTIAL_SENTENCES['ask']
+
+
+def turn_reminder(root: Path) -> str:
+    try:
+        mode = config(root)['credentials']
+    except (WorkspaceError, ValueError, OSError):
+        mode = 'ask'
+    return TURN_RULE + ' ' + CREDENTIAL_SENTENCES.get(mode, CREDENTIAL_SENTENCES['ask'])
 
 
 def turn_context(root: Path) -> str:
     """Per-turn reminder for prompt-submit hooks: the rule plus the current task and open questions."""
-    parts = [TURN_REMINDER]
+    parts = [turn_reminder(root)]
     try:
         info = status(root)
         if info['mode'] == 'bootstrap':

@@ -441,6 +441,15 @@ class Misc(Workspace):
                       '--set', 'risks=none known yet', '--set', 'next_acceptance=T1 has an acceptance command').stdout
         self.assertNotIn('findings in the state files changed this session', out)
 
+    def test_u63_turn_reminder_follows_the_credential_rule(self):
+        self.init()
+        text = self.read('docs/state/ARCHITECTURE.md').replace('"credentials": "ask"', '"credentials": "plain"')
+        self.write('docs/state/ARCHITECTURE.md', text)
+        out = json.loads(self.ws('turn', '--hook', 'claude', stdin=json.dumps({'prompt': 'go on'})).stdout)
+        context = out['hookSpecificOutput']['additionalContext']
+        self.assertNotIn('never repeated or written to a file', context)
+        self.assertIn('kept as written', context)
+
     def test_h4_codex_session_end_has_a_timeout(self):
         import ws
         self.assertEqual(ws.hook_settings('codex')[1]['hooks']['SessionEnd'][0]['hooks'][0]['timeout'], 3)

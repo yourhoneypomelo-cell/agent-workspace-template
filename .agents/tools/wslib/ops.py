@@ -159,24 +159,25 @@ def start(root: Path, writer: str | None, force: bool, reason: str | None, sessi
         cfg = config(root)
         previous = state.get('writer')
         mine = session_identity(session)
+        from . import claims
+        notes = []
         if previous and (writer == previous and not other_session(state, mine) or not writer and same_session(state, mine)):
             if tasks:
-                from .claims import scope_of
-                state['scope'] = scope_of(root, list(tasks))
+                state['scope'] = claims.rescope(root, state, previous, tasks, force, reason, notes) or state.get('scope')
                 save_state(root, state)
             emit({'writer': previous, 'revision': state['revision'], 'resumed': True})
-            print('Same session resumed; continue the recorded next step.')
+            print('\n'.join(['Same session resumed; continue the recorded next step.', *notes]))
             return
-        from . import claims
         own = claims.caller(state, writer)
         if own not in (None, 'primary'):
             entry = state['claims'][own]
             if tasks:
-                entry['scope'] = claims.scope_of(root, list(tasks))
+                entry['scope'] = claims.rescope(root, state, own, tasks, force, reason, notes) or entry['scope']
             entry['last_write_at'] = now()
             save_state(root, state)
             emit({'writer': own, 'revision': state['revision'], 'resumed': True, 'parallel': True})
-            print('Same parallel session resumed; continue its next step in "Parallel sessions" of HANDOFF.md.')
+            print('\n'.join(['Same parallel session resumed; continue its next step in "Parallel sessions" of HANDOFF.md.',
+                             *notes]))
             return
         working = claims.holders(state)
         if working and (tasks or not force):
@@ -196,11 +197,7 @@ def start(root: Path, writer: str | None, force: bool, reason: str | None, sessi
                     '"ws start --task <ID>". If the user says that conversation is finished, add --force --reason '
                     '"<what the user said>"')
             if found and not force:
-                raise WorkspaceError(
-                    f'this claim collides with work in progress: {claims.clash_text(found)}. Ask the user. To claim '
-                    'other tasks, run "ws start --task <ID>" for tasks whose Scope names other paths and resources. '
-                    'If the user says the other session is finished or may be overridden, add '
-                    '--force --reason "<what the user said>"')
+                raise WorkspaceError(claims.collision(found))
             label = writer or writer_label()
             state['claims'] = state.get('claims') or {}
             state['claims'][label] = {
@@ -246,8 +243,10 @@ def start(root: Path, writer: str | None, force: bool, reason: str | None, sessi
         state.update(writer=writer, revision=state['revision'] + 1, writer_revision=state['revision'] + 1, claimed_at=now(),
                      session=mine, released=None, last_write_at=now(), host=mine_host,
                      scope=claims.scope_of(root, list(tasks)) if tasks else None)
-        # Claims whose windows have gone are released; the brief and start listed their unsaved files.
-        state['claims'] = {k: v for k, v in (state.get('claims') or {}).items() if claims.alive(v)} or None
+        # Claims whose windows have gone are dropped; the brief and start listed their unsaved files. Released rows
+        # stay until the next seal, so the new owner reads where those sessions stopped.
+        state['claims'] = {k: v for k, v in (state.get('claims') or {}).items()
+                           if claims.alive(v) or v.get('released_at')} or None
         save_state(root, state)
         if previous or drift_count(changes):
             detail = f'{previous or "none"} -> {writer}; unsaved changes: {describe_drift(changes, 8)}'
@@ -327,12 +326,12 @@ def checkpoint(root: Path, stop: str, next_step: str, sets: list, keep: bool, wr
         revision = state['revision']
         from . import claims
         if owner in (state.get('claims') or {}):
-            state = parallel_checkpoint(root, state, owner, stop, next_step, keep)
+            state, others, last = parallel_checkpoint(root, state, owner, stop, next_step, keep)
             parallel = True
         else:
             parallel = False
     if parallel:
-        return finish_parallel(root, state, owner, keep)
+        return finish_parallel(root, state, owner, keep, others, last)
     with lock(root):
         state = state_of(root)
         # --rev was checked under the first lock, where a resume may have moved the revision.
@@ -449,24 +448,36 @@ def claims_working(state: dict) -> list:
 
 def parallel_checkpoint(root: Path, state: dict, label: str, stop: str, next_step: str, keep: bool):
     """Checkpoint of a parallel session: its own tasks are checked and its row in "Parallel sessions" is updated.
-    The workspace seal and the card stay with the main session, so nothing another session works on is sealed."""
+    The workspace seal and the card stay with the main session, so nothing another session works on is sealed.
+    Returns the state, the validation errors outside this session's tasks, and whether it was the last to leave."""
     from .rows import log_replaced, replaced_card_values
     entry = state['claims'][label]
     mine = set(entry['scope']['tasks'])
-    errors = [e for e in validate.validate(root, strict=True, sealing=True)
-              if set(re.findall(r'\bT[1-9]\d*\b', e)) & mine]
+    found = validate.validate(root, strict=True, sealing=True)
+    errors = [e for e in found if set(re.findall(r'\bT[1-9]\d*\b', e)) & mine]
     if errors:
         raise WorkspaceError('checkpoint refused; fix these first:\n  ' + '\n  '.join(errors))
+    try:
+        edits = coverage.hand_edits(root, validate.gather(root)['live'], checkpoint_of(root, state))
+    except (WorkspaceError, ValueError, OSError):
+        edits = []  # a broken table or checkpoint is among the errors found above
+    for rid, field, value in edits:
+        if rid in mine:
+            logs.append(root, 'CHANGE_LOG', {'ID': rid, 'Event': f'{field.lower()} edited outside ws',
+                                             'Detail': short('was: ' + value), 'Source': 'checkpoint'})
     entry.update(stop_point=stop, next_step=next_step, last_write_at=now())
     logs.append(root, 'SESSION_LOG', {'Writer': label, 'Stop point': short(stop, 200), 'Next step': short(next_step, 200),
                                       'Verification': 'parallel', 'Changes': short('tasks ' + (', '.join(sorted(mine)) or 'none'), 240)})
+    last = False
     if not keep:
         # The row stays, marked released, so the next session reads where this one stopped. It no longer holds
         # anything: its scope is cleared, so nobody is refused because of it.
         entry.update(released_at=now(), scope={'tasks': [], 'paths': [], 'resources': []}, released_tasks=sorted(mine))
-        if not state.get('writer') and not claims_working(state):
+        last = not state.get('writer') and not claims_working(state)
+        if last and not found:
             # The last session to leave hands over the whole workspace: its stop point and next step go on the
             # card, the parallel rows go (their stop points are in SESSION_LOG), and the workspace is sealed.
+            # With errors anywhere it only releases: a seal would make them part of the accepted state.
             fields = {'stop_point': stop, 'next_step': next_step}
             log_replaced(root, replaced_card_values(card(root), fields))
             write(root, HANDOFF, card_text(read(root, HANDOFF), fields))
@@ -476,21 +487,27 @@ def parallel_checkpoint(root: Path, state: dict, label: str, stop: str, next_ste
             state['checkpoint'] = seal(root, label, state)
     state['revision'] += 1
     save_state(root, state)
-    return state
+    return state, found, last
 
 
-def finish_parallel(root: Path, state: dict, label: str, keep: bool):
+def finish_parallel(root: Path, state: dict, label: str, keep: bool, others: list, last: bool):
     """Report of a parallel checkpoint, after the lock is released, so the READY check sees the final files."""
     emit({'revision': state['revision'], 'writer': label, 'parallel': True, 'released': not keep})
-    if keep:
-        print('Saved. Your row in "Parallel sessions" of HANDOFF.md holds the stop point and next step.')
-    elif state.get('writer') or state.get('claims'):
-        print('Released. Your row in "Parallel sessions" of HANDOFF.md holds the stop point until the other sessions '
-              'finish; the last one to leave seals the workspace.')
-    else:
+    if last and others:
+        print('NOT READY: you were the last session working, and the workspace was released without a seal because '
+              'of these errors outside your tasks. The next session fixes them and checkpoints:\n  ' + '\n  '.join(others))
+        return
+    if last:
         ready = validate.semantics(root, ready=True)
         print('NOT READY:\n  ' + '\n  '.join(ready) if ready else
               'READY. You were the last session working; the card now holds your stop point and next step.')
+        return
+    print('Saved. Your row in "Parallel sessions" of HANDOFF.md holds the stop point and next step.' if keep else
+          'Released. Your row in "Parallel sessions" of HANDOFF.md holds the stop point until the other sessions '
+          'finish; the last one to leave seals the workspace.')
+    for error in others:
+        if not re.search(r'\bT[1-9]\d*\b', error):
+            print('WARNING: ' + error)
 
 
 def seal(root: Path, owner: str, state: dict | None = None) -> dict:
@@ -498,8 +515,16 @@ def seal(root: Path, owner: str, state: dict | None = None) -> dict:
     task_rows = data['live']['tasks']
     state = state or state_of(root)
     previous = checkpoint_of(root, state) if state.get('checkpoint') else None
-    from .claims import kept_hashes
+    from .claims import kept_hashes, theirs
     files_now = kept_hashes(state, previous, fingerprint(root))
+    # Tasks other sessions still work on keep what the previous seal recorded, so their evidence is checked in full
+    # when they are sealed; this checkpoint skipped their errors.
+    deferred = theirs(state) if previous else set()
+
+    def kept(field: str, fresh: dict) -> dict:
+        old = (previous or {}).get(field) or {}
+        return {**{k: v for k, v in fresh.items() if k not in deferred}, **{k: old[k] for k in deferred if k in old}}
+
     untracked = coverage.untracked_carry(root, data['live'], previous, files_now)
     sealed = {}
     for row in task_rows:
@@ -512,13 +537,14 @@ def seal(root: Path, owner: str, state: dict | None = None) -> dict:
                     sealed[proof['report']['path']] = sha(safe_path(root, proof['report']['path']).read_bytes())
     manifest = {
         'schema': 'checkpoint.v3', 'created_at': now(), 'writer': owner, 'files': files_now,
-        'ledger': validate.ledger(data),
+        'ledger': kept('ledger', validate.ledger(data)),
         'tracking': {k: list(v) for k, v in coverage.tracking_rows(data['live']).items()},
         'untracked': untracked,
-        'task_definitions': {r['ID']: evidence.task_definition(r) for r in task_rows},
-        'task_texts': coverage.task_texts(task_rows),
-        'task_evidence': {r['ID']: r.get('Evidence', NONE) for r in task_rows},
+        'task_definitions': kept('task_definitions', {r['ID']: evidence.task_definition(r) for r in task_rows}),
+        'task_texts': kept('task_texts', coverage.task_texts(task_rows)),
+        'task_evidence': kept('task_evidence', {r['ID']: r.get('Evidence', NONE) for r in task_rows}),
         'evidence': sealed,
+        'deferred': sorted(deferred),
     }
     stamp = re.sub(r'[^0-9]', '', manifest['created_at'])[:14]
     rel = f'docs/archive/checkpoints/{stamp}-{sha(json.dumps(manifest, sort_keys=True).encode())[:8]}.json'

@@ -108,6 +108,69 @@ class ClaimedTurnHook(Pair):
         self.assertIn('took over this workspace in another conversation', turn_context(self, 'win-c'))
 
 
+PASSING = 'import unittest\n\n\nclass Two(unittest.TestCase):\n    def test_two(self):\n        self.assertTrue(True)\n'
+
+
+class Parallel(Pair):
+    def leave(self, env, *flags):
+        return self.ws('checkpoint', '--stop', 'stopped at the parser', '--next', 'finish the parser', *flags, env=env)
+
+    def test_p2_last_leaver_with_global_errors_releases_without_seal(self):
+        self.leave(self.a)
+        self.write('docs/state/TASKS.md', self.read('docs/state/TASKS.md').replace('| T1 | todo | R1 |', '| T1 | todo | R9 |'))
+        sealed = core.state_of(self.root)['checkpoint']
+        out = self.leave(self.b).stdout
+        self.assertEqual(core.state_of(self.root)['checkpoint'], sealed)
+        self.assertIn('released without a seal', out)
+        self.assertIn('T1 names unknown requirement R9', out)
+
+    def test_n1_primary_checkpoint_keeps_parallel_tasks_unsealed(self):
+        self.write('test_two.py', PASSING)
+        self.ws('verify', 'T2', '--done', '--', 'python', '-m', 'unittest', env=self.b)
+        self.write('b/two.py', 'TWO = 3\n')
+        self.leave(self.a)
+        self.assertIn('T2: files in its scope changed after', self.ws('check', expect=None).stdout)
+
+    def test_p3_takeover_keeps_released_parallel_rows(self):
+        self.leave(self.b)
+        self.ws('start', '--force', '--reason', 'user: window a is closed', env=window('win-c'))
+        self.assertIn('stopped at the parser', self.read('docs/state/HANDOFF.md'))
+
+    def test_p4_parallel_session_reconciles_after_primary_released(self):
+        self.leave(self.a)
+        self.ws('reconcile', 'all', '--reason', 'chat: greeting', env=self.b)
+
+    def test_p4_parallel_session_cannot_snapshot(self):
+        refused = self.ws('snapshot', '--label', 'before-change', env=self.b, expect=2).stderr
+        self.assertIn('ws snapshot changes the whole workspace', refused)
+        self.leave(self.a)
+        self.ws('snapshot', '--label', 'before-change', env=self.b)
+
+    def test_p5_repeated_start_task_checks_clashes(self):
+        self.assertIn('collides with work in progress', self.ws('start', '--task', 'T2', env=self.a, expect=2).stderr)
+        self.assertIn('collides with work in progress', self.ws('start', '--task', 'T1', env=self.b, expect=2).stderr)
+
+    def test_p5_resumed_start_drops_done_tasks_without_refusing(self):
+        self.ws('set', 'T1', '--set', 'status=dropped', '--set', 'reason=user dropped it', env=self.a)
+        out = self.ws('start', '--task', 'T1', env=self.a).stdout
+        self.assertTrue(json.loads(out.splitlines()[0]).get('resumed'))
+        self.assertIn('T1 is dropped', out)
+
+    def test_parallel_checkpoint_logs_hand_edits(self):
+        self.write('docs/state/TASKS.md', self.read('docs/state/TASKS.md').replace('Work on b/', 'Work on b/ by hand'))
+        self.leave(self.b, '--keep')
+        self.assertIn('| T2 | action edited outside ws |', self.read('docs/logs/CHANGE_LOG.md'))
+        self.leave(self.a)
+        self.assertEqual(self.read('docs/logs/CHANGE_LOG.md').count('| T2 | action edited outside ws |'), 1)
+
+    def test_parallel_claim_cannot_be_impersonated_with_writer_flag(self):
+        label = next(iter(core.state_of(self.root)['claims']))
+        refused = self.ws('set', 'T2', '--set', 'status=dropped', '--set', 'reason=x', '--writer', label, env=self.a,
+                          expect=2).stderr
+        self.assertIn(f'{label} is the claim of another session', refused)
+        self.ws('add', 'question', '--set', 'question=Which port?', '--writer', label, env=self.b)
+
+
 class RetireMatching(unittest.TestCase):
     def test_r1_does_not_match_r10(self):
         tasks = {'T1': {'Requirements': 'R10'}, 'T2': {'Requirements': 'R1, R3'}}

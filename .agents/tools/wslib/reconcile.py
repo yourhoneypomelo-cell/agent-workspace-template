@@ -112,8 +112,9 @@ def mark(root: Path, message: str, ids: str | None, reason: str | None) -> dict:
     with lock(root):
         state = state_of(root)
         from .core import require_session
+        from .claims import CALLER
         require_session(root, state)
-        if not state.get('writer'):
+        if not state.get('writer') and not CALLER.get():
             raise WorkspaceError('no session owns the workspace. Run "ws start" first')
         open_ids = {mid for mid, _ in pending(root)}
         targets = sorted(open_ids) if message == 'all' else [message]

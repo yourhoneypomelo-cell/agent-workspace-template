@@ -107,6 +107,15 @@ The static tier checks that every test named here exists.
 | 3.6.7 | The Cursor chat around a host CLI started from its agent shell could write under that CLI's claim | `test_regressions.Identity.test_a_host_started_from_a_cursor_shell_is_the_session` | fails |
 | 3.6.7 | The turn hook warns a conversation that holds nothing, never one with a parallel claim | `test_regressions.ClaimedTurnHook.test_turn_hook_spares_a_conversation_with_a_parallel_claim` | fails |
 | 3.6.7 | Tests run inside a host conversation would give every test project that conversation | `test_static.Process.test_test_environment_clears_every_session_variable` | guard |
+| 3.6.7 | The last parallel session to leave sealed the workspace with errors outside its tasks | `test_regressions.Parallel.test_p2_last_leaver_with_global_errors_releases_without_seal` | fails |
+| 3.6.7 | The main session's seal recorded the tasks of working parallel sessions as accepted, so their stale evidence passed later | `test_regressions.Parallel.test_n1_primary_checkpoint_keeps_parallel_tasks_unsealed` | fails |
+| 3.6.7 | A takeover dropped the rows of released parallel sessions with their stop points | `test_regressions.Parallel.test_p3_takeover_keeps_released_parallel_rows` | fails |
+| 3.6.7 | A parallel session could not reconcile after the main session released | `test_regressions.Parallel.test_p4_parallel_session_reconciles_after_primary_released` | fails |
+| 3.6.7 | A parallel session's snapshot rewrote the main session's card baseline | `test_regressions.Parallel.test_p4_parallel_session_cannot_snapshot` | fails |
+| 3.6.7 | `ws start --task` from a session that already worked changed its claim without a clash check | `test_regressions.Parallel.test_p5_repeated_start_task_checks_clashes` | fails |
+| 3.6.7 | Repeating `ws start --task` after compaction failed on a task finished meanwhile | `test_regressions.Parallel.test_p5_resumed_start_drops_done_tasks_without_refusing` | fails |
+| 3.6.7 | A parallel checkpoint did not log hand edits of its tasks, and later checkpoints would log one edit twice | `test_regressions.Parallel.test_parallel_checkpoint_logs_hand_edits` | fails |
+| 3.6.7 | `--writer` with another session's claim label wrote as that session | `test_regressions.Parallel.test_parallel_claim_cannot_be_impersonated_with_writer_flag` | fails |
 
 ## Release
 

@@ -163,6 +163,9 @@ A task that names no existing path holds the whole tree, and so does a session t
 20 minutes when the window cannot be checked). The claim is refused when they share a task, a path
 (one inside the other counts) or a resource; the error names the other session and what it holds.
 `--force --reason "<what the user said>"` claims anyway and logs `parallel claim forced` with the reason.
+A session that runs `ws start --task` again keeps its claim: the new tasks are checked the same way, and a task
+it finished meanwhile is left out with a note. `--writer` names a claim only for the session that made it: its
+session variable, or else its window, must match.
 
 | While others work, a session may | It may not |
 | --- | --- |
@@ -170,11 +173,17 @@ A task that names no existing path holds the whole tree, and so does a session t
 | Change, verify and checkpoint its own tasks | Retire a requirement or feature a claimed task cites |
 | Run `ws note`, `ws reconcile` and every read-only command | Run `ws compact`, `ws goal`, `ws snapshot` or edit the card |
 
-A parallel session's `ws checkpoint` checks only its own tasks and writes its stop point and next step
-to its row under "Parallel sessions" in HANDOFF.md. Without `--keep` the row is marked released and
-holds nothing. The main session's checkpoint checks everything except tasks still claimed by others,
-and seals the workspace; files inside other claims keep their last sealed hash, so the next session
-still sees them as unsaved. The workspace is READY only when no session is working.
+A parallel session's `ws checkpoint` checks only its own tasks, logs its hand edits of them, and writes its
+stop point and next step to its row under "Parallel sessions" in HANDOFF.md. Without `--keep` the row is
+marked released and holds nothing; released rows stay, also after a takeover, until the next seal. The main
+session's checkpoint checks everything except tasks still claimed by others, and seals the workspace; files
+inside other claims keep their last sealed hash, so the next session still sees them as unsaved, and those
+tasks keep their last sealed state (`deferred` in the manifest), so their evidence is checked in full later.
+The last session to leave seals only a workspace that passes the whole check; otherwise it releases without a
+seal and prints the errors for the next session. The workspace is READY only when no session is working.
+
+Known limit until 3.9.0: a parallel session in the main session's own window that wrote nothing for 20 minutes
+counts as gone, so when the main session releases, its row is cleared and its files are sealed as they are.
 
 A conflict the paths cannot show, such as one task changing an interface another task calls, is caught
 by the other task's acceptance, which runs against the current code, and by its evidence going stale when

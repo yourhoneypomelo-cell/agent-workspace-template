@@ -126,6 +126,47 @@ def clash_text(found: list) -> str:
     return '; '.join(f'{label} holds {", ".join(why)}' for label, why in found)
 
 
+def collision(found: list) -> str:
+    return (f'this claim collides with work in progress: {clash_text(found)}. Ask the user. To claim other tasks, run '
+            '"ws start --task <ID>" for tasks whose Scope names other paths and resources. If the user says the other '
+            'session is finished or may be overridden, add --force --reason "<what the user said>"')
+
+
+def rescope(root: Path, state: dict, label: str, tasks, force: bool, reason: str | None, notes: list):
+    """The scope a resumed session claims with --task, or None to keep its scope. Agents repeat their start after
+    compaction, so a task finished meanwhile is left out with a note; the rest may not meet another working session."""
+    from . import logs
+    from .coverage import redact
+    from .ops import short
+    rows = task_rows(root)
+    closed = [t for t in tasks if (rows.get(t) or {}).get('Status') in ('done', 'dropped')]
+    notes += [f'NOTE: {t} is {rows[t]["Status"]}, so it is left out of the claim' for t in closed]
+    left = [t for t in tasks if t not in closed]
+    if not left:
+        return None
+    scope = scope_of(root, left, rows)
+    found = clashes(state, scope, exclude=label)
+    if found and not force:
+        raise WorkspaceError(collision(found))
+    if found:
+        logs.append(root, 'MAINTENANCE_LOG', {'Event': 'parallel claim forced', 'Detail': short(
+            f'{label} claimed {", ".join(left)} over {clash_text(found)}; {redact(reason or "no reason given")}', 400)})
+    return scope
+
+
+def proves(entry: dict) -> bool:
+    """Whether this process can be the session that made a claim. As for writes, only a host variable tells two
+    sessions apart for certain: a claim or a process it names is proved by it alone. Otherwise the window decides,
+    and where no window was recorded nothing refuses."""
+    recorded, mine = entry.get('session') or {}, session_identity()
+    if mine and recorded.get('id') == mine['id']:
+        return True
+    if recorded.get('via') == 'env' or mine and mine['via'] == 'env' and recorded.get('id'):
+        return False
+    here = host_process()
+    return not entry.get('host') or not here or same_host(entry['host'], here)
+
+
 def caller(state: dict, writer: str | None = None):
     """'primary', the label of a parallel claim, or None when this process holds nothing it can prove."""
     # A released claim holds nothing; the session that made it starts afresh like any other.
@@ -133,6 +174,9 @@ def caller(state: dict, writer: str | None = None):
     if writer:
         if writer == state.get('writer'):
             return 'primary'
+        if writer in claims and not proves(claims[writer]):
+            raise WorkspaceError(f'{writer} is the claim of another session, and this process is not that session. '
+                                 'Run the command without --writer, or ask the user')
         return writer if writer in claims else None
     mine = session_identity()
     if mine:
@@ -181,15 +225,20 @@ def require_alone(state: dict, what: str) -> None:
                              'Wait until it checkpoints, or ask the user')
 
 
+def theirs(state: dict) -> set:
+    """Tasks the other working sessions hold."""
+    return {t for _, scope in holders(state, exclude=label_of(state)) for t in scope['tasks']}
+
+
 def only_mine(state: dict, errors: list) -> list:
     """Validation errors about tasks other working sessions hold belong to them, not to this checkpoint."""
-    theirs = {t for _, scope in holders(state, exclude=label_of(state)) for t in scope['tasks']}
-    if not theirs:
+    held = theirs(state)
+    if not held:
         return errors
     kept = []
     for error in errors:
         named = set(re.findall(r'\bT[1-9]\d*\b', error))
-        if named and named <= theirs:
+        if named and named <= held:
             continue
         kept.append(error)
     return kept

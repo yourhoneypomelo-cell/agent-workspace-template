@@ -80,10 +80,13 @@ def take(root: Path, label: str, paths: list, pin: bool) -> dict:
     with lock(root):
         state = state_of(root)
         from .core import require_session
+        from .claims import label_of, require_alone
         from .validate import conflict_markers
         require_session(root, state)
-        if state['mode'] != 'active' or not state.get('writer'):
+        if state['mode'] != 'active' or not label_of(state):
             raise WorkspaceError('no session owns the workspace; run "ws.py start" first')
+        # The snapshot sets the card's baseline, and the card belongs to whoever works alone.
+        require_alone(state, 'ws snapshot')
         for marker in conflict_markers(root)[:1]:
             raise WorkspaceError(marker)
         files = files_in(root, paths)
@@ -105,7 +108,7 @@ def take(root: Path, label: str, paths: list, pin: bool) -> dict:
         stamp = re.sub(r'[^0-9]', '', now())[:14]
         name = f'{stamp}-{label}{".pinned" if pin else ""}.zip'
         partial = folder / (name + '.partial')
-        manifest = {'label': label, 'created_at': now(), 'writer': state['writer'], 'files': {}}
+        manifest = {'label': label, 'created_at': now(), 'writer': label_of(state), 'files': {}}
         with zipfile.ZipFile(partial, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as bundle:
             for rel in sorted(files):
                 raw = (root / rel).read_bytes()

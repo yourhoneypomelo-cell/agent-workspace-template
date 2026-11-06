@@ -444,7 +444,8 @@ def hand_edits(root: Path, live: dict, cp) -> list:
         if not before:
             continue
         for field, value in before.items():
-            if row.get(field, '') != value and (row['ID'], f'{field.lower()} edited') not in logged:
+            events = {(row['ID'], f'{field.lower()} edited'), (row['ID'], f'{field.lower()} edited outside ws')}
+            if row.get(field, '') != value and not events & logged:
                 found.append((row['ID'], field, value))
     return found
 

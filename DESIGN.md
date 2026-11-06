@@ -25,6 +25,32 @@ This is not a new idea. What makes it work here is the tooling: a CLI that valid
 assigns IDs, runs acceptance tests, and refuses to seal a checkpoint when the state is inconsistent.
 The agent cannot skip the record-keeping because the tool enforces it.
 
+## The flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant A as Agent
+    participant W as ws.py
+    participant D as docs/
+
+    U->>A: message (requirement, decision, preference)
+    A->>W: add requirement / decision / preference
+    W->>D: validate, assign ID, write row + log
+    A->>A: do the work
+    A->>W: verify T1 --done -- pytest
+    W->>W: run acceptance, store evidence
+    W-->>A: done, or refused (0 tests, stale evidence)
+    A->>W: checkpoint --stop --next
+    W->>D: seal state, release ownership
+    Note over D: window switch, compaction, crash — nothing lost
+    U->>A: new session: "Read AGENTS.md and continue"
+    A->>D: brief + read state files
+    D-->>A: goal, stop point, next step, open tasks
+    A->>U: resumes exactly where the last session stopped
+```
+
 ## Design principles
 
 ### 1. Files, not a database

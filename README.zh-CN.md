@@ -36,6 +36,54 @@ AI 代理在长项目中会丢失进度。它们忘记需求、重复已完成�
 - **凭据。** 你决定一次项目如何处理凭据：保留原样、脱敏、或每次询问。每条写入路径都遵循
   这个决定，包括聊天记录。
 
+## 架构
+
+每个代理工具通过一个薄适配器加载同一个根契约 `AGENTS.md`。代理运行 `ws.py` 来记录和验证；
+工具读写 `docs/` 下的 Markdown 文件。下一个会话开始时，代理重新读取这些文件，因此记忆在
+切换窗口、压缩和更换工具之后仍然保留。
+
+```mermaid
+flowchart TB
+    subgraph H[" "]
+        direction LR
+        CLAUDE["Claude Code"]
+        CODEX["Codex"]
+        CURSOR["Cursor"]
+        KIMI["Kimi Code"]
+        KIRO["Kiro"]
+        DSH["DeepSeek Harness"]
+        MORE["Qwen · Grok ·<br/>CodeBuddy · Gemini…"]
+    end
+
+    AGENTS["AGENTS.md<br/>根契约"]
+    ADAPTERS["薄适配器<br/>CLAUDE.md · .gemini/settings.json<br/>.kiro/steering/workspace.md"]
+    WS["ws.py<br/>校验 · 分配 ID · 验证 · 检查点"]
+
+    subgraph S[" "]
+        direction LR
+        HANDOFF["HANDOFF<br/>停止点 · 下一步"]
+        REQ["REQUIREMENTS<br/>需求"]
+        PREF["PREFERENCES<br/>偏好"]
+        FEAT["FEATURES<br/>功能"]
+        TASKS["TASKS<br/>任务"]
+        ARCH["ARCHITECTURE<br/>架构"]
+        DESIGN["DESIGN<br/>决策"]
+    end
+
+    REST["logs/ · chats/ · archive/<br/>历史 · 聊天记录 · 证据 · 检查点"]
+
+    H -->|加载| AGENTS
+    AGENTS -.->|通过适配器加载| ADAPTERS
+    AGENTS -->|会话协议| WS
+    WS <-->|读 · 写 · 验证| S
+    WS -->|追加 · 采集 · 封存| REST
+    S -->|会话开始时重读| H
+```
+
+从上到下：**代理工具**、共享的 **`AGENTS.md` 契约**及其薄适配器、**`ws.py` 工具**，以及
+**`docs/` 记忆**——`state/` 里的当前事实，加上 `logs/`、`chats/`、`archive/` 的历史。
+状态文件在下一次会话开始时被重新读取，闭环就此完成。
+
 ## 快速上手
 
 1. **下载**最新发布包：

@@ -22,6 +22,32 @@ AI 编程代理在长项目中会丢失进度。一个开始良好的会话会�
 这不是一个新想法。让它真正起作用的是工具链：一个 CLI，验证每次写入、分配 ID、运行验收测试、
 在状态不一致时拒绝封存检查点。代理不能跳过记录，因为工具强制执行。
 
+## 流程
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant A as 代理
+    participant W as ws.py
+    participant D as docs/
+
+    U->>A: 消息（需求、决策、偏好）
+    A->>W: add requirement / decision / preference
+    W->>D: 校验、分配 ID、写入行 + 日志
+    A->>A: 干活
+    A->>W: verify T1 --done -- pytest
+    W->>W: 运行验收、保存证据
+    W-->>A: 完成，或拒绝（0 个测试、证据过期）
+    A->>W: checkpoint --stop --next
+    W->>D: 封存状态、释放所有权
+    Note over D: 切换窗口、压缩、崩溃——什么都不丢
+    U->>A: 新会话："读取 AGENTS.md 并继续"
+    A->>D: brief + 读取状态文件
+    D-->>A: 目标、停止点、下一步、未完成任务
+    A->>U: 从上一个会话停下的地方精确继续
+```
+
 ## 设计原则
 
 ### 1. 文件，不是数据库

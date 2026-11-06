@@ -40,6 +40,56 @@ that the next session reads before doing anything.
 - **Credentials.** You decide once whether the project keeps credentials as written, redacts
   them, or asks each time. Every write path follows that decision, including chat transcripts.
 
+## Architecture
+
+Every agent tool loads one root contract, `AGENTS.md`, through a thin adapter. The agent runs
+`ws.py` to record and verify; the tool reads and writes the Markdown files under `docs/`. At the
+next session the agent re-reads those files, so the memory survives windows, compaction and tool
+switches.
+
+```mermaid
+flowchart TB
+    subgraph H[" "]
+        direction LR
+        CLAUDE["Claude Code"]
+        CODEX["Codex"]
+        CURSOR["Cursor"]
+        KIMI["Kimi Code"]
+        KIRO["Kiro"]
+        DSH["DeepSeek Harness"]
+        MORE["Qwen · Grok ·<br/>CodeBuddy · Gemini…"]
+    end
+
+    AGENTS["AGENTS.md<br/>the root contract"]
+    ADAPTERS["Thin adapters<br/>CLAUDE.md · .gemini/settings.json<br/>.kiro/steering/workspace.md"]
+    WS["ws.py<br/>validate · assign IDs · verify · checkpoint"]
+
+    subgraph S[" "]
+        direction LR
+        HANDOFF["HANDOFF<br/>stop · next"]
+        REQ["REQUIREMENTS"]
+        PREF["PREFERENCES"]
+        FEAT["FEATURES"]
+        TASKS["TASKS"]
+        ARCH["ARCHITECTURE"]
+        DESIGN["DESIGN<br/>decisions"]
+    end
+
+    REST["logs/ · chats/ · archive/<br/>history · transcripts · evidence · checkpoints"]
+
+    H -->|loads| AGENTS
+    AGENTS -.->|loaded through| ADAPTERS
+    AGENTS -->|protocol| WS
+    WS <-->|read · write · verify| S
+    WS -->|append · capture · seal| REST
+    S -->|re-read at start| H
+```
+
+Top to bottom: the **agent tools**, the shared **`AGENTS.md` contract** with its thin adapters,
+the **`ws.py` tool**, and the **`docs/` memory** — the current facts in `state/` plus the
+`logs/`, `chats/` and `archive/` history. The loop closes when the state files are re-read at
+the start of the next session.
+
 ## Quick start
 
 1. **Download** the latest release ZIP from

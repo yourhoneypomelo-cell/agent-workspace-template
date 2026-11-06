@@ -89,3 +89,7 @@ every test named here exists.
 | 3.7.0 | Evidence that passed under older rules but fails under the current ones went unnoticed | `test_regressions.Evidence.test_13_older_rules_are_rechecked_with_a_note` | fails |
 | 3.7.0 | An "OK" printed by the program under test made a passing unittest run unreadable | `test_regressions.Evidence.test_v3_program_printing_ok_keeps_the_unittest_summary` | fails |
 | 3.7.0 | A log line starting with "FAILED" counted as a test failure | `test_regressions.Evidence.test_failed_log_line_is_not_a_test_failure` | fails |
+| 3.7.0 | Enabling Gemini hooks on a released workspace left it NOT READY until a new session checkpointed | \	est_upgrade.Rebaseline.test_hooks_enable_on_a_released_workspace_keeps_it_ready\ | fails |
+| 3.7.0 | A rebaseline takes in template files only, so other drift is still reported | \	est_upgrade.Rebaseline.test_rebaseline_keeps_other_drift\ | guard |
+| 3.7.0 | A rebaseline refuses project files | \	est_upgrade.Rebaseline.test_rebaseline_takes_only_template_files\ | guard |
+| 3.7.0 | A rebaseline waits until the workspace is released | \	est_upgrade.Rebaseline.test_rebaseline_needs_a_released_workspace\ | guard |

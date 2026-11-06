@@ -549,6 +549,11 @@ def seal(root: Path, owner: str, state: dict | None = None) -> dict:
         'evidence': sealed,
         'deferred': sorted(deferred),
     }
+    return write_checkpoint(root, manifest)
+
+
+def write_checkpoint(root: Path, manifest: dict) -> dict:
+    """Write a checkpoint manifest, keep the newest ones, and return the pointer for the CONTINUITY line."""
     stamp = re.sub(r'[^0-9]', '', manifest['created_at'])[:14]
     rel = f'docs/archive/checkpoints/{stamp}-{sha(json.dumps(manifest, sort_keys=True).encode())[:8]}.json'
     raw = json.dumps(manifest, ensure_ascii=False, indent=1, sort_keys=True) + '\n'

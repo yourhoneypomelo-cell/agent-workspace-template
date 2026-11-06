@@ -216,4 +216,10 @@ def enable_hooks(root: Path, host: str, show: bool, python: str | None = None):
     print(json.dumps({'written': rel, 'host': host}))
     print('Hooks are active in new sessions. See .agents/guides/HOSTS.md for what each hook does.')
     if rel in ADAPTERS:
-        print(f'{rel} is also a watched project file, so the workspace shows it as changed until "ws checkpoint" saves it.')
+        from .upgrade import rebaseline
+        try:
+            rebaseline(root, [rel], f'hooks enable {host}: {rel} rewritten')
+            print(f'{rel} is also a watched project file; the workspace was released, so its checkpoint now holds it.')
+        except WorkspaceError:
+            print(f'{rel} is also a watched project file, so the workspace shows it as changed until "ws checkpoint" '
+                  'saves it.')

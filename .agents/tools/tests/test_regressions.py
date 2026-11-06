@@ -323,9 +323,7 @@ class Hooks(Workspace):
 
     def test_n2_gemini_hooks_print_the_checkpoint_note(self):
         self.init()
-        self.save()
         self.assertIn('until "ws checkpoint" saves it', self.ws('hooks', 'enable', 'gemini').stdout)
-        self.ws('start')
         self.save()
         self.ready()
         settings = json.loads(self.read('.gemini/settings.json'))

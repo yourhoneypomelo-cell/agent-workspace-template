@@ -17,15 +17,14 @@ from wslib import capture, distribution, lint, migrate, ops, validate  # noqa: E
 from wslib.core import READ_ONLY, WorkspaceError, atomic_write, configure_stdout, read, session_key  # noqa: E402
 
 READ_ONLY_COMMANDS = ('brief', 'turn', 'status', 'check', 'lint')
-from wslib.schema import VERSION  # noqa: E402
+from wslib.schema import ADAPTERS, HOOK_FILES, VERSION  # noqa: E402
 
 TOOL = Path(__file__).resolve()
 TEMPLATE_ROOT = TOOL.parents[2]
 HOOK = 'python .agents/tools/ws.py'
 HOSTS = ('claude', 'codex', 'cursor', 'gemini', 'copilot', 'kiro', 'antigravity', 'grok', 'codebuddy', 'workbuddy', 'qoder', 'qwen')
 # Hosts that read Claude Code's hook format from their own settings file.
-CLAUDE_SHAPED = {'codebuddy': '.codebuddy/settings.json', 'workbuddy': '.codebuddy/settings.json',
-                 'qoder': '.qoder/settings.json', 'qwen': '.qwen/settings.json'}
+CLAUDE_SHAPED = ('codebuddy', 'workbuddy', 'qoder', 'qwen')
 
 COMMANDS = '''commands:
   brief                      print the resume summary (read-only)
@@ -173,11 +172,11 @@ def hook_settings(host: str) -> tuple:
     if host in CLAUDE_SHAPED:
         _, settings = hook_settings('claude')
         text = json.dumps(settings).replace('--hook claude', f'--hook {host}').replace('--host claude', f'--host {host}')
-        return CLAUDE_SHAPED[host], json.loads(text)
+        return HOOK_FILES[host], json.loads(text)
     if host == 'claude':
         def entry(cmd):
             return [{'hooks': [{'type': 'command', 'command': cmd}]}]
-        return '.claude/settings.json', {'hooks': {
+        return HOOK_FILES[host], {'hooks': {
             'SessionStart': [{'matcher': 'startup|resume|clear|compact',
                               'hooks': [{'type': 'command', 'command': f'{HOOK} brief --hook claude'}]}],
             'UserPromptSubmit': entry(f'{HOOK} turn --hook claude'),
@@ -189,7 +188,7 @@ def hook_settings(host: str) -> tuple:
     if host == 'cursor':
         def entry(cmd):
             return [{'command': cmd}]
-        return '.cursor/hooks.json', {'version': 1, 'hooks': {
+        return HOOK_FILES[host], {'version': 1, 'hooks': {
             'sessionStart': entry(f'{HOOK} brief --hook cursor'),
             'beforeSubmitPrompt': entry(f'{HOOK} turn --hook cursor'),
             'afterAgentResponse': entry(f'{HOOK} capture --host cursor --event afterAgentResponse'),
@@ -200,7 +199,7 @@ def hook_settings(host: str) -> tuple:
     if host == 'gemini':
         def entry(name, cmd):
             return [{'hooks': [{'name': name, 'type': 'command', 'command': cmd}]}]
-        return '.gemini/settings.json', {'hooks': {
+        return HOOK_FILES[host], {'hooks': {
             'SessionStart': entry('workspace-brief', f'{HOOK} brief --hook gemini'),
             'BeforeAgent': entry('workspace-turn', f'{HOOK} turn --hook gemini'),
             'PreCompress': entry('workspace-capture', f'{HOOK} capture --host gemini --event PreCompress'),
@@ -211,7 +210,7 @@ def hook_settings(host: str) -> tuple:
         def entry(cmd):
             # Codex runs "command" through a POSIX shell; commandWindows is its documented Windows override.
             return [{'hooks': [{'type': 'command', 'command': cmd, 'commandWindows': cmd}]}]
-        return '.codex/hooks.json', {'hooks': {
+        return HOOK_FILES[host], {'hooks': {
             'SessionStart': entry(f'{HOOK} brief --hook codex'),
             'UserPromptSubmit': entry(f'{HOOK} turn --hook codex'),
             'PreCompact': entry(f'{HOOK} capture --host codex --event PreCompact'),
@@ -221,13 +220,13 @@ def hook_settings(host: str) -> tuple:
     if host == 'grok':
         def entry(cmd):
             return [{'hooks': [{'type': 'command', 'command': cmd, 'timeout': 30}]}]
-        return '.grok/hooks/workspace.json', {'hooks': {
+        return HOOK_FILES[host], {'hooks': {
             'PreCompact': entry(f'{HOOK} capture --host grok --event PreCompact'),
             'Stop': entry(f'{HOOK} capture --host grok --event Stop'),
             'SessionEnd': entry(f'{HOOK} capture --host grok --event SessionEnd'),
         }}
     if host == 'kiro':
-        return '.kiro/hooks/workspace.json', {'version': 'v1', 'hooks': [
+        return HOOK_FILES[host], {'version': 'v1', 'hooks': [
             {'name': 'workspace-brief', 'trigger': 'SessionStart',
              'action': {'type': 'command', 'command': f'{HOOK} brief --hook kiro'}},
             {'name': 'workspace-turn', 'trigger': 'UserPromptSubmit',
@@ -238,7 +237,7 @@ def hook_settings(host: str) -> tuple:
     if host == 'antigravity':
         # Antigravity runs hook commands from the folder that holds hooks.json, which is .agents/.
         local = 'python tools/ws.py'
-        return '.agents/hooks.json', {
+        return HOOK_FILES[host], {
             'workspace-brief': {'SessionStart': [{'type': 'command', 'command': f'{local} brief --hook antigravity', 'timeout': 30}]},
             'workspace-turn': {'PreInvocation': [{'type': 'command', 'command': f'{local} turn --hook antigravity', 'timeout': 30}]},
             'workspace-capture': {'Stop': [{'type': 'command', 'command': f'{local} capture --host antigravity --event Stop', 'timeout': 30}]},
@@ -246,7 +245,7 @@ def hook_settings(host: str) -> tuple:
 
     def entry(cmd):
         return [{'type': 'command', 'bash': cmd, 'powershell': cmd, 'timeoutSec': 30}]
-    return '.github/hooks/workspace.json', {'version': 1, 'hooks': {
+    return HOOK_FILES['copilot'], {'version': 1, 'hooks': {
         'sessionStart': entry(f'{HOOK} brief --hook copilot'),
         'preCompact': entry(f'{HOOK} capture --host copilot --event preCompact'),
         'agentStop': entry(f'{HOOK} capture --host copilot --event agentStop'),
@@ -326,6 +325,8 @@ def enable_hooks(root: Path, host: str, show: bool):
     atomic_write(path, text)
     print(json.dumps({'written': rel, 'host': host}))
     print('Hooks are active in new sessions. See .agents/guides/HOSTS.md for what each hook does.')
+    if rel in ADAPTERS:
+        print(f'{rel} is also a watched project file, so the workspace shows it as changed until "ws checkpoint" saves it.')
 
 
 def read_stdin() -> str:

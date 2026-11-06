@@ -119,6 +119,10 @@ The static tier checks that every test named here exists.
 | 3.6.7 | Repeating `ws start --task` after compaction failed on a task finished meanwhile | `test_regressions.Parallel.test_p5_resumed_start_drops_done_tasks_without_refusing` | fails |
 | 3.6.7 | A parallel checkpoint did not log hand edits of its tasks, and later checkpoints would log one edit twice | `test_regressions.Parallel.test_parallel_checkpoint_logs_hand_edits` | fails |
 | 3.6.7 | `--writer` with another session's claim label wrote as that session | `test_regressions.Parallel.test_parallel_claim_cannot_be_impersonated_with_writer_flag` | fails |
+| 3.6.7 | Each host's hook file was listed in three places that disagreed, and adapters and search-ignore files counted as source | `test_regressions.Hooks.test_h3_every_host_settings_file_is_in_hook_files` | fails |
+| 3.6.7 | Enabling Qoder or Qwen hooks turned a READY workspace NOT READY | `test_regressions.Hooks.test_h3_hooks_keep_ready_for_watched_hosts` | fails |
+| 3.6.7 | Enabling Gemini hooks changed a watched file without saying so, and a long hook list counted against the adapter size | `test_regressions.Hooks.test_n2_gemini_hooks_print_the_checkpoint_note` | fails |
+| 3.6.7 | A checkpoint from an older version reported files the new rules no longer watch as removed | `test_regressions.Hooks.test_rewatch_ignores_files_the_new_rules_exclude` | fails |
 
 ## Release
 

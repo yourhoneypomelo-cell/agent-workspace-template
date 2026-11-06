@@ -517,6 +517,19 @@ def fingerprint(root: Path, source_only=False) -> dict:
     return result
 
 
+def rewatch(root: Path, files: dict, source_only=False) -> dict:
+    """A file map recorded earlier, seen through the current watch rules: a path a newer version stopped watching is
+    not reported as removed. Links cannot be told from a record, so only names and patterns apply."""
+    patterns = config(root)['exclude']
+
+    def watched(rel: str) -> bool:
+        if source_only and rel.startswith(NON_SOURCE):
+            return False
+        parts = rel.split('/')
+        return rel in REQUIRED or not any(_excluded('/'.join(parts[:i + 1]), parts[i], patterns) for i in range(len(parts)))
+    return {rel: value for rel, value in files.items() if watched(rel)}
+
+
 def difference(old: dict, new: dict) -> dict:
     return {
         'added': sorted(new.keys() - old.keys()),

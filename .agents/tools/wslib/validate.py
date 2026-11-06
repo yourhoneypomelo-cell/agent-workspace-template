@@ -7,7 +7,7 @@ from pathlib import Path
 
 from . import evidence, logs, tables
 from .core import (
-    WorkspaceError, card, checkpoint_of, config, describe_drift, difference, fingerprint, goal, read, safe_path,
+    WorkspaceError, card, checkpoint_of, config, describe_drift, difference, fingerprint, goal, read, rewatch, safe_path,
     sha, state_of,
 )
 from .schema import (
@@ -22,6 +22,18 @@ SPEC_RE = re.compile(r'docs/specs/[a-z0-9]+(?:-[a-z0-9]+)*/requirements\.md')
 def _entries(root: Path, rel: str) -> set:
     path = root / rel
     return {p.name for p in path.iterdir() if p.is_file() and p.suffix == '.md'} if path.is_dir() else set()
+
+
+def _pointer_size(rel: str, text: str) -> int:
+    """Bytes of an adapter without the hooks its host keeps in the same settings file."""
+    if rel.endswith('.json'):
+        try:
+            data = json.loads(text)
+        except ValueError:
+            data = None
+        if isinstance(data, dict):
+            return len(json.dumps({k: v for k, v in data.items() if k != 'hooks'}, ensure_ascii=False).encode('utf-8'))
+    return len(text.encode('utf-8'))
 
 
 def structure(root: Path, strict=False, adapters=False) -> list:
@@ -47,7 +59,7 @@ def structure(root: Path, strict=False, adapters=False) -> list:
         if rel in pending:
             continue
         text = read(root, rel)
-        if 'AGENTS.md' not in text or len(text.encode('utf-8')) > 2500:
+        if 'AGENTS.md' not in text or _pointer_size(rel, text) > 2500:
             errors.append(f'{rel} must stay a short pointer to AGENTS.md')
     if 'CLAUDE.md' not in pending and not re.search(r'^@AGENTS\.md\s*$', read(root, 'CLAUDE.md'), re.M):
         errors.append('CLAUDE.md must contain the import line @AGENTS.md')
@@ -355,7 +367,7 @@ def semantics(root: Path, ready=False, sealing=False, card_changes=None) -> list
             if not state.get('checkpoint'):
                 errors.append('no checkpoint yet; run "ws.py checkpoint"')
         if cp and not sealing:
-            changes = difference(cp['files'], fingerprint(root))
+            changes = difference(rewatch(root, cp['files']), fingerprint(root))
             if any(changes.values()):
                 errors.append('files changed after the last checkpoint: ' + describe_drift(changes, 10) +
                               '. Review them, then run "ws.py checkpoint"')
@@ -432,12 +444,13 @@ def _task_evidence(root: Path, state: dict, cp, task_rows: list) -> list:
                 from .core import digest
                 current_source = digest(current_files)
             if proof.get('source') != current_source:
-                diff = difference(proof.get('source_files') or {}, current_files) if proof.get('source_files') else None
-                scope = evidence.scope_paths(row, set(current_files) | set(proof.get('source_files') or {}))
+                recorded = rewatch(root, proof['source_files'], source_only=True) if proof.get('source_files') else None
+                diff = difference(recorded, current_files) if recorded is not None else None
+                scope = evidence.scope_paths(row, set(current_files) | set(recorded or {}))
                 if diff is not None and scope is not None:
                     diff = {k: [n for n in v if evidence.in_scope(n, scope)] for k, v in diff.items()}
-                    if not any(diff.values()):
-                        continue
+                if diff is not None and not any(diff.values()):
+                    continue
                 changed = describe_drift(diff, 6) if diff is not None else 'unknown'
                 errors.append(f'TASKS.md: {rid}: files in its scope changed after {rel}: {changed}. Run "ws.py verify {rid}" '
                               'again; if a file is generated output, add it to WORKSPACE exclude in ARCHITECTURE.md first')

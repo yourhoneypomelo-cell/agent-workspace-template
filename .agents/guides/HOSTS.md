@@ -73,6 +73,9 @@ Hook commands use paths relative to the project root, except Antigravity's, whic
 | `qwen` | `.qwen/settings.json`, loaded only in a trusted folder | SessionStart, also after compaction | UserPromptSubmit | PreCompact, Stop, SessionEnd |
 | `grok` | `.grok/hooks/workspace.json` | none, stdout of passive events is ignored | not available | PreCompact, Stop, SessionEnd when a path is given |
 
+These settings files are not watched, so enabling hooks leaves a READY workspace READY. The exception is
+`.gemini/settings.json`, which is also the Gemini adapter: after `ws hooks enable gemini`, run `ws checkpoint`.
+
 The session start hook runs `ws brief --hook <host>` and returns the brief in the field the host
 injects into the model context. The per-turn hook runs `ws turn --hook <host>`: before each user
 message is handled it reminds the agent to record new requirements, decisions and preferences

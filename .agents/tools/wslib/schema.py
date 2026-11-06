@@ -104,15 +104,24 @@ PRUNE_DIRS = frozenset({
 })
 DIST_DIR = 'dist'
 PACKAGE_PREFIX = 'agent-workspace-'
+# The settings file each host reads its hooks from, written by "ws hooks enable". Every one is outside the watched
+# files except .gemini/settings.json, which is also the Gemini adapter.
+HOOK_FILES = {
+    'claude': '.claude/settings.json', 'codex': '.codex/hooks.json', 'cursor': '.cursor/hooks.json',
+    'gemini': '.gemini/settings.json', 'copilot': '.github/hooks/workspace.json', 'kiro': '.kiro/hooks/workspace.json',
+    'antigravity': '.agents/hooks.json', 'grok': '.grok/hooks/workspace.json', 'codebuddy': '.codebuddy/settings.json',
+    'workbuddy': '.codebuddy/settings.json', 'qoder': '.qoder/settings.json', 'qwen': '.qwen/settings.json',
+}
 PRUNE_PATHS = ('.tmp', 'tmp', '.scratch', 'dist', 'docs/archive', 'docs/chats', '.agents/cache', '.agents/hooks.json', '.claude', '.cursor', '.codex',
-               '.kimi-code', '.grok', '.dsh', '.codebuddy', '.github/hooks', '.kiro/hooks')
+               '.kimi-code', '.grok', '.dsh', '.codebuddy', '.qoder', '.qwen', '.github/hooks', '.kiro/hooks')
 PRUNE_FILES = frozenset({'.DS_Store', 'Thumbs.db', 'desktop.ini'})
 SECRET_SUFFIXES = ('.pem', '.key', '.p12', '.pfx', '.pyc', '.log')
 # Database journals, editor swap files and process output change while services and tests run; they are never source.
 SCRATCH_SUFFIXES = ('.db', '.sqlite', '.sqlite3', '.db-wal', '.db-shm', '.db-journal', '.sqlite-wal', '.sqlite-shm',
                     '.sqlite-journal', '.swp', '.tmp', '.out', '.pid')
 # Edits under these paths describe the work. They never make test evidence stale.
-NON_SOURCE = ('docs/', '.agents/', '.gemini/', '.kiro/', 'AGENTS.md', 'CLAUDE.md', 'README.md')
+NON_SOURCE = ('docs/', '.agents/', '.gemini/', '.kiro/', '.trae/', 'AGENTS.md', 'CLAUDE.md', 'CODEBUDDY.md', 'README.md',
+              *SEARCH_IGNORE)
 
 
 @dataclass(frozen=True)

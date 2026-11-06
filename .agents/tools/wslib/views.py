@@ -5,8 +5,8 @@ import re
 from pathlib import Path
 
 from . import coverage, logs, tables, validate
-from .core import WorkspaceError, card, checkpoint_of, config, difference, drift_count, fingerprint, goal, state_of
-from .schema import CLOSED, NONE, SCHEMA, T0, T1, TABLES
+from .core import WorkspaceError, card, checkpoint_of, config, difference, drift_count, fingerprint, goal, rewatch, state_of
+from .schema import CLOSED, HOOK_FILES, NONE, SCHEMA, T0, T1, TABLES
 
 
 def short(text: str, limit=160) -> str:
@@ -69,7 +69,7 @@ def turn_context(root: Path) -> str:
 def status(root: Path) -> dict:
     state = state_of(root)
     cp = checkpoint_of(root, state)
-    changes = difference(cp['files'], fingerprint(root)) if cp else None
+    changes = difference(rewatch(root, cp['files']), fingerprint(root)) if cp else None
     return {'schema': state.get('schema'), 'mode': state['mode'], 'revision': state['revision'], 'writer': state.get('writer'),
             'ownership': config(root)['ownership'], 'checkpoint_at': (cp or {}).get('created_at'),
             'unsaved_changes': None if changes is None else {k: v[:20] for k, v in changes.items()},
@@ -409,14 +409,9 @@ def brief(root: Path, sid=None) -> str:
     return '\n'.join(lines) + '\n'
 
 
-HOOK_FILES = ('.claude/settings.json', '.codex/hooks.json', '.cursor/hooks.json', '.gemini/settings.json',
-              '.github/hooks/workspace.json', '.agents/hooks.json', '.kiro/hooks/workspace.json', '.grok/hooks/workspace.json',
-              '.codebuddy/settings.json', '.qoder/settings.json', '.qwen/settings.json')
-
-
 def hooked(root: Path) -> bool:
     """True when a host settings file runs ws.py, or when docs/chats/INDEX.md lists a saved chat."""
-    for rel in HOOK_FILES:
+    for rel in dict.fromkeys(HOOK_FILES.values()):
         try:
             if 'ws.py' in (root / rel).read_text(encoding='utf-8'):
                 return True

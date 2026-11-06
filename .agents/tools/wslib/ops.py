@@ -10,7 +10,7 @@ from . import coverage, evidence, logs, tables, validate
 from .coverage import redact
 from .core import (
     WorkspaceError, atomic_write, card, card_text, checkpoint_of, config, describe_drift, difference, drift_count,
-    fingerprint, goal_of, lock, now, preview, read, safe_path, save_state, sha, state_of, today, with_goal,
+    fingerprint, goal_of, lock, now, preview, read, rewatch, safe_path, save_state, sha, state_of, today, with_goal,
     with_state, write, writer_label, session_identity, same_session, other_session, other_session_text, delegated,
     host_process, host_alive, same_host, other_host, live_host_text,
 )
@@ -215,7 +215,7 @@ def start(root: Path, writer: str | None, force: bool, reason: str | None, sessi
                   'within that scope; your stop point and next step go in "Parallel sessions" of HANDOFF.md at checkpoint.')
             return
         cp = checkpoint_of(root, state)
-        changes = difference(cp['files'], fingerprint(root)) if cp else {'added': [], 'removed': [], 'modified': []}
+        changes = difference(rewatch(root, cp['files']), fingerprint(root)) if cp else {'added': [], 'removed': [], 'modified': []}
         notes_since = []
         for row in logs.live_rows(root, 'SESSION_LOG'):
             if row['Verification'] != 'note':
@@ -346,7 +346,7 @@ def checkpoint(root: Path, stop: str, next_step: str, sets: list, keep: bool, wr
                                  'HANDOFF.md with what is missing, then run this checkpoint again with --keep. It saves '
                                  'the card without sealing; READY stays refused until the errors are fixed')
         previous = checkpoint_of(root, state)
-        changes = difference(previous['files'], fingerprint(root)) if previous else None
+        changes = difference(rewatch(root, previous['files']), fingerprint(root)) if previous else None
         live = validate.gather(root)['live']
         recorded = coverage.session_summary(root, live, previous)
         notices = [message for _, message in coverage.findings(root, live)]

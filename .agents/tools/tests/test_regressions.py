@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 from support import ENV, TOOLS, Workspace
-from wslib import core, rows, tables
+from wslib import core, rows, schema, tables
 from wslib.schema import LIB_MODULES, TABLES
 
 WRITER = ('import subprocess, sys\n'
@@ -303,6 +303,52 @@ class Identity(Workspace):
         self.ws('add', 'question', '--set', 'question=from the inner host', env=host(CLAUDE_CODE_SESSION_ID='claude-a'))
         self.ws('add', 'question', '--set', 'question=from the outer chat', env=host(CURSOR_CONVERSATION_ID='conv-a'),
                 expect=2)
+
+
+class Hooks(Workspace):
+    def test_h3_every_host_settings_file_is_in_hook_files(self):
+        import ws
+        self.assertEqual({h: ws.hook_settings(h)[0] for h in ws.HOSTS}, schema.HOOK_FILES)
+        self.assertEqual(core.rewatch(self.root, {rel: '' for rel in schema.HOOK_FILES.values() if rel not in schema.ADAPTERS}), {})
+        self.assertEqual([r for r in (*schema.ADAPTERS, *schema.SEARCH_IGNORE) if not r.startswith(schema.NON_SOURCE)], [])
+
+    def test_h3_hooks_keep_ready_for_watched_hosts(self):
+        import ws
+        self.init()
+        self.save()
+        for host in (h for h in ws.HOSTS if h != 'gemini'):
+            with self.subTest(host=host):
+                self.ws('hooks', 'enable', host)
+                self.ready()
+
+    def test_n2_gemini_hooks_print_the_checkpoint_note(self):
+        self.init()
+        self.save()
+        self.assertIn('until "ws checkpoint" saves it', self.ws('hooks', 'enable', 'gemini').stdout)
+        self.ws('start')
+        self.save()
+        self.ready()
+        settings = json.loads(self.read('.gemini/settings.json'))
+        settings['hooks']['Notification'] = [{'hooks': [{'type': 'command', 'command': 'echo ' + 'x' * 3000}]}]
+        self.write('.gemini/settings.json', json.dumps(settings))
+        self.assertNotIn('short pointer', self.ws('check', expect=None).stdout)
+
+    def test_rewatch_ignores_files_the_new_rules_exclude(self):
+        self.init()
+        self.save()
+        recorded = {'src/a.py': '1', '.qwen/settings.json': '2', 'node_modules/x.js': '3', 'AGENTS.md': '4'}
+        self.assertEqual(core.rewatch(self.root, recorded), {'src/a.py': '1', 'AGENTS.md': '4'})
+        self.assertEqual(core.rewatch(self.root, {'.ignore': '5', 'src/a.py': '1'}, source_only=True), {'src/a.py': '1'})
+        # A checkpoint from a version that still watched .qwen/ must not report its file as removed.
+        state = core.state_of(self.root)
+        rel = state['checkpoint']['manifest']
+        manifest = json.loads(self.read(rel))
+        manifest['files']['.qwen/settings.json'] = 'x'
+        raw = json.dumps(manifest, ensure_ascii=False, indent=1, sort_keys=True) + '\n'
+        (self.root / rel).write_bytes(raw.encode('utf-8'))
+        state['checkpoint']['sha256'] = core.sha(raw.encode('utf-8'))
+        core.save_state(self.root, state)
+        self.ready()
 
 
 class Guarded(Workspace):

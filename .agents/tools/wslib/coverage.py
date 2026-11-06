@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .core import CREDENTIALS, WorkspaceError, checkpoint_of, difference, fingerprint, goal, state_of, watched_files
+from .core import CREDENTIALS, WorkspaceError, checkpoint_of, difference, fingerprint, goal, rewatch, state_of, watched_files
 from .schema import CHAT_DIR, NON_SOURCE, TABLES
 
 COUNTED = ('requirements', 'questions', 'preferences', 'decisions', 'tasks', 'features')
@@ -405,7 +405,7 @@ def product_changes(root: Path, cp, now: dict) -> list:
     """Product files changed since the last checkpoint, ignoring workspace records and plain docs."""
     if not cp:
         return []
-    changes = difference(cp['files'], now)
+    changes = difference(rewatch(root, cp['files']), now)
     names = changes['added'] + changes['modified']
     return [n for n in names if not n.startswith(NON_SOURCE) and not n.endswith(SUPPORT_SUFFIXES)]
 

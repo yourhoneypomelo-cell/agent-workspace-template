@@ -99,3 +99,20 @@ every test named here exists.
 | 3.7.0 | Migrated v2 tasks lost their requirement IDs in CLOSED_ITEMS, so coverage dropped after a migration | `test_distribution.Migration.test_14_migrated_closed_tasks_keep_requirement_ids` | fails |
 | 3.7.0 | Coverage counted every requirement ID anywhere in a closed task's text, so "leave R2 for later" verified R2 | `test_distribution.Migration.test_s4_coverage_reads_only_the_requirement_prefix` | fails |
 | 3.7.0 | Tasks verified under continuity.v2 counted as verified in v3 without a run | `test_distribution.Migration.test_v2_closed_rows_are_counted_apart` | fails |
+| 3.7.0 | Projects had no upgrade command: files were copied by hand, and guides the project had edited were overwritten | `test_upgrade.Upgrade.test_replaces_unmodified_and_keeps_modified_guides` | fails |
+| 3.7.0 | Hook commands written by an older release were never updated in a project; an upgrade rewrites only the tool's entries | `test_upgrade.Upgrade.test_regenerates_only_our_hook_entries` | fails |
+| 3.7.0 | An upgrade dry run writes nothing, not even the cache | `test_upgrade.Upgrade.test_dry_run_writes_nothing` | guard |
+| 3.7.0 | An upgrade refuses tool code the project changed, so the tool never mixes two versions | `test_upgrade.Upgrade.test_refuses_modified_tool_code` | guard |
+| 3.7.0 | An upgrade keeps the project's rules under "## Project rules" in AGENTS.md | `test_upgrade.Upgrade.test_merges_the_project_rules_section` | guard |
+| 3.7.0 | An upgrade leaves .agents/hooks.json and docs/ as they are | `test_upgrade.Upgrade.test_keeps_hooks_json_and_docs` | guard |
+| 3.7.0 | A second upgrade changes nothing | `test_upgrade.Upgrade.test_is_idempotent` | guard |
+| 3.7.0 | An upgrade stopped by an error puts every file back; one stopped by a kill is put back byte for byte by --rollback | `test_upgrade.Upgrade.test_interrupted_then_rollback_restores_bytes` | guard |
+| 3.7.0 | A rollback after sessions wrote needs --force and keeps their state | `test_upgrade.Upgrade.test_rollback_after_new_work_needs_force_and_keeps_the_state` | guard |
+| 3.7.0 | A new tool that fails on the project is rolled back | `test_upgrade.Upgrade.test_a_new_tool_that_fails_on_the_project_is_rolled_back` | guard |
+| 3.7.0 | A restore that fails exits 3 and names the rollback to run | `test_upgrade.Upgrade.test_a_failed_restore_exits_3_and_names_the_rollback` | guard |
+| 3.7.0 | Both 3.6.6 manifest shapes, and a project without a manifest, upgrade correctly | `test_upgrade.Upgrade.test_bases_from_zip_and_head_manifests` | guard |
+| 3.7.0 | An upgrade refuses a workspace a session owns | `test_upgrade.Upgrade.test_refuses_an_owned_workspace` | guard |
+| 3.7.0 | An upgrade refuses a continuity.v2 workspace and names the migrate command | `test_upgrade.Upgrade.test_refuses_v2_and_names_migrate` | guard |
+| 3.7.0 | An upgrade refuses a project whose .agents folder is a link | `test_upgrade.Upgrade.test_linked_agents_folder_is_refused` | guard |
+| 3.7.0 | upgrade --scan lists the workspaces under a folder and writes nothing | `test_upgrade.Upgrade.test_scan_lists_versions_and_writes_nothing` | guard |
+| 3.7.0 | A rebaseline cannot drop the entry of a project file, or of a file that still exists | `test_upgrade.Rebaseline.test_removed_entries_are_template_files_that_are_gone` | guard |

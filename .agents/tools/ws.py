@@ -61,6 +61,8 @@ COMMANDS = '''commands:
   reconcile [ID --ids R1,T2 | --reason "chat: ..."]   list user messages not yet matched to rows, or mark one
   lint                       advisory layout and wording checks for reusable documents
   tidy [--dry-run] [--force] remove template maintainer files an older install left here; add search ignore files
+  upgrade --target DIR       bring a project to this template version (from the new template folder); --dry-run
+                             first, --rollback NAME to undo, --scan FOLDER to list the workspaces under a folder
   install --target DIR       copy this template into a project (from the template folder); --merge --dry-run --diff
                              shows what merging would change
   export --output DIR        write a clean template copy and a zip
@@ -166,6 +168,19 @@ def parser() -> argparse.ArgumentParser:
     install.add_argument('--merge', action='store_true', help='merge an existing AGENTS.md, CLAUDE.md and .gemini/settings.json')
     install.add_argument('--allow-modified', action='store_true')
     install.add_argument('--diff', action='store_true', help='with --dry-run, print each merge as a diff')
+    up = subs.add_parser('upgrade', help='bring a project to this template version; run from the new template folder')
+    up.add_argument('--target', type=Path)
+    up.add_argument('--dry-run', action='store_true', help='show the plan and write nothing')
+    up.add_argument('--force', action='store_true', help='upgrade although a session works, or roll back past its writes')
+    up.add_argument('--reason', help='what the user said, for --force and --overwrite-modified-tools')
+    up.add_argument('--assume-base', type=Path, metavar='PACKAGE', help='the older release, a folder or zip, when the '
+                    'project has no MANIFEST.json')
+    up.add_argument('--no-hooks', action='store_true', help='leave hook settings as they are and list the stale ones')
+    up.add_argument('--overwrite-modified-tools', action='store_true', help='back up and replace tool code the project '
+                    'changed; needs --reason')
+    up.add_argument('--rollback', metavar='NAME', help='put back the files of the upgrade folder NAME')
+    up.add_argument('--scan', type=Path, metavar='FOLDER', help='list the workspaces under FOLDER (read-only)')
+    up.add_argument('--depth', type=int, default=3)
     export = subs.add_parser('export')
     export.add_argument('--output', type=Path, required=True)
     export.add_argument('--allow-modified', action='store_true')
@@ -528,6 +543,21 @@ def main(argv=None) -> int:
             for issue in issues:
                 print(issue)
             print(f'Lint: {len(issues)} findings (advisory)')
+        elif args.command == 'upgrade':
+            from wslib import upgrade
+            if args.scan:
+                for line in upgrade.scan(TEMPLATE_ROOT, args.scan, args.depth):
+                    print(json.dumps(line, ensure_ascii=False))
+                return 0
+            if not args.target:
+                raise WorkspaceError('ws upgrade needs --target <project>, or --scan <folder>')
+            if args.rollback:
+                print(json.dumps(upgrade.rollback(args.target, args.rollback, args.force), ensure_ascii=False))
+                return 0
+            report = upgrade.run(TEMPLATE_ROOT, args.target, args.dry_run, args.force, args.reason, args.assume_base,
+                                 args.no_hooks, args.overwrite_modified_tools)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 1 if report['pending'] and not args.dry_run else 0
         elif args.command == 'install':
             result = distribution.install(TEMPLATE_ROOT, args.target, args.dry_run, args.merge, args.allow_modified,
                                           args.diff)
@@ -550,7 +580,7 @@ def main(argv=None) -> int:
             print(json.dumps(distribution.stamp(TEMPLATE_ROOT), ensure_ascii=False))
     except (WorkspaceError, ValueError, OSError, KeyError, TypeError, AttributeError) as error:
         print(f'ERROR: {error}', file=sys.stderr)
-        return 2
+        return getattr(error, 'exit_code', 2)
     return 0
 
 

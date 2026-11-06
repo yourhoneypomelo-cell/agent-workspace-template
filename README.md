@@ -17,6 +17,29 @@ features the user already rejected, and claim tasks are done without proof. This
 that by making the agent record every requirement, decision, task and piece of evidence in files
 that the next session reads before doing anything.
 
+### What it is for
+
+- **Long projects that span many sessions.** The agent re-reads the goal, the current task, the
+  exact stop point and the next step before touching any code — not just a summary it wrote itself.
+- **Context compaction.** When the host compresses the conversation, everything the agent never
+  wrote down is gone. Here, requirements, prohibitions and decisions live on disk, so compaction
+  costs nothing. Chat transcripts are copied into the project, and `ws reconcile` turns every
+  saved user message into a checklist until it is accounted for.
+- **Switching windows or tools.** A session started in Claude Code can continue in Codex or Kimi
+  Code: all of them read the same `AGENTS.md` and the same state files. The handoff card says
+  where the work stopped; the evidence files say what was actually verified.
+- **Changing requirements.** Every requirement has a permanent ID. Replacing one lists the open
+  tasks and features that cite it, so the follow-up work is updated instead of silently building
+  the old behavior. Removed features stay visible with their reason, so they are not re-proposed.
+- **Proof of completion.** Each task carries its own acceptance command. `ws verify` runs it,
+  stores the output, and marks the task done only when it passed — zero tests, skipped tests and
+  stale evidence are all reported, never silently accepted.
+- **Parallel agent windows.** Sessions claim tasks by file path and resource name; overlapping
+  claims are refused. A lock whose generation is older than the workspace's current revision is
+  reclaimed, so a taken-over window cannot keep writing.
+- **Credentials.** You decide once whether the project keeps credentials as written, redacts
+  them, or asks each time. Every write path follows that decision, including chat transcripts.
+
 ## Quick start
 
 1. **Download** the latest release ZIP from
@@ -100,7 +123,33 @@ database, why record-before-act, how evidence works, and which alternatives were
 
 ## Requirements
 
-Python 3.10 or newer. No packages to install — standard library only.
+**Runtime**
+
+- Python **3.10 or newer**, available on the PATH as `python`. No packages to install — the tool
+  uses only the standard library.
+- Windows, macOS or Linux. Windows notes (Git Bash vs PowerShell, UTF-8, hook commands) are in
+  [HOSTS.md](.agents/guides/HOSTS.md).
+- An agent tool that can read files and run shell commands. Any tool works: the contract is read
+  from `AGENTS.md`, and the CLI is plain Python.
+- Git is recommended for the project, but not required. The workspace itself never runs git.
+
+**Host integration (optional)**
+
+- Without hooks the workspace still works; the agent just runs `ws brief` itself. Hooks automate
+  transcript capture and the session-start brief. One command sets them up per tool:
+  `python .agents/tools/ws.py hooks enable <host>` for `claude`, `codex`, `cursor`, `gemini`,
+  `copilot`, `antigravity`, `kiro`, `codebuddy`, `qoder`, `qwen` or `grok`.
+- Some hosts ask you to trust the project or its hooks first (Codex `/hooks`, Qwen Code, Kiro,
+  Qoder, WorkBuddy). [HOSTS.md](.agents/guides/HOSTS.md) lists the entry file and the trust step
+  for each one.
+- Importing DeepSeek Harness session history needs Python **3.14+** or the `backports.zstd`
+  package, because its store is zstd-compressed. Everything else works on 3.10.
+
+**Disk**
+
+The template is under 1 MB. A project's `docs/` grows with its history and chat transcripts;
+`ws compact` archives closed rows and `ws check` warns before files get too large for a host to
+read.
 
 ## License
 

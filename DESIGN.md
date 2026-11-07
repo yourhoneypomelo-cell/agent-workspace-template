@@ -136,9 +136,9 @@ still run commands, but its writes are refused because another session owns the 
 
 ### 9. Credentials follow the user's decision
 
-The tool asks once how the project handles credentials: keep them as written, redact them,
-or ask each time. The answer is recorded as a preference and a WORKSPACE setting, and every
-write path follows it.
+The tool asks once how the project handles credentials: keep them as written in the files the
+user names, or keep them out of files; until then the agent asks. The answer is recorded as a
+preference and a WORKSPACE setting, and everything else the tool writes is redacted.
 
 Invisible characters (zero-width space, soft hyphen, BOM) that would split a key and hide it
 from pattern matching are detected and handled. Host data that is neither user text nor a

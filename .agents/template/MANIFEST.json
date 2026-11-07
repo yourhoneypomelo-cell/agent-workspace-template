@@ -1,14 +1,14 @@
 {
- "created_at": "2026-11-07T07:35:26+00:00",
+ "created_at": "2026-11-07T07:38:41+00:00",
  "files": {
   ".agents/README.md": "e339e27d20c0874353796a72add8121a698b1878977ff659198509c7a16fc012",
   ".agents/TEMPLATE_CHECKOUT.md": "d88bf0d92630df240179e4a5d95f8406453bfe165b107b5557797cfaeac589b7",
-  ".agents/guides/DESIGN_REQUIREMENTS.md": "8e602aa86990fb6286e49c511abc6b339e0d3ea79134f821996d186dfde2ee53",
+  ".agents/guides/DESIGN_REQUIREMENTS.md": "dd20a8d4abbdb3dced16adef071609169daee70461232cf16025308e480a2533",
   ".agents/guides/FIXES.md": "ef7325569c7c7b0c70cc6dc76ba0160c93d12a71a42c76582aeca9f7e2d2f5c8",
   ".agents/guides/HOSTS.md": "7d09ab14438810449a6f779ca8cf1f1408e7721d1eda1d5fc49ce0288055e12e",
-  ".agents/guides/MAINTAINING.md": "f6f6c40f46e0ce28c4e5900c505ddcea73fc7f2f63e627bdb8c6876d1ac4355c",
-  ".agents/guides/PROTOCOL.md": "72f957eec7d8106680b3f43006d76140de958ec62814e32d616b2f2e9db2d200",
-  ".agents/guides/QUICKSTART.md": "e1214117b00520ae7ec52945979bb42c20fbb6b6e3d19905debd42e137526a44",
+  ".agents/guides/MAINTAINING.md": "f583da5f71367ec4774fd2c6c88b3c609e82a84efbcdc2711c903ba2ea62d7b1",
+  ".agents/guides/PROTOCOL.md": "1a30eef60058dbf45f9e75ec37250b067216cea31139a68379bd5142746634de",
+  ".agents/guides/QUICKSTART.md": "e37214a14c8574f31b15f75da1487bb4a676c32f7efbefcb5c8791e8213a4679",
   ".agents/guides/README.md": "2e5383f443a3f010d6be70b71c5ebef626fb23ac4fea037523dcb4b4cf9d649a",
   ".agents/guides/STRUCTURE.md": "b391ab69473a7564c64a86158458c327a2bd3980fd251eae97196fd71acbdb0e",
   ".agents/skills/README.md": "d961794e1fed60ef9fe07d47d491debaa208c1df69e32768acdf52d533df8560",
@@ -16,7 +16,7 @@
   ".agents/skills/save-session-log/SKILL.md": "6a0720ef0e62187afe1c492861e726729d65fb574e089643fad6d2e11305e145",
   ".agents/skills/spec-workflow/SKILL.md": "a8b442779ce104775c4773eb94d423c52857064fb1f49e82fb2a4a82ec3163fe",
   ".agents/template/README.md": "c02f349d8920e04d5a6222e084773ddadc8d7a91515326a63e78c14b2b7ed1eb",
-  ".agents/template/TOOL_TRIAL.md": "ce385c1d613ca4dde7c737b6e772f82b4c71c376242537a97966b07d3c412ec3",
+  ".agents/template/TOOL_TRIAL.md": "9559efda272a28d5dccd864a8a4d5cf9a988045ce595a8c39001d4a9cae55078",
   ".agents/template/examples/go_json.py": "8cb5ff7f8d354da170e3ebe570a1c5c87189f96418977859933fda04abad409c",
   ".agents/template/examples/minimal_cycle.py": "9f4704fad5a6bc2d7362579c964c75a073ab3bae9769ed35f140ad1bd6f77afb",
   ".agents/template/examples/pytest_junit.py": "2f0649d9ada0856d7b2bd8d182c5e796854dc9f5b6d96ea7c0c54e6130cf734a",
@@ -75,7 +75,7 @@
   ".agents/tools/wslib/retired.py": "34d060048f154126f1e0c3d3cdf7e3bed21d8db0c0223700b7969a073b73dbb3",
   ".agents/tools/wslib/rows.py": "be5d5902c3a81d23297f54dec82f891b0c402d67a3ba601e224d09d59d9774e0",
   ".agents/tools/wslib/runs.py": "25ae5a7b0dc9f42663c43d63478ea04b242259423f3b74775a1ad61b867b56f7",
-  ".agents/tools/wslib/schema.py": "b1d370adef8d7f1d165aa646eb130bf7d75e0c268067a9073e5182a4e3d252aa",
+  ".agents/tools/wslib/schema.py": "162d76e754e6e722c3ba336cc0bb8a025d62fd4aa22b7d5f832ae3507bb9db6c",
   ".agents/tools/wslib/snapshot.py": "f1f9fc70b551747494b38875fe1904f499f7318c489ce2791ccf141d1c9ff53b",
   ".agents/tools/wslib/tables.py": "771697e01cde12d1a9188b75c76c573009e0466c8280d1de6c1bd18e54027734",
   ".agents/tools/wslib/upgrade.py": "c4625e9ba04a0946a095db3f26f816a806e75375179fed2d0023a7231c3997df",
@@ -91,5 +91,5 @@
   "CODEBUDDY.md": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
  },
  "schema": "template-manifest.v3",
- "version": "3.8.0"
+ "version": "3.9.0"
 }

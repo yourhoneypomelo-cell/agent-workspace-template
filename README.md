@@ -37,8 +37,9 @@ that the next session reads before doing anything.
 - **Parallel agent windows.** Sessions claim tasks by file path and resource name; overlapping
   claims are refused. A taken-over window cannot keep writing, and the workspace lock is a system
   file lock that ends with the process holding it.
-- **Credentials.** You decide once whether the project keeps credentials as written, redacts
-  them, or asks each time. Every write path follows that decision, including chat transcripts.
+- **Credentials.** You decide once whether credentials are kept as written in files you name,
+  or kept out of files; until then the agent asks. Everything else the tool writes, chat
+  transcripts included, is redacted.
 
 ## Architecture
 
@@ -184,8 +185,8 @@ Next session:     ↑                                                           
 - **Parallel sessions.** Multiple agent windows can work on the same project. Task claims use
   file paths and resource names to prevent conflicts. The workspace lock ends with the process
   that holds it, so a crashed window never leaves it behind.
-- **Credential safety.** The tool asks how the project handles credentials (keep, redact, or
-  ask each time) and follows that rule in every write.
+- **Credential safety.** The tool asks how the project handles credentials (kept as written in
+  files you name, or kept out of files) and redacts them everywhere else it writes.
 - **Host adapters.** AGENTS.md is the single contract. Adapters for Claude Code, Codex, Cursor,
   Gemini, Kiro, Kimi Code, Grok, DeepSeek Harness, CodeBuddy and Qwen Code load it natively.
 - **Compaction survival.** State files are on disk, not in the agent's context window. After

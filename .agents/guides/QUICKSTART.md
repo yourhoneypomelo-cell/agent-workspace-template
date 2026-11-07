@@ -126,16 +126,17 @@ Afterwards open the project and say "Read AGENTS.md and continue."
 A stored format changes only together with its version mark. A tool reads every older mark it knows and
 refuses a newer one with a message to upgrade, so an older tool never misreads newer data.
 
-| Part | Mark | In 3.8.0 | Older forms |
+| Part | Mark | In 3.9.0 | Older forms |
 | --- | --- | --- | --- |
 | State line in HANDOFF.md | `schema` | continuity.v3, unchanged | continuity.v2 is converted once by `ws migrate` |
 | Evidence in `docs/archive/checks/` | `rules` | Summary rules 2 since 3.7.0; evidence without the field is rules 1 | Read again with the rules it records, so it stays valid |
-| Checkpoint manifests | optional keys | `rebaselined` and `upgraded` after an upgrade (3.7.0); `after_upgrade` in the first session after one (3.8.0) | Older tools ignore them |
+| Checkpoint manifests | optional keys | `rebaselined` and `upgraded` after an upgrade (3.7.0); `after_upgrade` in the first session after one (3.8.0); `messages_open`, the messages open at the seal (3.9.0) | Older tools ignore them. Without `messages_open` every open message blocks READY |
 | Template manifest | optional keys | `maintainer_files`, `source_modified` (3.7.0) | 3.6.x ignores them |
-| WORKSPACE block | optional keys | `stale_evidence`, block by default (3.8.0) | Older tools ignore it |
+| WORKSPACE block | optional keys | `stale_evidence`, block by default (3.8.0); `credential_files`, `chat_import` and `chat_import_since` (3.9.0) | Older tools ignore them; 3.8 reads `"plain"` as every file and imports at every start |
 | Task Scope | words | `new:<path>`, `resource:<name>`, `tree:` (3.8.0) | A 3.7.x tool reads them as plain words |
 | Workspace lock | file | A system lock on `.agents/cache/ws.flock` (3.9.0) | The `ws.lock` of 3.8 and older still counts while its process runs, and `WS_LOCK=legacy` uses it instead; 3.10.0 drops both |
-| Message IDs in RECONCILE_LOG | none | Unchanged | |
+| Transcript headings in `docs/chats/` | words | The message ID after the time, as in `[m3fa91c02e7b]` (3.9.0) | A heading without one is read as before; a 3.8 tool does not read headings that carry one |
+| Message IDs in RECONCILE_LOG | length | 12 hex digits, covering the transcript and the message number (3.9.0) | The 10-digit IDs of 3.8, the hash of the text alone, stay valid for the messages saved then |
 
 Announced for 3.10.0: the `ws.lock` of 3.8 and `WS_LOCK=legacy` stop counting, so every window must run 3.9 or
 later by then. A version that stops reading an older mark says so here first, one release ahead.

@@ -424,8 +424,17 @@ class ChatImport(Workspace):
 
     def imported(self, env, importing=None):
         args = ('start', *(('--import', importing) if importing else ()))
-        out = self.ws(*args, env=env).stdout
+        done = self.ws(*args, env={**env, 'WS_IMPORT_TRACE': '1'})
+        out = done.stdout
         found = json.loads(out.splitlines()[0])['imported_sessions']
+        if not found:
+            self.fail(f'args {args}; ' + done.stderr[-400:])
+        if not found:
+            from wslib.core import config
+            home = env.get('HOME', '')
+            files = list(Path(home).rglob('rollout-*.jsonl')) if home else []
+            times = ', '.join(f'{p.name} {p.stat().st_mtime}' for p in files)
+            self.fail(f'imported nothing; since {config(self.root).get("chat_import_since")}; now {time.time()}; {times}')
         return found
 
     def set_up(self, *options, env):

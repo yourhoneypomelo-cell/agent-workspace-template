@@ -3,6 +3,7 @@ as the owner decided, and hook paths. Each test fails on 3.8.0 unless its commen
 import errno
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 import time
@@ -423,7 +424,26 @@ class ChatImport(Workspace):
 
     def imported(self, env, importing=None):
         args = ('start', *(('--import', importing) if importing else ()))
-        return json.loads(self.ws(*args, env=env).stdout.splitlines()[0])['imported_sessions']
+        out = self.ws(*args, env=env).stdout
+        found = json.loads(out.splitlines()[0])['imported_sessions']
+        if not found:
+            import os as _os
+            from wslib import capture
+            home = env.get('HOME', '')
+            saved = {k: _os.environ.get(k) for k in ('HOME', 'USERPROFILE')}
+            _os.environ.update(env)
+            try:
+                sessions = capture.local_sessions(self.root, 'codex')
+            finally:
+                for k, v in saved.items():
+                    if v is None:
+                        _os.environ.pop(k, None)
+                    else:
+                        _os.environ[k] = v
+            from wslib.core import config
+            times = ', '.join(f'{p.name} {p.stat().st_mtime}' for _, p in sessions)
+            self.fail(f'imported nothing; since {config(self.root).get("chat_import_since")}; {times}')
+        return found
 
     def set_up(self, *options, env):
         out = self.ws('init', '--goal', 'Demo', *options, env=env).stdout

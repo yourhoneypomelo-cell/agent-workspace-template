@@ -23,6 +23,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python: ['3.9', '3.x']
+        # ubuntu-latest is 26.04, and the hosted Python builds have no 3.9 for it; 24.04 keeps the 3.9 job.
+        exclude:
+          - {os: ubuntu-latest, python: '3.9'}
+        include:
+          - {os: ubuntu-24.04, python: '3.9'}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

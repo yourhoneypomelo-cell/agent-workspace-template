@@ -414,9 +414,11 @@ class ChatImport(Workspace):
                        {'type': 'response_item', 'payload': {'type': 'message', 'role': 'user',
                                                              'content': [{'type': 'input_text', 'text': text}]}}]
             path.write_text(''.join(json.dumps(r) + '\n' for r in records), encoding='utf-8')
-            if days:
-                then = time.time() - days * 86400
-                os.utime(path, (then, then))
+        if days:
+            # A session written in the same second as init is older than the install: a filesystem that rounds
+            # timestamps to whole seconds, as the CI runners do, cannot tell the two moments apart.
+            then = time.time() - (2 if days < 0 else days * 86400)
+            os.utime(path, (then, then))
         return {'HOME': str(home), 'USERPROFILE': str(home), 'WS_IMPORT': ''}
 
     def imported(self, env):
@@ -430,7 +432,7 @@ class ChatImport(Workspace):
 
     def test_26_start_imports_nothing_until_the_user_decides(self):
         # ws start copied every chat of the folder from nine host stores, chats from before the setup included.
-        env = self.home(('new', 'Use SQLite for storage', 0))
+        env = self.home(('new', 'Use SQLite for storage', -1))
         self.assertIn('may ws start copy', self.set_up(env=env))
         self.assertIn('"chat_import": "ask"', self.read('docs/state/ARCHITECTURE.md'))
         started = self.ws('start', env=env).stdout
@@ -440,7 +442,7 @@ class ChatImport(Workspace):
     def test_26_an_answer_at_init_imports_only_chats_from_after_the_setup(self):
         env = self.home(('old', 'An old chat about pricing', 30))
         self.assertNotIn('may ws start copy', self.set_up('--chat-import', 'on', env=env))
-        self.home(('new', 'Use SQLite for storage', 0))
+        self.home(('new', 'Use SQLite for storage', -1))
         self.assertEqual(self.imported(env), {'codex': 1})
         self.assertIn('Use SQLite', self.read('docs/chats/codex/rollout-new.md'))
         self.assertFalse((self.root / 'docs/chats/codex/rollout-old.md').exists())
@@ -463,7 +465,7 @@ class ChatImport(Workspace):
         # Guards the user-level override: WS_IMPORT=0 never imports, WS_IMPORT=1 imports without asking.
         self.init()
         self.save()
-        env = self.home(('new', 'Use SQLite for storage', 0))
+        env = self.home(('new', 'Use SQLite for storage', -1))
         self.assertEqual(self.imported({**env, 'WS_IMPORT': '0'}), {})
         self.save()
         self.assertEqual(self.imported({**env, 'WS_IMPORT': '1'}), {'codex': 1})

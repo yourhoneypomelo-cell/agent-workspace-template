@@ -64,6 +64,22 @@ The static tier checks that AGENTS.md still holds each of these phrases.
 - `When the state grows large`
 - `## Read before you act`
 
+## Owner decisions
+
+Questions only the owner can settle. Work that depends on one cites its ID.
+
+| ID | Question | Decision (2026-11-07) |
+| --- | --- | --- |
+| D0 | Personal tool or public template | A public template: the package keeps safe defaults, and Python 3.9 for macOS, a CI matrix on Windows, macOS and Linux, branch tools (merge check, renumber) and a reproducible evaluation move up |
+| D1 | Chat import | Asked once at init; sessions from before the install are not imported; a git project is asked at init whether to ignore `docs/chats/` |
+| D2 | Credentials | Default `ask`; `plain` applies only to files the owner names |
+| D3 | Restoring contract rules | Six rules restored and two rewritten, as revised in the review; the override limit keeps its original strict form, so an instruction in the current turn cannot waive a hard gate; the agent relays the per-turn record to the user |
+| D4 | A sealed task whose files change later | READY is refused until `ws verify --stale` runs it again; the first session after an upgrade only warns |
+| D5 | Main hosts | Claude Code, Cursor, Codex, Kiro, Antigravity and DeepSeek Harness; the per-turn record goes to the agent |
+| D6 | The owner's projects | Listed with `ws upgrade --scan`; upgraded after 3.8.0; a v2 workspace is migrated when it is used again |
+| D7 | File names and cadence | v3 file names stay; one batch makes one version |
+| D8 | Lite profile | Offered; the owner's own projects stay on the full profile |
+
 ## Release
 
 Every version change ends with one clean package in `dist/` of the template folder.

@@ -1,12 +1,12 @@
 {
- "created_at": "2026-11-06T23:52:28+00:00",
+ "created_at": "2026-11-07T00:26:21+00:00",
  "files": {
   ".agents/README.md": "e339e27d20c0874353796a72add8121a698b1878977ff659198509c7a16fc012",
   ".agents/TEMPLATE_CHECKOUT.md": "d88bf0d92630df240179e4a5d95f8406453bfe165b107b5557797cfaeac589b7",
   ".agents/guides/DESIGN_REQUIREMENTS.md": "85ad1fcfeb7958c5e90c0492b09f7ebe6d6fbb69067920e05b7e77a9f4f5c655",
   ".agents/guides/FIXES.md": "39bcfd16f6a1ed506e28502320d6a636c40dfb0d2db82a466b6584c628488fda",
   ".agents/guides/HOSTS.md": "0f3a4bff59659576f048c03c64938b4caad2573348c0e450cb970c7eaa2140db",
-  ".agents/guides/MAINTAINING.md": "03db338c063bf7933696d5e4be71581c326953dbe7ebe6ed01d3f35064059311",
+  ".agents/guides/MAINTAINING.md": "3b41dcab67e4ee02cc0b0856f770b69dde5db1dec2f4adf9f791be181aa5a09e",
   ".agents/guides/PROTOCOL.md": "387bc1bffb1369cb6fbcd41e53f9b9d469a99cf6811ab3ac70f6caad4fb8b619",
   ".agents/guides/QUICKSTART.md": "56cb6f46f80f0433f4f6f73eb4e318869778dceb9e9cd98b80883bd971a3cd89",
   ".agents/guides/README.md": "2e5383f443a3f010d6be70b71c5ebef626fb23ac4fea037523dcb4b4cf9d649a",

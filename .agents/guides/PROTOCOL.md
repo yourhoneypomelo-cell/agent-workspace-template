@@ -24,8 +24,8 @@ every watched file, so the next session can tell which files changed after the l
 
 All commands run from the project root as `python .agents/tools/ws.py <command>`.
 Read-only commands (`brief`, `turn`, `status`, `check`, `lint`, `doctor`) never write a file, not even the hash cache
-in `.agents/cache/`. The one exception is the per-turn hook, `turn --hook`, which keeps two small markers there
-for the Stop nudge.
+in `.agents/cache/`. The one exception is the per-turn hook, `turn --hook`, which keeps small markers there
+for the Stop nudge, the per-turn record and the mode markers.
 
 | Command | Writes | Purpose |
 | --- | --- | --- |
@@ -34,6 +34,7 @@ for the Stop nudge.
 | `status` | no | Same facts as JSON |
 | `check [--ready] [--strict]` | no | Validate. `--ready` also requires a released, sealed, covered workspace |
 | `note TEXT` | yes | One progress line in SESSION_LOG. No validation, no seal |
+| `idea TEXT` | yes | An idea the user did not confirm, as a bullet in the Idea pool of REQUIREMENTS.md, without an ID |
 | `init --goal TEXT` | yes | First run only. Records the goal and claims the workspace |
 | `start [--session KEY]` | yes | Claims the workspace, lists unsaved files, imports sessions from the host stores (`WS_IMPORT=0` skips the import). The same session resumes instead of taking over |
 | `add TABLE --set f=v` | yes | Adds a row with the next free ID and logs it |
@@ -488,6 +489,18 @@ cannot run at all, edit the tables by hand in the formats above and run `ws chec
   one requirement out of several was missed.
 - The credential scan matches common patterns. A secret in an unusual form can pass it.
 - Hooks capture transcripts only for hosts where `ws hooks enable` has been run and tested.
+
+## Mode markers
+
+A user message that starts with `讨论:` or `discuss:`, `只读:` or `read-only:`, or `确认:` or `confirm:` (a
+full-width colon counts too) sets the mode of that turn. The prompt hook tells the agent what the mode means and
+keeps it in `.agents/cache/turn-mode.json`. In a discussion turn `ws add requirement` is refused and `ws idea`
+keeps the idea without an ID; in a read-only turn every ws write is refused. The mode ends with the next message
+and after 30 minutes, and never applies to a command from another session. Hosts without a prompt hook get the
+rule from AGENTS.md only.
+
+The prompt hook also says what the previous turn recorded, or that it recorded nothing, and `ws add` and `ws set`
+print a line starting with "Tell the user in your reply", which AGENTS.md asks the agent to relay.
 
 ## Autosave
 

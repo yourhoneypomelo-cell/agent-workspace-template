@@ -40,6 +40,7 @@ COMMANDS = '''commands:
   brief [--retired]          print the resume summary, or every retired row in full (read-only)
   turn                       print the per-turn reminder used by prompt-submit hooks (read-only)
   note TEXT                  append one progress line to SESSION_LOG; cheap, use it every few turns
+  idea TEXT                  an unconfirmed idea as a bullet in the Idea pool of REQUIREMENTS.md, without an ID
   status                     ownership, revision and unsaved files as JSON (read-only)
   check [--ready] [--strict] validate the workspace (read-only)
   init --goal TEXT           first run only: record the goal and claim the workspace
@@ -96,6 +97,8 @@ def parser() -> argparse.ArgumentParser:
     turn.add_argument('--hook', choices=HOSTS, help='print in the prompt-submit hook format of this host')
     note = subs.add_parser('note')
     note.add_argument('text', nargs='+')
+    idea = owned(subs.add_parser('idea'))
+    idea.add_argument('text', nargs='+')
     subs.add_parser('status')
     check = subs.add_parser('check')
     check.add_argument('--ready', action='store_true', help='also require a released, sealed workspace')
@@ -332,9 +335,13 @@ def hook_turn(root: Path, host: str):
     except Exception:  # a hook must never break the host session
         text = ops.turn_reminder(root)
     try:
-        from wslib.nudge import turn_record
+        from wslib.nudge import turn_mode, turn_record
         record = turn_record(root)
         text = text + ' ' + record if record else text
+        raw = capture._first(payload, capture.SESSION_KEYS) if isinstance(payload, dict) else None
+        said = capture._first(payload, capture.PROMPT_KEYS) if isinstance(payload, dict) else None
+        mode = turn_mode(root, said or '', session_key(raw) if raw else None)
+        text = mode + '\n\n' + text if mode else text
     except Exception:  # a hook must never break the host session
         pass
     taken = taken_over(root, payload, host)
@@ -474,6 +481,9 @@ def main(argv=None) -> int:
                 print(ops.turn_context(root))
         elif args.command == 'note':
             ops.note(root, ' '.join(args.text))
+        elif args.command == 'idea':
+            from wslib.rows import add_idea
+            add_idea(root, ' '.join(args.text), args.writer, args.rev)
         elif args.command == 'status':
             print(json.dumps(ops.status(root), ensure_ascii=False, indent=2))
         elif args.command == 'check':

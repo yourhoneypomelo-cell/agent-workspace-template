@@ -62,6 +62,9 @@ def add(root: Path, table_name: str, sets: list, source: str | None, writer=None
     t = tables.table_for(table_name)
     sets, source = split_source(t, sets, source)
     fields = tables.assignments(t, sets)
+    from .nudge import mode_refusal
+    if mode_refusal(root, t.key):
+        raise WorkspaceError(mode_refusal(root, t.key))
     with lock(root):
         state = state_of(root)
         require_owner(root, state, writer, rev)
@@ -105,6 +108,33 @@ def add(root: Path, table_name: str, sets: list, source: str | None, writer=None
     for other, score in similar:
         print(f'{row["ID"]} is close to {other} ({score:.2f}). If it refines {other}, change {other} with "ws set {other}"; '
               f'if it replaces it, set {other} to replaced with a reason.')
+
+
+def with_idea(text: str, idea: str) -> str:
+    """REQUIREMENTS.md with one more bullet in its Idea pool; the "- None." placeholder goes."""
+    head = '\n## Idea pool\n'
+    if head not in text:
+        return text.rstrip('\n') + f'\n\n## Idea pool\n\n- {idea}\n'
+    before, after = text.split(head, 1)
+    section, sep, rest = after.partition('\n## ')
+    body = '\n'.join(l for l in section.rstrip('\n').split('\n') if l.strip().lower() not in ('- none.', '- none'))
+    body = body.rstrip('\n')
+    joiner = '\n' if body.split('\n')[-1].startswith('- ') else '\n\n'
+    return before + head + body + joiner + f'- {idea}\n' + (sep + rest if sep else '')
+
+
+def add_idea(root: Path, text: str, writer=None, rev=None):
+    """ws idea: an idea the user has not confirmed, as a bullet without an ID, as in a discussion turn."""
+    idea = redact(' '.join(text.split()))
+    if not idea:
+        raise WorkspaceError('ws idea needs the idea as text, for example: ws idea "Export to PDF later?"')
+    with lock(root):
+        state = state_of(root)
+        require_owner(root, state, writer, rev)
+        guarded(root, {REQUIREMENTS: with_idea(read(root, REQUIREMENTS), idea)})
+        bump(root, state)
+    emit({'idea': idea, 'revision': state['revision']})
+    print(f'Tell the user in your reply: noted in the Idea pool, without an ID: {short(idea, 120)}')
 
 
 DETAIL_DIRS = ('docs/specs/', 'docs/reports/')

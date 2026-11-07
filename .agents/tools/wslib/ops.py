@@ -41,6 +41,9 @@ def require_owner(root: Path, state: dict, writer: str | None, rev: int | None) 
         raise WorkspaceError(marker)
     if delegated():
         raise WorkspaceError(DELEGATED_MESSAGE)
+    from .nudge import mode_refusal
+    if mode_refusal(root):
+        raise WorkspaceError(mode_refusal(root))
     from .claims import CALLER, caller
     who = caller(state, writer)
     if who not in (None, 'primary'):

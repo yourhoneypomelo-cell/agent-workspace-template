@@ -283,6 +283,34 @@ class Review(Workspace):
         self.assertIn('user: 每天最多 200 篇', blocks[third])
 
 
+class Modes(Workspace):
+    def turn(self, prompt):
+        payload = json.dumps({'session_id': 's1', 'prompt': prompt}, ensure_ascii=False)
+        return json.loads(self.ws('turn', '--hook', 'claude', stdin=payload).stdout)['hookSpecificOutput']['additionalContext']
+
+    def test_30_a_discussion_turn_gets_no_requirement_id(self):
+        self.init()
+        self.assertIn('marked this message as discussion', self.turn('讨论：要不要以后加 PDF 导出'))
+        add = ('add', 'requirement', '--set', 'requirement=Export to PDF', '--set', 'acceptance=a PDF is written')
+        self.assertIn('marked this message as discussion', self.ws(*add, expect=2).stderr)
+        self.assertIn('noted in the Idea pool', self.ws('idea', 'Export to PDF later?').stdout)
+        pool = self.read('docs/state/REQUIREMENTS.md').split('## Idea pool')[1]
+        self.assertIn('- Export to PDF later?', pool)
+        self.assertNotIn('- None.', pool)
+        self.turn('好的，就做 PDF 导出')
+        self.ws(*add)
+
+    def test_30_a_read_only_turn_writes_nothing(self):
+        self.init()
+        self.turn('read-only: where does the work stand?')
+        self.assertIn('marked this message read-only', self.ws('add', 'question', '--set', 'question=x?', expect=2).stderr)
+        self.ws('brief')
+
+    def test_30_a_confirmation_is_named(self):
+        self.init()
+        self.assertIn('marked this message as a confirmation', self.turn('confirm: use SQLite'))
+
+
 class Contract(Workspace):
     """Owner decision D3: six rules restored and two rewritten, the override limit in its strict form, in no more
     bytes than the 3.7.0 contract (13,388)."""

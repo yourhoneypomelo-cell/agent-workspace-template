@@ -9,6 +9,8 @@ cleared before the hook answers, so a second stop always passes and no loop is p
 from __future__ import annotations
 
 import json
+import re
+import time
 from pathlib import Path
 
 from . import logs
@@ -18,6 +20,57 @@ from .schema import CACHE_DIR
 MARKER = CACHE_DIR + '/pending-turn.json'
 # The row IDs and statuses at the previous user message, so the next prompt hook can say what that turn recorded.
 TURN_LEDGER = CACHE_DIR + '/turn-ledger.json'
+
+# Mode markers (AGENTS.md, "On every user message"): the user starts a message with one of these words and a colon.
+# The prompt hook keeps the mode for that turn, so ws can refuse what the mode rules out. It lapses with the next
+# message, after MODE_MINUTES, and for a session other than the one the message came from.
+MODE = CACHE_DIR + '/turn-mode.json'
+MODES = {'discuss': ('讨论', 'discuss'), 'readonly': ('只读', 'read-only', 'readonly'), 'confirm': ('确认', 'confirm')}
+MODE_MINUTES = 30
+MODE_TEXT = {
+    'discuss': 'The user marked this message as discussion: put its ideas in the Idea pool with "ws idea", add no '
+               'requirement, and change no product file.',
+    'readonly': 'The user marked this message read-only: change no file and run no ws write; reading is fine.',
+    'confirm': 'The user marked this message as a confirmation: record what it confirms as rows now.',
+}
+
+
+def message_mode(prompt: str):
+    head = (prompt or '').lstrip()
+    for mode, words in MODES.items():
+        if any(re.match(re.escape(word) + r'\s*[:：]', head, re.I) for word in words):
+            return mode
+    return None
+
+
+def turn_mode(root: Path, prompt: str, session: str | None) -> str:
+    """Keep the marker a user message starts with for its turn, and return the sentence the prompt hook adds."""
+    mode = message_mode(prompt)
+    if mode:
+        atomic_write(root / MODE, json.dumps({'mode': mode, 'at': time.time(), 'session': session}))
+    else:
+        (root / MODE).unlink(missing_ok=True)
+    return MODE_TEXT.get(mode, '')
+
+
+def mode_refusal(root: Path, adding: str | None = None):
+    """Why the mode of this turn rules out a write: every write in a read-only turn, and a requirement in a
+    discussion turn. None when it does not."""
+    from .core import env_session
+    try:
+        data = json.loads((root / MODE).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or time.time() - float(data.get('at') or 0) > MODE_MINUTES * 60:
+        return None
+    if data.get('session') and env_session() and data['session'] != env_session():
+        return None
+    if data.get('mode') == 'readonly':
+        return 'the user marked this message read-only, so this turn writes nothing. Answer from what you read'
+    if data.get('mode') == 'discuss' and adding == 'requirements':
+        return ('the user marked this message as discussion, so it adds no requirement. Put the idea in the Idea pool '
+                'with "ws idea \\"...\\"", and add the requirement once the user confirms it')
+    return None
 
 
 def turn_record(root: Path) -> str:

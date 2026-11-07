@@ -152,3 +152,6 @@ every test named here exists.
 | 3.8.0 | Six rules of the first contract had been deleted without the owner's agreement, and two needed new wording (owner decision D3) | `test_v38.Contract.test_29_the_contract_holds_the_restored_rules_in_no_more_bytes` | fails |
 | 3.8.0 | The per-turn reminder did not carry the evidence rule, which compaction tends to drop | `test_v38.Contract.test_29_the_turn_reminder_carries_the_evidence_rule` | fails |
 | 3.8.0 | The list of ways of working the owner ruled out stayed in the maintainer's files, so new projects never got it | `test_v38.Contract.test_29_a_new_project_lists_what_is_not_adopted` | fails |
+| 3.8.0 | A message the user marked as discussion could still turn into numbered requirements, and ideas had no command | `test_v38.Modes.test_30_a_discussion_turn_gets_no_requirement_id` | fails |
+| 3.8.0 | A message the user marked read-only did not stop ws writes in that turn | `test_v38.Modes.test_30_a_read_only_turn_writes_nothing` | fails |
+| 3.8.0 | The prompt hook did not tell the agent that the user marked a message as a confirmation | `test_v38.Modes.test_30_a_confirmation_is_named` | fails |

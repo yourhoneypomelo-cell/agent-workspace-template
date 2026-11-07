@@ -421,8 +421,9 @@ class ChatImport(Workspace):
             os.utime(path, (then, then))
         return {'HOME': str(home), 'USERPROFILE': str(home), 'WS_IMPORT': '', 'WS_IMPORT_DEBUG': '1'}
 
-    def imported(self, env):
-        return json.loads(self.ws('start', env=env).stdout.splitlines()[0])['imported_sessions']
+    def imported(self, env, importing=None):
+        args = ('start', *(('--import', importing) if importing else ()))
+        return json.loads(self.ws(*args, env=env).stdout.splitlines()[0])['imported_sessions']
 
     def set_up(self, *options, env):
         out = self.ws('init', '--goal', 'Demo', *options, env=env).stdout
@@ -468,7 +469,8 @@ class ChatImport(Workspace):
         env = self.home(('new', 'Use SQLite for storage', -1))
         self.assertEqual(self.imported({**env, 'WS_IMPORT': '0'}), {})
         self.save()
-        self.assertEqual(self.imported({**env, 'WS_IMPORT': '1'}), {'codex': 1})
+        # A second start of the same session resumes and imports nothing, so this one is another session.
+        self.assertEqual(self.imported({**env, 'WS_SESSION_ID': 'another-session'}, 'on'), {'codex': 1})
 
 
 class HookPaths(Workspace):

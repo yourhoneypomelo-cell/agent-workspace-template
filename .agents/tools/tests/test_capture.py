@@ -181,8 +181,8 @@ class Capture(Workspace):
         kiro.mkdir(parents=True)
         (kiro / 'session.json').write_text(json.dumps({'workspacePaths': [str(self.root)]}), encoding='utf-8')
         (kiro / 'messages.jsonl').write_text(jsonl({'id': '1', 'timestamp': 1, 'payload': {'type': 'user', 'content': 'use SQLite'}}), encoding='utf-8')
-        env = {'HOME': str(home), 'USERPROFILE': str(home), 'WS_IMPORT': '1'}
-        self.assertEqual(json.loads(self.ws('start', env=env).stdout.splitlines()[0])['imported_sessions'], {'kiro': 1})
+        env = {'HOME': str(home), 'USERPROFILE': str(home), 'WS_SESSION_ID': 'importer'}
+        self.assertEqual(json.loads(self.ws('start', '--import', 'on', env=env).stdout.splitlines()[0])['imported_sessions'], {'kiro': 1})
         self.assertIn('use SQLite', self.read('docs/chats/kiro/sess_7.md'))
         self.assertIn('not reconciled', self.ws('brief').stdout)
 

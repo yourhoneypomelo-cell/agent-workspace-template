@@ -122,6 +122,8 @@ def parser() -> argparse.ArgumentParser:
     start.add_argument('--task', action='append', default=[], metavar='ID',
                        help='claim only these tasks, so another session can work on others at the same time')
     start.add_argument('--reason')
+    start.add_argument('--import', dest='chat_import', choices=('on', 'off'), help='import this project\'s chats from '
+                       'host stores this once, whatever WORKSPACE "chat_import" says')
     add = owned(subs.add_parser('add'))
     add.add_argument('table')
     add.add_argument('--set', action='append', default=[], metavar='FIELD=VALUE')
@@ -446,6 +448,9 @@ def linked_agents() -> str | None:
 
 def main(argv=None) -> int:
     configure_stdout()
+    # Remember what this process inherited, so a setting it changes for itself is told apart from one a parent,
+    # such as the test runner or CI, exported for its own projects.
+    os.environ.setdefault('_WS_INHERITED_WS_IMPORT', os.environ.get('WS_IMPORT', ''))
     argv = list(sys.argv[1:] if argv is None else argv)
     rest = []
     if '--' in argv:
@@ -519,7 +524,8 @@ def main(argv=None) -> int:
         elif args.command == 'init':
             ops.init(root, args.goal, args.writer, args.session, args.chat_import, args.chats_git)
         elif args.command == 'start':
-            ops.start(root, args.writer, args.force, args.reason, args.session, tasks=[t for v in args.task for t in v.replace(',', ' ').split()])
+            ops.start(root, args.writer, args.force, args.reason, args.session, tasks=[t for v in args.task for t in v.replace(',', ' ').split()],
+                      importing=args.chat_import)
         elif args.command == 'add':
             ops.add(root, args.table, args.set, args.source, args.writer, args.rev)
         elif args.command == 'set':

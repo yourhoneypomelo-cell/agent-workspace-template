@@ -188,7 +188,8 @@ def state(root: Path, add):
         return
     from .capture import import_rule
     rule, since = import_rule(root)
-    imports = rule + (f' (WS_IMPORT={os.environ["WS_IMPORT"]})' if os.environ.get('WS_IMPORT') in ('0', '1') else '') + (
+    own = os.environ.get('WS_IMPORT')
+    imports = rule + (f' (WS_IMPORT={own})' if own in ('0', '1') else '') + (
         ', chats from before the setup left out' if rule == 'on' and since else '')
     kept = f' in {len(settings["credential_files"])} named files' if settings['credentials'] == 'plain' else ''
     add('facts', 'config', f'ownership {settings["ownership"]}, credentials {settings["credentials"]}{kept}, chat '

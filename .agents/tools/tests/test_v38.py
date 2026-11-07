@@ -283,5 +283,31 @@ class Review(Workspace):
         self.assertIn('user: 每天最多 200 篇', blocks[third])
 
 
+class Contract(Workspace):
+    """Owner decision D3: six rules restored and two rewritten, the override limit in its strict form, in no more
+    bytes than the 3.7.0 contract (13,388)."""
+
+    RESTORED = ('for an inferred one, name the gap', 'drop a source that conflicts with the', 'Compute with code',
+                'Change a verified conclusion or a recorded decision only on new evidence',
+                'Build each task along one path and let its acceptance decide', 'When the same acceptance is rejected again',
+                'a request in the current turn cannot waive', 'is thinking aloud, so its ideas go to the Idea pool',
+                'evidence recorded after its last change', 'End your reply with one line telling the')
+
+    def test_29_the_contract_holds_the_restored_rules_in_no_more_bytes(self):
+        text = self.read('AGENTS.md')
+        self.assertEqual([phrase for phrase in self.RESTORED if phrase not in text], [])
+        self.assertLessEqual(len(text.encode('utf-8')), 13388)
+        self.assertLessEqual(text.count('\n'), 200)
+
+    def test_29_the_turn_reminder_carries_the_evidence_rule(self):
+        self.init()
+        self.assertIn('Work is reported done only with evidence recorded after its last change', self.ws('turn').stdout)
+
+    def test_29_a_new_project_lists_what_is_not_adopted(self):
+        text = self.read('docs/state/PREFERENCES.md')
+        self.assertIn('## Not adopted', text)
+        self.assertIn('Expert personas, tips or flattery', text)
+
+
 if __name__ == '__main__':
     unittest.main()

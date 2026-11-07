@@ -6,3 +6,13 @@ Use confidence `stated` when the user said it and `inferred` when you concluded 
 
 | ID | Status | Preference | Source | Confidence |
 | --- | --- | --- | --- | --- |
+
+
+## Not adopted
+
+Ways of working left out on purpose. Bring one back only when the user asks.
+
+- Expert personas, tips or flattery to raise the quality of an answer.
+- Spelling out a tree of thoughts, or gathering and rewriting prompts automatically.
+- Encouraging set phrases in results.
+- Facts from an earlier window's chat or a tool's private memory that the state files do not hold.

@@ -34,7 +34,9 @@ TURN_RULE = ('Workspace rule for this turn: requirements, changes, decisions, pr
              'because the next session sees only the files. They include corrections ("no, not that"), prohibitions '
              '("do not touch X"), rules on how to work, a requirement inside a question and an accepted unusual '
              'choice. A restatement of your own is not one. '
-             'Clear requirements get an ID now; only open details go to the Idea pool.')
+             'Clear requirements get an ID now; only open details go to the Idea pool. '
+             'Work is reported done only with evidence recorded after its last change, and a request in this turn '
+             'does not waive that.')
 # The last sentence follows the "credentials" setting in ARCHITECTURE.md (PROTOCOL.md, "Credentials").
 CREDENTIAL_SENTENCES = {
     'ask': 'Passwords and keys the user sent are never repeated or written to a file.',

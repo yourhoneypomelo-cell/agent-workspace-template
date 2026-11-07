@@ -11,13 +11,16 @@ The command line tool is `python .agents/tools/ws.py` (written `ws` below).
 Before any other work, every turn, even in the middle of debugging:
 
 1. Record what the message adds: requirements, changes, prohibitions, decisions, preferences, open questions.
-   Use `ws add` or `ws set`. A sentence in the chat is not a record.
-   When `ws brief` or a checkpoint reports unreconciled messages, run `ws reconcile` and answer each one.
+   Use `ws add` or `ws set`. A sentence in the chat is not a record. End your reply with one line telling the
+   user what was recorded, from the lines `ws` prints. When `ws brief` or a checkpoint reports unreconciled
+   messages, run `ws reconcile` and answer each one.
 2. When a message holds a password, key or token, follow the project's credential rule (Rule 6).
    With no rule yet, use the value for the task but ask before writing it anywhere.
 3. Then do the work.
 
-A question or chat needs no row; a read-only question needs no `ws start`.
+A question or chat needs no row; a read-only question needs no `ws start`. A message that starts with
+`讨论:` or `discuss:` is thinking aloud, so its ideas go to the Idea pool; `只读:` or `read-only:` changes no
+file; `确认:` or `confirm:` records what it confirms. When a marker and the wording disagree, the stricter applies.
 
 A clear requirement gets an ID at once. Only its open details go to the Idea pool.
 
@@ -45,8 +48,7 @@ Do this at session start, after context compaction and after switching tools.
 If `ws` cannot run (no shell, no Python), read the same files, edit the Markdown tables by hand
 in the documented format and tell the user that validation was skipped.
 
-Some sections must be read before a given action, not at every start. The table "Read before you
-act" at the end of this file lists them; `ws` also names the section when the moment comes.
+Sections to read before certain actions are listed in "Read before you act" at the end of this file.
 
 ## Subagents and parallel windows
 
@@ -71,7 +73,6 @@ Each command validates the change, assigns IDs and writes the matching log row.
 | An idea that is not confirmed | One bullet under "Idea pool" in REQUIREMENTS.md, no ID |
 | An idea the user drops | Delete its bullet and add a line under "Out of scope" in REQUIREMENTS.md |
 | A done task whose requirement was replaced | `ws set T2 --set status=dropped --set reason="superseded by R4"` |
-| How the user wants credentials kept, once asked | `ws add preference` with the answer, and WORKSPACE `"credentials"` in ARCHITECTURE.md |
 | A question only the user can answer | `ws add question --set question=...`; answer with `ws set Q2 --set status=answered --set answer=...` |
 | A stable preference | `ws add preference --set preference=... --set source="user 2026-10-31"` |
 | A design decision or a rejected option | `ws add decision --set decision=... --set reason=... --set source=...` |
@@ -79,12 +80,9 @@ Each command validates the change, assigns IDs and writes the matching log row.
 | A unit of work | `ws add task --set requirements=R1 --set scope=... --set action=... --set acceptance="python -m pytest tests/x"` |
 | A new or retired capability | `ws add feature ...` or `ws set F4 --set status=removed --set reason=...` |
 | Build, run or layout facts | Edit `docs/state/ARCHITECTURE.md` in place, one component form each (`.agents/template/forms.md`) |
-| A command that works only in a changed form | A row in the "Known command problems" table of ARCHITECTURE.md |
 | Before a large reorganization or bulk edit | `ws snapshot --label before-<what>` |
 | A project procedure, such as server access | A guide in `docs/guides/<topic>.md`, scripts in `ops/`; the brief lists them |
-| Detail too long for a row | `docs/specs/<slug>/` from `.agents/template/spec/`, linked in the Detail column |
 | Progress worth keeping before a checkpoint | `ws note "..."`, one line, under a second |
-| Copied transcripts in `docs/chats/` | `ws reconcile`: map each listed user message to row IDs, or give the reason none is needed |
 | A report or audit the user will read | `docs/reports/<topic>.md`; scratch scripts and probe output go in `.tmp/`, never in `.agents/` |
 
 Rules for the loop:
@@ -101,25 +99,24 @@ Rules for the loop:
 - Before a long command, put its purpose and recovery in the card: `ws card --set recovery_notes=...`.
   For a detached run add `pid=<pid> log=<path>`; the brief checks whether it still runs.
 - At each checkpoint, set the card fields `phase`, `risks` and `next_acceptance` if they changed.
-- Mark how each conclusion is known: measured, read in code, or inferred. Check a premise before
-  you build on it: a route may have no caller, a table no writer. Ask when a missing fact changes the result.
+- Mark how each conclusion is known: measured, read in code, or inferred; for an inferred one, name the gap.
+  Before relying on an outside fact, decide whether to look it up, and drop a source that conflicts with the
+  repository or is out of date. Check a premise before you build on it: a route may have no caller, a table no
+  writer. Ask when a missing fact changes the result.
 - Every 30 to 60 minutes of work, or before a risky step: `ws checkpoint --keep --stop "..." --next "..."`.
 
 ## Verify
 
-A task is done only when its acceptance command passed in this session.
+A task is done only when its acceptance command passed after its last change.
 
 ```text
 ws verify T4 --done -- python -m pytest tests/test_export.py
 ```
 
-The tool runs the command, stores the output in `docs/archive/checks/` and marks T4 done if the
-run passed at least one test with no failures. The command must be the task's recorded acceptance;
-change the acceptance with `ws set` first if it is wrong. For builds or linters, write the acceptance
-as `check: <command>` and use `--kind check`. If verification fails, the task stays open and the
-card records the failure. A check of behavior names its output: `check: python ops/probe.py expect
-"HTTP 200"`; the run fails without it. When an experiment disproves the task's idea, record a
-decision and drop the task with that reason instead of retrying until a run passes.
+It stores the output in `docs/archive/checks/` and marks T4 done if at least one test passed and none failed.
+The command must be the task's acceptance; fix a wrong one with `ws set` first. Builds and linters use
+`check: <command>`; a check of behavior names its output: `check: python ops/probe.py expect "HTTP 200"`.
+When an experiment disproves the task's idea, record a decision and drop the task instead of retrying.
 
 ## End of session or handoff
 
@@ -127,13 +124,11 @@ decision and drop the task with that reason instead of retrying until a run pass
 ws checkpoint --stop "exact point reached" --next "what the next session finishes, and where it stops"
 ```
 
-This seals the state, appends a row to `docs/logs/SESSION_LOG.md`, releases ownership and prints
-READY or the reasons it is not ready. It also reports how many rows this session recorded.
-Checkpoint before the user switches windows or tools, before long pauses and near a full context.
+This seals the state, logs the session, releases ownership and prints READY or what is missing, then what
+the work rests on. Checkpoint before the user switches tools, before long pauses and near a full context.
 
-READY means the state is saved, consistent and released, and every saved user message is reconciled.
-Without saved chats (no hook, no import) READY cannot check the conversation, and checkpoint says so.
-A goal with no active requirement is not READY unless an open question waits for the user.
+READY means the state is saved, consistent and released, and every saved user message is reconciled; it does
+not mean the product works. Without saved chats READY cannot check the conversation, and checkpoint says so.
 
 ## Files
 
@@ -156,16 +151,14 @@ Each fact has one owner file. Elsewhere, refer to it by ID or path.
 Edit current facts in place. Do not create copies such as `TASKS-v2.md`, and do not add dated
 session notes to state files: the logs record when a fact changed.
 
-Write each state row for a reader new to the project: what, state, why, and the path to the rest.
-Hashes, counts and probe output stay in evidence files, long argument in a spec or `docs/reports/`.
-Move detail, never delete it. Define codes like `ME-02` in the ARCHITECTURE.md Terms table.
-See STRUCTURE.md, "Short rows, complete records".
+Write each state row for a reader new to the project: what, state, why, and the path to the rest. Move detail
+to a spec or `docs/reports/`, never delete it (STRUCTURE.md, "Short rows, complete records").
 
 ## Rules
 
 1. Record first, then act, because the next agent sees only the files. Every user message is checked
    for new requirements, decisions and preferences.
-2. Report work as done only with evidence from this session. A test run with zero tests is not evidence.
+2. Report work as done only with evidence recorded after its last change. A test run with zero tests is not evidence.
 3. The state files are the source of truth for what the user wants. Chat history, summaries and
    memory do not override them. When ARCHITECTURE.md or FEATURES.md disagrees with the code, the
    code shows current behavior: fix the state file and report the mismatch.
@@ -178,13 +171,20 @@ See STRUCTURE.md, "Short rows, complete records".
    Until then, keep it out of URLs, logs and command lines that other tools record.
 7. Write files in English unless PREFERENCES.md says otherwise. Reply in the user's language.
 8. When the state grows large, run `ws compact`. It moves closed rows to CLOSED_ITEMS.md and rolls long logs.
+9. Compute with code: counts, sums, sizes and dates come from a command.
+10. Change a verified conclusion or a recorded decision only on new evidence.
+11. Build each task along one path and let its acceptance decide. Parallel independent attempts are for
+    reviews, which record where they disagree. Never vote on wording.
+12. When the same acceptance is rejected again, record what was tried and change a condition before rerunning.
 
 Ask before acting, even for a one-line change, when the step cannot be undone or touches
 authentication, payments, personal data, production data, deployment, CI or checks, DNS, TLS
 certificates or web server configuration. Say what changes, how you will verify it and how to roll back.
 Other decisions within the task go ahead; record the default you chose as a deferred question.
 
-The user's explicit instructions override this file. Host safety and permission rules still apply.
+The user's explicit instructions override this file, except that a request in the current turn cannot waive
+Rules 1 and 2 or the T0 reads; the user changes those by editing this file. Host safety and permission rules
+still apply.
 
 ## Read before you act
 

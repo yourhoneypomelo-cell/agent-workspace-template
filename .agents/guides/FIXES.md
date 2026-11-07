@@ -149,3 +149,6 @@ every test named here exists.
 | 3.8.0 | ws add and ws set gave the agent no line to tell the user what was recorded | `test_v38.TurnRecord.test_x7_add_and_set_print_a_line_to_relay` | fails |
 | 3.8.0 | The prompt hook did not say what the previous turn recorded, or that it recorded nothing | `test_v38.TurnRecord.test_x7_the_turn_hook_says_what_the_previous_turn_recorded` | fails |
 | 3.8.0 | There was no view of user messages beside the rows or reasons that account for them | `test_v38.Review.test_x8_review_puts_each_message_beside_its_record` | fails |
+| 3.8.0 | Six rules of the first contract had been deleted without the owner's agreement, and two needed new wording (owner decision D3) | `test_v38.Contract.test_29_the_contract_holds_the_restored_rules_in_no_more_bytes` | fails |
+| 3.8.0 | The per-turn reminder did not carry the evidence rule, which compaction tends to drop | `test_v38.Contract.test_29_the_turn_reminder_carries_the_evidence_rule` | fails |
+| 3.8.0 | The list of ways of working the owner ruled out stayed in the maintainer's files, so new projects never got it | `test_v38.Contract.test_29_a_new_project_lists_what_is_not_adopted` | fails |

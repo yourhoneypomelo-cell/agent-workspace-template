@@ -304,12 +304,17 @@ def rewrite(root: Path, rel: str, host: str, session: str, messages: list, sourc
     atomic_write(path, render(host, session, messages, source, old, rel))
 
 
+def _real(path: str) -> str:
+    """The path with symlinks resolved, so /var and /private/var compare equal on macOS."""
+    return os.path.normcase(os.path.realpath(path))
+
+
 def _same_dir(a: str, b: Path) -> bool:
     """An empty or relative folder would resolve against the current directory and match any project."""
     if not isinstance(a, str) or not os.path.isabs(a):
         return False
     try:
-        return os.path.normcase(os.path.abspath(a)) == os.path.normcase(str(b.resolve()))
+        return _real(a) == _real(str(b))
     except (OSError, ValueError):
         return False
 

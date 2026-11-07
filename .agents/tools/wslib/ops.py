@@ -292,17 +292,6 @@ def start(root: Path, writer: str | None, force: bool, reason: str | None, sessi
             logs.append(root, 'MAINTENANCE_LOG', {'Event': 'takeover' if previous else 'start', 'Detail': short(detail, 400)})
     from .capture import import_all, import_rule
     rule, since = import_rule(root, importing)
-    if os.environ.get('WS_IMPORT_TRACE'):
-        trace = root / '.agents/cache/import-trace.txt'
-        trace.parent.mkdir(parents=True, exist_ok=True)
-        with trace.open('a', encoding='utf-8') as stream:
-            from .capture import _codex_delegated, _session_folders
-            home = Path.home()
-            base = home / '.codex' / 'sessions'
-            paths = list(base.rglob('rollout-*.jsonl')) if base.is_dir() else []
-            folders = _session_folders(root, paths, first_line=True)
-            detail = ', '.join(f'{p.name}: cwd {folders.get(str(p))!r}, delegated {_codex_delegated(p)}' for p in paths)
-            stream.write(f'importing {importing!r}; root {root}; {detail}\n')
     imported = import_all(root, since) if rule == 'on' else {}
     problems = validate.semantics(root, sealing=True)
     emit({'writer': writer, 'revision': state['revision'], 'took_over_from': previous, 'unsaved_changes': changes,

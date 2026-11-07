@@ -208,7 +208,7 @@ python .agents/tools/ws.py install --target /path/to/your/project --merge
 
 **运行环境**
 
-- Python **3.10 或更新版本**，在 PATH 中以 `python` 可用。不需要安装任何包——工具只用
+- Python **3.9 或更新版本**，在 PATH 中以 `python` 可用。不需要安装任何包——工具只用
   标准库。
 - Windows、macOS 或 Linux。Windows 的注意事项（Git Bash 与 PowerShell、UTF-8、钩子命令）
   见 [HOSTS.md](.agents/guides/HOSTS.md)。
@@ -225,7 +225,7 @@ python .agents/tools/ws.py install --target /path/to/your/project --merge
 - 有些宿主会要求先信任项目或其钩子（Codex 的 `/hooks`、Qwen Code、Kiro、Qoder、WorkBuddy）。
   [HOSTS.md](.agents/guides/HOSTS.md) 列出了每个宿主的入口文件和信任步骤。
 - 导入 DeepSeek Harness 的历史会话需要 Python **3.14+** 或 `backports.zstd` 包，因为它的
-  存储是 zstd 压缩的。其余功能在 3.10 上都能用。
+  存储是 zstd 压缩的。其余功能在 3.9 上都能用。
 
 **磁盘**
 

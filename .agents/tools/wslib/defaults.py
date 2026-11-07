@@ -216,7 +216,7 @@ A file-based memory for long projects built with AI coding agents.
 Requirements, decisions, tasks, evidence and the exact stop point live in `docs/`.
 A new window or a different tool reads them and continues where the last session stopped.
 
-Version {VERSION}. Python 3.10 or newer, standard library only.
+Version {VERSION}. Python 3.9 or newer, standard library only.
 
 ## Layout
 

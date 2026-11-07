@@ -632,7 +632,7 @@ class Entry(Workspace):
 
     def test_x1_python_version_message(self):
         tool = str(self.root / '.agents/tools/ws.py')
-        code = ('import runpy, sys; sys.version_info = (3, 9, 6, "final", 0); sys.argv = sys.argv[1:]; '
+        code = ('import runpy, sys; sys.version_info = (3, 8, 10, "final", 0); sys.argv = sys.argv[1:]; '
                 'runpy.run_path(sys.argv[0], run_name="__main__")')
 
         def run(*args):
@@ -640,8 +640,8 @@ class Entry(Workspace):
                                   encoding='utf-8')
         plain = run('status')
         self.assertEqual(plain.returncode, 2, plain.stdout + plain.stderr)
-        self.assertIn('needs Python 3.10 or newer', plain.stderr)
-        self.assertIn('macOS', plain.stderr)
+        self.assertIn('needs Python 3.9 or newer', plain.stderr)
+        self.assertIn('--python python3.12', plain.stderr)
         self.assertEqual(run('turn', '--hook', 'cursor').returncode, 0)
 
 

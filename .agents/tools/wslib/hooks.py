@@ -122,7 +122,7 @@ def _is_ours(entry) -> bool:
 
 
 def interpreter() -> str:
-    """The first of python, python3 and py -3 that runs Python 3.10 or newer here; the Windows Store placeholder does
+    """The first of python, python3 and py -3 that runs Python 3.9 or newer here; the Windows Store placeholder does
     not count. Hook files keep the command name, not a path: they travel with the project to other machines."""
     import shutil
     import subprocess
@@ -131,7 +131,7 @@ def interpreter() -> str:
         if not found or 'windowsapps' in found.lower():
             continue
         try:
-            done = subprocess.run([found, *command[1:], '-c', 'import sys; print(sys.version_info >= (3, 10))'],
+            done = subprocess.run([found, *command[1:], '-c', 'import sys; print(sys.version_info >= (3, 9))'],
                                   capture_output=True, text=True, timeout=20)
         except (OSError, subprocess.SubprocessError):
             continue

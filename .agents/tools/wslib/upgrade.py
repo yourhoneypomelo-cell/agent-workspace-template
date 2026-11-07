@@ -321,8 +321,8 @@ def run(source: Path, target: Path, dry_run=False, force=False, reason=None, ass
         raise WorkspaceError(f'the new tool failed on this project ({after_errors[-1:]}), so the upgrade was rolled back')
     report.update(changed=True, folder=folder.relative_to(target).as_posix(),
                   new_errors=sorted(set(after_errors) - set(before_errors)), rollback=f'--rollback {folder.name}')
-    (folder / 'report.md').write_text('# Upgrade report\n\n```json\n' + json.dumps(report, indent=1) + '\n```\n',
-                                      encoding='utf-8', newline='\n')
+    (folder / 'report.md').write_bytes(('# Upgrade report\n\n```json\n' + json.dumps(report, indent=1) + '\n```\n')
+                                       .encode('utf-8'))
     return report
 
 
@@ -362,14 +362,14 @@ def _apply(target: Path, folder: Path, result: dict, hooks: dict, state: dict):
            'operations': [{k: v for k, v in o.items() if k != 'text'} for o in ops], 'kept': keep}
     folder.mkdir(parents=True)
     try:
-        (folder / 'plan.json').write_text(json.dumps(doc, indent=1) + '\n', encoding='utf-8', newline='\n')
+        (folder / 'plan.json').write_bytes((json.dumps(doc, indent=1) + '\n').encode('utf-8'))
         for rel in [o['path'] for o in ops if o['before'] is not None] + keep:
             if (target / rel).is_file():
                 (backup / rel).parent.mkdir(parents=True, exist_ok=True)
                 (backup / rel).write_bytes((target / rel).read_bytes())
         for op in [o for o in result['operations'] if o['action'] == 'pending']:
             (folder / 'new' / op['path']).parent.mkdir(parents=True, exist_ok=True)
-            (folder / 'new' / op['path']).write_text(op['text'], encoding='utf-8', newline='\n')
+            (folder / 'new' / op['path']).write_bytes(op['text'].encode('utf-8'))
         for op in ops:
             if op['action'] != 'delete':
                 atomic_write(staging / op['path'], op['text'])

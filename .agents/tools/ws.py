@@ -10,11 +10,10 @@ import re
 import sys
 from pathlib import Path
 
-if sys.version_info < (3, 10):  # before wslib, which needs 3.10; this file keeps to the 3.7 grammar
-    print(f'ERROR: ws.py needs Python 3.10 or newer, and {sys.executable} is Python '
+if sys.version_info < (3, 9):  # before wslib, which needs 3.9; this file keeps to the 3.7 grammar
+    print(f'ERROR: ws.py needs Python 3.9 or newer, and {sys.executable} is Python '
           f'{".".join(map(str, sys.version_info[:3]))}. Run it with a newer one, for example '
-          '"python3.12 .agents/tools/ws.py ...". On macOS the python3 that comes with the system is 3.9: install '
-          'Python from python.org or with Homebrew. For hooks: ws hooks enable <host> --python python3.12', file=sys.stderr)
+          '"python3.12 .agents/tools/ws.py ...". For hooks: ws hooks enable <host> --python python3.12', file=sys.stderr)
     if '--hook' in sys.argv or sys.argv[1:2] == ['capture']:  # a hook must never break the host session
         host = sys.argv[sys.argv.index('--hook') + 1] if '--hook' in sys.argv[:-1] else ''
         print({'kiro': '', 'cursor': '{"continue": true}'}.get(host, '{}'))
@@ -156,7 +155,7 @@ def parser() -> argparse.ArgumentParser:
     hooks.add_argument('action', choices=('enable', 'show', 'disable'))
     hooks.add_argument('host', choices=HOSTS)
     hooks.add_argument('--python', metavar='CMD', help='interpreter command the hooks run, such as python3 or "py -3"; '
-                       'by default the first of python, python3 and py -3 that is 3.10 or newer')
+                       'by default the first of python, python3 and py -3 that is 3.9 or newer')
     cap = subs.add_parser('capture')
     cap.add_argument('--host', required=True)
     cap.add_argument('--event', default='unknown')

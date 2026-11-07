@@ -92,7 +92,7 @@ def _script(root: Path, rel: str, script: str) -> str | None:
 
 
 def _interpreter(words: list, seen: dict) -> str | None:
-    """What is wrong with the interpreter of a hook command, or None when it runs Python 3.10 or newer here."""
+    """What is wrong with the interpreter of a hook command, or None when it runs Python 3.9 or newer here."""
     command = ' '.join(words)
     if command not in seen:
         found = shutil.which(words[0]) if words else None
@@ -104,9 +104,9 @@ def _interpreter(words: list, seen: dict) -> str | None:
             seen[command] = f'"{words[0]}" is the Windows Store placeholder, not Python'
         else:
             try:
-                done = subprocess.run([found, *words[1:], '-c', 'import sys; print(sys.version_info >= (3, 10))'],
+                done = subprocess.run([found, *words[1:], '-c', 'import sys; print(sys.version_info >= (3, 9))'],
                                       capture_output=True, text=True, timeout=20)
-                seen[command] = None if done.stdout.strip() == 'True' else f'"{command}" is older than Python 3.10'
+                seen[command] = None if done.stdout.strip() == 'True' else f'"{command}" is older than Python 3.9'
             except (OSError, subprocess.SubprocessError) as error:
                 seen[command] = f'"{command}" does not run ({error})'
     return seen[command]

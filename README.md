@@ -220,7 +220,7 @@ database, why record-before-act, how evidence works, and which alternatives were
 
 **Runtime**
 
-- Python **3.10 or newer**, available on the PATH as `python`. No packages to install — the tool
+- Python **3.9 or newer**, available on the PATH as `python`. No packages to install — the tool
   uses only the standard library.
 - Windows, macOS or Linux. Windows notes (Git Bash vs PowerShell, UTF-8, hook commands) are in
   [HOSTS.md](.agents/guides/HOSTS.md).
@@ -238,7 +238,7 @@ database, why record-before-act, how evidence works, and which alternatives were
   Qoder, WorkBuddy). [HOSTS.md](.agents/guides/HOSTS.md) lists the entry file and the trust step
   for each one.
 - Importing DeepSeek Harness session history needs Python **3.14+** or the `backports.zstd`
-  package, because its store is zstd-compressed. Everything else works on 3.10.
+  package, because its store is zstd-compressed. Everything else works on 3.9.
 
 **Disk**
 

@@ -4,7 +4,8 @@ Install the template, run the first session and switch between tools.
 
 ## Requirements
 
-- Python 3.10 or newer on the PATH as `python`. No packages are needed.
+- Python 3.9 or newer on the PATH as `python` (the `python3` that comes with macOS is 3.9 and works). No packages
+  are needed.
 - An agent tool that can read files and run shell commands.
 - Version control is recommended. The workspace works without it.
 

@@ -28,12 +28,23 @@ class SourceBytes(unittest.TestCase):
     def test_no_collapsed_continuations(self):
         self.assertEqual(distribution.collapsed_continuations(TEMPLATE), [])
 
-    def test_sources_parse_with_the_python_3_10_grammar(self):
+    def test_sources_parse_with_the_python_3_9_grammar(self):
         # Warnings are errors here: an invalid escape such as "\|" only warns today and fails in a later Python.
         for rel in (r for r in STATIC_FILES if r.endswith('.py')):
             with self.subTest(rel=rel), warnings.catch_warnings():
                 warnings.simplefilter('error')
-                ast.parse((TEMPLATE / rel).read_text(encoding='utf-8'), rel, feature_version=(3, 10))
+                ast.parse((TEMPLATE / rel).read_text(encoding='utf-8'), rel, feature_version=(3, 9))
+
+    def test_no_call_needs_a_python_newer_than_3_9(self):
+        # The grammar check cannot see keyword arguments added later, such as write_text(newline=) in 3.10.
+        newer = {('write_text', 'newline'), ('read_text', 'newline'), ('zip', 'strict')}
+        found = []
+        for rel in (r for r in STATIC_FILES if r.endswith('.py')):
+            for node in ast.walk(ast.parse((TEMPLATE / rel).read_text(encoding='utf-8'))):
+                if isinstance(node, ast.Call):
+                    name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, 'id', '')
+                    found += [f'{rel}:{node.lineno} {name}({k.arg}=)' for k in node.keywords if (name, k.arg) in newer]
+        self.assertEqual(found, [])
 
     def test_ws_py_parses_with_the_python_3_7_grammar(self):
         # Its version gate can only print the message if an older Python parses the whole file.

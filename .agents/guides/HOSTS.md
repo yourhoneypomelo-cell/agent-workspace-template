@@ -69,14 +69,14 @@ Existing settings and hooks are kept. Running it twice adds nothing.
 
 Hook commands use paths relative to the project root, except Antigravity's, which run from
 `.agents/`. The tool finds the project from its own location, so either works. They start with the first of
-`python`, `python3` and `py -3` that runs Python 3.10 or newer on this machine; `ws hooks enable <host> --python
+`python`, `python3` and `py -3` that runs Python 3.9 or newer on this machine; `ws hooks enable <host> --python
 <command>` writes another. An older Python prints which version ws.py needs, and a hook then exits quietly.
 `ws hooks disable <host>` takes the tool's entries out again: the file gets its bytes from before the first
 enable back when nothing else changed, and a file left with no hooks is removed.
 
 `ws upgrade` rewrites the tool's entries in every settings file that holds them, so the hook changes of a
 new version reach the project. `ws doctor` reports, each with the command that fixes it, a settings file
-whose entries are missing or come from an older version, name an interpreter that does not run Python 3.10
+whose entries are missing or come from an older version, name an interpreter that does not run Python 3.9
 here, or run the ws.py of another folder, as the absolute paths of a copied project do. It also reports
 when the host it runs in has no hooks in this project.
 

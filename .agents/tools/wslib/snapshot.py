@@ -127,7 +127,7 @@ def take(root: Path, label: str, paths: list, pin: bool) -> dict:
                                  f'twice the {total / 1048576:.1f} MB copied plus 1 GB. Nothing was written')
         ignore = folder / '.gitignore'
         if not ignore.exists():
-            ignore.write_text('*\n!.gitignore\n', encoding='utf-8', newline='\n')
+            ignore.write_bytes(b'*\n!.gitignore\n')
         for stale in folder.glob('*.partial'):
             stale.unlink()
         stamp = re.sub(r'[^0-9]', '', now())[:14]

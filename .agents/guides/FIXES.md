@@ -10,7 +10,7 @@ every test named here exists.
 | 3.6.7 | Projects keep receiving the generated README, not the front page | `test_distribution.Install.test_facade_readme_stays_in_template` | guard |
 | 3.6.7 | Two backspace bytes in `rows.py:128` where `\b` was meant | `test_static.SourceBytes.test_no_control_characters` | fails |
 | 3.6.7 | A backslash line continuation flattened into spaces in `coverage.py:373` | `test_static.SourceBytes.test_no_collapsed_continuations` | fails |
-| 3.6.7 | An invalid escape in a test string, a warning today and an error in a later Python | `test_static.SourceBytes.test_sources_parse_with_the_python_3_10_grammar` | fails |
+| 3.6.7 | An invalid escape in a test string, a warning today and an error in a later Python | `test_static.SourceBytes.test_sources_parse_with_the_python_3_9_grammar` | fails |
 | 3.6.7 | The manifest drifted from the checkout without notice | `test_static.SourceBytes.test_manifest_matches_the_checkout` | fails |
 | 3.6.7 | `release` built a package with a control character in the source | `test_distribution.Release.test_release_refuses_a_control_character` | fails |
 | 3.6.7 | `release` built a version that the version table does not list | `test_distribution.Release.test_release_requires_the_version_row` | fails |
@@ -155,3 +155,5 @@ every test named here exists.
 | 3.8.0 | A message the user marked as discussion could still turn into numbered requirements, and ideas had no command | `test_v38.Modes.test_30_a_discussion_turn_gets_no_requirement_id` | fails |
 | 3.8.0 | A message the user marked read-only did not stop ws writes in that turn | `test_v38.Modes.test_30_a_read_only_turn_writes_nothing` | fails |
 | 3.8.0 | The prompt hook did not tell the agent that the user marked a message as a confirmation | `test_v38.Modes.test_30_a_confirmation_is_named` | fails |
+| 3.9.0 | Python 3.9, the python3 that comes with macOS, was refused by the version gate (owner decision D0) | `test_regressions.Entry.test_x1_python_version_message` | fails |
+| 3.9.0 | Upgrade and snapshot files were written with a keyword argument that Python 3.9 does not have | `test_static.SourceBytes.test_no_call_needs_a_python_newer_than_3_9` | fails |

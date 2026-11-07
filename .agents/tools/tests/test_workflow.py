@@ -153,7 +153,7 @@ class Lifecycle(Workspace):
     def test_invalid_reference_is_rejected_without_writing(self):
         self.init()
         before = self.read('docs/state/TASKS.md')
-        result = self.ws('add', 'task', '--set', 'requirements=R9', '--set', 'scope=a', '--set', 'action=b',
+        result = self.ws('add', 'task', '--set', 'requirements=R9', '--set', 'scope=tree:', '--set', 'action=b',
                          '--set', 'acceptance=c', expect=2)
         self.assertIn('unknown requirement R9', result.stderr)
         self.assertEqual(self.read('docs/state/TASKS.md'), before)
@@ -202,7 +202,7 @@ class Verification(Workspace):
     def test_acceptance_in_backticks_or_with_check_prefix_matches(self):
         self.init()
         self.passing_test()
-        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=x', '--set', 'action=y',
+        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=tree:', '--set', 'action=y',
                 '--set', 'acceptance=`python -m unittest test_demo`')
         self.ws('verify', 'T1', '--done', '--', 'python', '-m', 'unittest', 'test_demo')
 
@@ -248,7 +248,7 @@ class Verification(Workspace):
     def test_task_without_a_path_in_scope_watches_the_whole_tree(self):
         self.init()
         self.passing_test()
-        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=demo behavior', '--set', 'action=y',
+        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=tree:', '--set', 'action=y',
                 '--set', 'acceptance=python -m unittest discover')
         self.ws('verify', 'T1', '--done', '--', 'python', '-m', 'unittest', 'discover')
         self.write('extra.py', '# new source')
@@ -257,7 +257,7 @@ class Verification(Workspace):
     def test_check_that_ran_zero_tests_is_rejected(self):
         self.init()
         self.write('empty_check.py', 'print("Ran 0 tests in 0.000s")\n')
-        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=x', '--set', 'action=y',
+        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=tree:', '--set', 'action=y',
                 '--set', 'acceptance=check: python empty_check.py')
         result = self.ws('verify', 'T1', '--done', '--', 'python', 'empty_check.py', expect=1)
         self.assertIn('zero tests', result.stdout)

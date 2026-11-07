@@ -16,6 +16,33 @@ from .core import atomic_write, config, state_of
 from .schema import CACHE_DIR
 
 MARKER = CACHE_DIR + '/pending-turn.json'
+# The row IDs and statuses at the previous user message, so the next prompt hook can say what that turn recorded.
+TURN_LEDGER = CACHE_DIR + '/turn-ledger.json'
+
+
+def turn_record(root: Path) -> str:
+    """What the previous turn recorded, as one sentence for the prompt hook, and a new snapshot for the next turn.
+    Empty on the first turn the hook sees."""
+    from . import validate
+    from .ops import short
+    from .schema import PREFIX_TABLE
+    data = validate.gather(root)
+    now = validate.ledger(data)
+    rows = {r['ID']: r for found in data['live'].values() for r in found}
+    try:
+        before = json.loads((root / TURN_LEDGER).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        before = None
+    atomic_write(root / TURN_LEDGER, json.dumps(now))
+    if not isinstance(before, dict):
+        return ''
+    items = [f'{rid} {short(rows[rid].get(PREFIX_TABLE[rid[0]].summary, ""), 80)}' if rid in rows else rid
+             for rid in now if rid not in before]
+    items += [f'{rid} {before[rid]} -> {now[rid]}' for rid in now if rid in before and before[rid] != now[rid]]
+    if not items:
+        return ('The previous turn recorded nothing in the state files. If the user stated a requirement, change, '
+                'decision, preference or question there, record it now.')
+    return 'The previous turn recorded: ' + '; '.join(items[:8]) + ('; and more' if len(items) > 8 else '') + '.'
 
 MESSAGE = ('The last user message was not recorded and no reason was given. If it stated a requirement, '
            'change, decision, preference or question, record it now with "python .agents/tools/ws.py add ..." or '

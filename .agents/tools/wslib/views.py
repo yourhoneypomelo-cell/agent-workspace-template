@@ -171,6 +171,29 @@ def next_command(root: Path, info: dict, key=None) -> str:
     return 'python .agents/tools/ws.py start'
 
 
+# The brief keeps every prohibition and preference unless they outgrow these sizes, and then says how many are left.
+RETIRED_BUDGET = 1800
+PREFERENCE_BUDGET = 1200
+
+
+def fitted(items: list, budget: int) -> tuple:
+    """(the items that fit in budget characters, at least one; how many are left out)."""
+    shown, size = [], 0
+    for item in items:
+        if shown and size + len(item) > budget:
+            break
+        shown.append(item)
+        size += len(item) + 2
+    return shown, len(items) - len(shown)
+
+
+def retired_list(root: Path) -> str:
+    """Every retired row in full, newest first: what "ws brief --retired" prints."""
+    data = validate.gather(root)
+    rows = retired_rows(data['live'], data.get('closed') or [])
+    return ''.join(f'- {rid} {status}: {text} ({reason})\n' for rid, status, text, reason in reversed(rows)) or '- none\n'
+
+
 def retired_rows(live: dict, closed: list) -> list:
     """(ID, status, summary, reason) of retired requirements and features and rejected or superseded decisions:
     closed ones first, then live ones. These are what a new session must not bring back."""
@@ -321,13 +344,25 @@ def brief(root: Path, sid=None) -> str:
     number = coverage.counts(live)
     lines.append('')
     lines.append('Recorded: ' + ', '.join(f'{number[k]} {k}' for k in coverage.COUNTED))
-    verified, total, missing = coverage.requirement_coverage(live, data.get('closed'))
+    try:
+        from .validate import regressions
+        stale = {rid for rid, _ in regressions(root, task_rows=live['tasks'], fresh_too=True)}
+    except (WorkspaceError, ValueError, OSError):
+        stale = set()
+    verified, total, missing = coverage.requirement_coverage(live, data.get('closed'), stale)
     if total:
         v2 = [rid for rid in missing if rid in coverage.v2_cited(data.get('closed'))]
         lines.append(f'Requirements verified: {verified}/{total}' +
                      (f' (not yet: {", ".join(missing[:8])}{" and more" if len(missing) > 8 else ""})' if missing else '') +
                      (f'; verified under v2 only, not run again in v3: {", ".join(v2[:8])}' if v2 else ''))
     lines += coverage.inferred_line(root, live)
+    try:
+        from .delivery import delivery_lines
+        sealed = checkpoint_of(root, state_of(root))
+        lines += delivery_lines(root, sealed, live['tasks'], f'revision {info["revision"]}, last sealed '
+                                f'{info["checkpoint_at"] or "never"}, {info["unsaved_count"] or 0} files changed since.')
+    except (WorkspaceError, ValueError, OSError):
+        pass
     lines.append('')
     lines.append('## Handoff')
     lines.append('')
@@ -374,8 +409,8 @@ def brief(root: Path, sid=None) -> str:
     preferences = [r for r in live['preferences'] if r['Status'] == 'active']
     if preferences:
         lines.append('')
-        lines.append('Preferences: ' + '; '.join(f'{r["ID"]} {short(r["Preference"], 120)}' for r in preferences[:8]) +
-                     ('; more in docs/state/PREFERENCES.md' if len(preferences) > 8 else ''))
+        shown, left = fitted([f'{r["ID"]} {short(r["Preference"], 120)}' for r in preferences], PREFERENCE_BUDGET)
+        lines.append('Preferences: ' + '; '.join(shown) + (f'; {left} more in docs/state/PREFERENCES.md' if left else ''))
     problems = command_problems(root)
     if problems:
         lines.append('')
@@ -386,8 +421,10 @@ def brief(root: Path, sid=None) -> str:
     if retired:
         lines.append('')
         where = 'state files and ' + CLOSED if data.get('closed') else 'the state files'
-        lines.append(f'Retired, do not rebuild ({len(retired)}; all in {where}): ' + '; '.join(
-            f'{rid} {status}: {short(text, 50)} ({short(reason, 60)})' for rid, status, text, reason in retired[-5:]))
+        shown, left = fitted([f'{rid} {status}: {short(text, 80)} ({short(reason, 60)})'
+                              for rid, status, text, reason in reversed(retired)], RETIRED_BUDGET)
+        lines.append(f'Retired, do not rebuild ({len(retired)}, newest first; all in {where}): ' + '; '.join(shown) +
+                     (f'; {left} more: python .agents/tools/ws.py brief --retired' if left else ''))
     sessions = logs.live_rows(root, 'SESSION_LOG')[-4:]
     if sessions:
         lines.append('')

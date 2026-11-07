@@ -391,6 +391,9 @@ def config(root: Path) -> dict:
     if merged['credentials'] not in CREDENTIAL_RULES:
         raise WorkspaceError('WORKSPACE credentials must be "ask" (the user has not decided), "plain" (credentials are '
                              'kept as written) or "redact" (credentials are kept out of files)')
+    if merged.get('stale_evidence', 'block') not in ('block', 'warn'):
+        raise WorkspaceError('WORKSPACE stale_evidence must be "block" (READY waits until a done task whose files changed '
+                             'is verified again) or "warn"')
     pending = merged.get('pending_adapters', [])
     if not isinstance(pending, list) or any(not isinstance(p, str) for p in pending):
         raise WorkspaceError('WORKSPACE pending_adapters must be a list of paths')
@@ -403,7 +406,7 @@ def _excluded(rel: str, name: str, patterns: list) -> bool:
         return True
     if any(rel == p or rel.startswith(p + '/') for p in PRUNE_PATHS):
         return True
-    if name == '.env' or name.startswith('.env.') or name.lower().endswith(SECRET_SUFFIXES + SCRATCH_SUFFIXES):
+    if name == '.env' or name.startswith(('.env.', '.coverage.')) or name.lower().endswith(SECRET_SUFFIXES + SCRATCH_SUFFIXES):
         return True
     return any(fnmatch.fnmatchcase(rel, p) or fnmatch.fnmatchcase(rel, p.rstrip('/') + '/*') for p in patterns)
 

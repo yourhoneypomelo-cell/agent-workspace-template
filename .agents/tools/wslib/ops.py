@@ -424,6 +424,9 @@ def checkpoint(root: Path, stop: str, next_step: str, sets: list, keep: bool, wr
         else:
             print('READY. State is saved and released. READY does not mean every requirement from the '
                   'conversation was recorded; that is still your job.')
+    from .delivery import delivery_lines
+    print('\n'.join(delivery_lines(root, previous, live['tasks'], f'saved at revision {state["revision"]}' +
+                                   (', ownership kept.' if keep else ' and released.'))))
 
 
 SYNC_PENDING = '<!-- SYNC-PENDING -->'
@@ -530,9 +533,14 @@ def seal(root: Path, owner: str, state: dict | None = None) -> dict:
 
     untracked = coverage.untracked_carry(root, data['live'], previous, files_now)
     sealed = {}
-    for row in task_rows:
+    # Evidence of tasks compact moved to CLOSED_ITEMS is sealed too: editing it later must still show.
+    closed = [r for r in data['closed'] if r['ID'].startswith('T') and r.get('Status') == 'done']
+    archived = {r['ID'] for r in closed}
+    for row in task_rows + closed:
         if row['Status'] == 'done':
             for rel in evidence.evidence_paths(row.get('Evidence', '')):
+                if row['ID'] in archived and not safe_path(root, rel).is_file():
+                    continue
                 raw = safe_path(root, rel).read_bytes()
                 sealed[rel] = sha(raw)
                 proof = json.loads(raw)
@@ -549,6 +557,8 @@ def seal(root: Path, owner: str, state: dict | None = None) -> dict:
         'evidence': sealed,
         'deferred': sorted(deferred),
     }
+    if (previous or {}).get('upgraded'):
+        manifest['after_upgrade'] = previous['upgraded'].get('at') or True  # the first session after an upgrade
     return write_checkpoint(root, manifest)
 
 
@@ -651,7 +661,8 @@ def compact(root: Path, dry_run: bool, prune: bool, writer=None, rev=None) -> di
 
 
 MOVED = {
-    'runs': ('SHELL_OPERATORS', 'acceptance_argv', 'previous_evidence', 'ship_features', 'verdict_text', 'verify'),
+    'runs': ('SHELL_OPERATORS', 'acceptance_argv', 'previous_evidence', 'ship_features', 'verdict_text', 'verify',
+             'verify_stale'),
     'rows': ('DETAIL_DIRS', 'add', 'card_fields', 'log_replaced', 'replaced_card_values', 'set_card', 'set_goal',
              'set_row', 'similar_rows', 'split_source', 'task_edits'),
 }

@@ -53,7 +53,7 @@ class CardAndTables(Workspace):
     def test_common_status_words_map_to_each_table(self):
         self.init(requirement=False)
         self.ws('add', 'requirement', '--set', 'requirement=x', '--set', 'acceptance=y', '--set', 'status=open')
-        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=a', '--set', 'action=b', '--set', 'acceptance=c')
+        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=tree:', '--set', 'action=b', '--set', 'acceptance=c')
         self.ws('add', 'feature', '--set', 'behavior=x', '--set', 'requirements=R1', '--set', 'tasks=T1', '--set', 'status=active')
         self.ws('set', 'T1', '--set', 'status=In Progress')
         rows = {r['ID']: r['Status'] for t in ('requirements', 'tasks', 'features') for r in tables.rows(self.root, TABLES[t])}
@@ -139,7 +139,7 @@ class CardAndTables(Workspace):
 
     def test_verify_output_is_redacted_and_still_valid_evidence(self):
         self.init()
-        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=x', '--set', 'action=x', '--set', 'acceptance=check: echo')
+        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=tree:', '--set', 'action=x', '--set', 'acceptance=check: echo')
         proof = self.json('verify', 'T1', '--done', '--kind', 'check', '--because', 'redaction probe', '--', 'python', '-c', "print('password: Abc12345')")
         self.assertNotIn('Abc12345', self.read(proof['evidence']))
         self.save()

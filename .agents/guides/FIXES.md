@@ -122,3 +122,30 @@ every test named here exists.
 | 3.7.0 | ws doctor writes nothing and finds no problem in a sound project | `test_doctor.Doctor.test_a_healthy_project_has_no_problems_and_nothing_is_written` | guard |
 | 3.7.0 | A rollback to 3.6.x did not say which evidence the older tool would refuse | `test_regressions.Evidence.test_13_evidence_rules_1_reads_differently_is_listed_for_a_rollback` | fails |
 | 3.7.0 | The two-window tests failed under a Python whose folder is not on PATH, such as one installed by uv | `test_field.Windows.test_a_window_without_a_session_variable_cannot_claim_twice` | fails |
+| 3.8.0 | A full stop after a path in Scope hid the path, so the task held the whole tree | `test_v38.Scope.test_17_a_full_stop_does_not_hide_the_path` | fails |
+| 3.8.0 | Paths with letters outside ASCII were cut at the first such letter | `test_v38.Scope.test_17_paths_in_any_script` | fails |
+| 3.8.0 | Any word in Scope was tried as a file name with .py added, so "login module" claimed login.py | `test_v38.Scope.test_17_words_are_not_turned_into_files` | fails |
+| 3.8.0 | The "check:" prefix of an acceptance was read as check.py when such a file existed | `test_v38.Scope.test_17_the_check_prefix_is_not_a_path` | fails |
+| 3.8.0 | Claims also took the paths of the acceptance command, so two tasks sharing a test could not run in parallel | `test_v38.Scope.test_17_claims_read_only_the_scope` | fails |
+| 3.8.0 | Staleness reads the Scope paths plus the files the acceptance runs, including a unittest module and a pytest node | `test_v38.Scope.test_17_staleness_adds_the_files_the_acceptance_runs_and_claims_do_not` | fails |
+| 3.8.0 | There was no way to name a file a task creates, a shared resource apart from paths, or the whole tree on purpose | `test_v38.Scope.test_17_new_resource_and_tree` | fails |
+| 3.8.0 | A task whose Scope was prose naming no path was accepted and silently held the whole tree | `test_v38.Scope.test_17_add_refuses_prose_and_notes_a_planned_file` | fails |
+| 3.8.0 | Rows written before that refusal are flagged, not refused | `test_v38.Scope.test_17_an_old_prose_scope_gets_a_hint_not_a_refusal` | fails |
+| 3.8.0 | A sealed task whose files changed later stayed verified, and checkpoint and check --ready still said READY | `test_v38.Regression.test_18_a_change_after_sealing_names_the_task_and_the_file` | fails |
+| 3.8.0 | There was no way to run every stale task again in one command | `test_v38.Regression.test_18_verify_stale_runs_the_acceptance_again` | fails |
+| 3.8.0 | A project could not choose to be only warned about a regression after sealing | `test_v38.Regression.test_18_the_warn_setting_keeps_ready` | fails |
+| 3.8.0 | The first session after an upgrade only warns about regressions found by the newer check; the next one is refused | `test_v38.Regression.test_18_the_first_session_after_an_upgrade_only_warns` | fails |
+| 3.8.0 | The brief counted the requirements of a stale task as verified | `test_v38.Regression.test_18_the_verified_count_leaves_out_a_stale_task` | fails |
+| 3.8.0 | A change inside a done task's scope counted as registered work even after it made that task's evidence stale | `test_v38.Regression.test_18_a_change_inside_a_stale_task_is_unregistered_work` | fails |
+| 3.8.0 | Evidence of a task moved to CLOSED_ITEMS could be edited or deleted without notice | `test_v38.Regression.test_18_evidence_of_a_compacted_task_stays_sealed` | fails |
+| 3.8.0 | A test weakened between a task's first run and its accepted one went unmentioned at the checkpoint | `test_v38.Delivery.test_19_a_test_weakened_after_a_failed_run_is_listed` | fails |
+| 3.8.0 | A changed run command and a verify with --because went unmentioned at the checkpoint | `test_v38.Delivery.test_19_another_command_and_because_are_listed` | fails |
+| 3.8.0 | A checkpoint did not say what the work rests on: the saved state, test or check evidence, and whether the host was tried | `test_v38.Delivery.test_21_a_checkpoint_states_what_the_delivery_rests_on` | fails |
+| 3.8.0 | Coverage files written by a run, such as .coverage and coverage.xml, made the run rejected as a change to watched files | `test_v38.Runners.test_20_coverage_files_a_run_writes_do_not_reject_it` | fails |
+| 3.8.0 | Output whose summary is not read was rejected without pointing to a report | `test_v38.Runners.test_20_unread_output_points_to_a_report` | fails |
+| 3.8.0 | The brief showed only the last five retired rows, each cut to 50 characters | `test_v38.Prohibitions.test_u3_seven_retired_rows_all_appear` | fails |
+| 3.8.0 | Past its size budget the brief gives the count of retired rows and the command that lists them all | `test_v38.Prohibitions.test_u3_past_the_budget_the_count_and_the_command_are_given` | fails |
+| 3.8.0 | The brief showed only the first eight preferences | `test_v38.Prohibitions.test_u3_all_preferences_appear` | fails |
+| 3.8.0 | ws add and ws set gave the agent no line to tell the user what was recorded | `test_v38.TurnRecord.test_x7_add_and_set_print_a_line_to_relay` | fails |
+| 3.8.0 | The prompt hook did not say what the previous turn recorded, or that it recorded nothing | `test_v38.TurnRecord.test_x7_the_turn_hook_says_what_the_previous_turn_recorded` | fails |
+| 3.8.0 | There was no view of user messages beside the rows or reasons that account for them | `test_v38.Review.test_x8_review_puts_each_message_beside_its_record` | fails |

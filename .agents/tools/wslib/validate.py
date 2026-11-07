@@ -340,6 +340,11 @@ def semantics(root: Path, ready=False, sealing=False, card_changes=None) -> list
         if ready:
             from .coverage import findings
             errors += [message for level, message in findings(root, live) if level == 'block']
+            if cp and stale_policy(root, cp) == 'block':
+                found = regressions(root, cp, live['tasks'])
+                if found:
+                    errors.append(f'{", ".join(rid for rid, _ in found[:8])} changed after being verified and must be '
+                                  'verified again before READY: run "ws.py verify --stale"')
             # A saved user message that no row accounts for may hold a requirement the next session never sees.
             from .reconcile import pending
             try:
@@ -410,12 +415,75 @@ def _cycle(task_rows: dict) -> list:
     return ['TASKS.md: dependency cycle among ' + ', '.join(members)] if members else []
 
 
+def _fresh(cp, row: dict) -> bool:
+    """A done task that changed since the last seal: newly done, redefined, or given other evidence."""
+    rid = row['ID']
+    return (((cp or {}).get('ledger') or {}).get(rid) != 'done'
+            or ((cp or {}).get('task_definitions') or {}).get(rid) != evidence.task_definition(row)
+            or ((cp or {}).get('task_evidence') or {}).get(rid) != row.get('Evidence'))
+
+
+def _drift(root: Path, row: dict, proof: dict, current_files: dict):
+    """The files in a task's scope that changed after its evidence was recorded, described; None when none did, and
+    "unknown" when the evidence holds no file hashes."""
+    from .core import digest
+    if proof.get('source') == digest(current_files):
+        return None
+    if not proof.get('source_files'):
+        return 'unknown'
+    recorded = rewatch(root, proof['source_files'], source_only=True)
+    diff = difference(recorded, current_files)
+    scope = evidence.scope_paths(row, set(current_files) | set(recorded), acceptance=True)
+    if scope is not None:
+        diff = {k: [n for n in v if evidence.in_scope(n, scope)] for k, v in diff.items()}
+    return describe_drift(diff, 6) if any(diff.values()) else None
+
+
+def regressions(root: Path, cp=None, task_rows=None, current_files=None, fresh_too=False) -> list:
+    """(task, changed files) for sealed done tasks whose scope changed after their evidence: the regressions a seal
+    alone would hide. fresh_too adds the tasks changed since the seal, whose staleness is an error anyway. Evidence
+    without file hashes cannot be scoped and is left out."""
+    if cp is None:
+        state = state_of(root)
+        cp = checkpoint_of(root, state) if state.get('checkpoint') else None
+    rows = gather(root)['live']['tasks'] if task_rows is None else task_rows
+    current_files = fingerprint(root, source_only=True) if current_files is None else current_files
+    found = []
+    for row in rows:
+        if row['Status'] != 'done' or (_fresh(cp, row) and not fresh_too):
+            continue
+        for rel in evidence.evidence_paths(row.get('Evidence', '')):
+            try:
+                proof = evidence.load(root, rel, evidence.acceptance_kind(row))
+            except (WorkspaceError, ValueError, OSError):
+                continue
+            changed = _drift(root, row, proof, current_files)
+            if changed and changed != 'unknown':
+                found.append((row['ID'], changed))
+                break
+    return found
+
+
+def stale_policy(root: Path, cp) -> str:
+    """"block" or "warn" for regressions: the WORKSPACE setting stale_evidence, block by default. The first session
+    after an upgrade only warns, so work verified under an older tool can be run again before READY needs it."""
+    if (cp or {}).get('upgraded') or (cp or {}).get('after_upgrade'):
+        return 'warn'
+    try:
+        return config(root).get('stale_evidence', 'block')
+    except WorkspaceError:
+        return 'block'
+
+
+def regression_text(found: list) -> str:
+    return ('done tasks whose files changed after they were verified: ' + '; '.join(f'{rid} ({changed})' for rid, changed
+            in found[:6]) + ('; and more' if len(found) > 6 else '') + '. Run "ws.py verify --stale" to run their '
+            'acceptance again')
+
+
 def _task_evidence(root: Path, state: dict, cp, task_rows: list) -> list:
     errors = []
-    old_ledger = (cp or {}).get('ledger') or {}
-    old_definitions = (cp or {}).get('task_definitions') or {}
-    old_evidence = (cp or {}).get('task_evidence') or {}
-    current_source = None
+    current_files = None
     for row in task_rows:
         if row['Status'] != 'done':
             continue
@@ -425,8 +493,7 @@ def _task_evidence(root: Path, state: dict, cp, task_rows: list) -> list:
             errors.append(f'TASKS.md: {rid} is done without evidence; run "ws.py verify {rid} --done"')
             continue
         definition = evidence.task_definition(row)
-        fresh = (old_ledger.get(rid) != 'done' or old_definitions.get(rid) != definition
-                 or old_evidence.get(rid) != row.get('Evidence'))
+        fresh = _fresh(cp, row)
         for rel in paths:
             try:
                 proof = evidence.load(root, rel, evidence.acceptance_kind(row))
@@ -447,19 +514,10 @@ def _task_evidence(root: Path, state: dict, cp, task_rows: list) -> list:
                 pass  # written by a parallel session that works on, or finished, this task since the last seal
             elif not writer or proof.get('writer') != writer or not (state.get('writer_revision') or 0) <= proof.get('revision', -1) <= state['revision']:
                 errors.append(f'TASKS.md: {rid} needs evidence from the current session; run "ws.py verify {rid}"')
-            if current_source is None:
+            if current_files is None:
                 current_files = fingerprint(root, source_only=True)
-                from .core import digest
-                current_source = digest(current_files)
-            if proof.get('source') != current_source:
-                recorded = rewatch(root, proof['source_files'], source_only=True) if proof.get('source_files') else None
-                diff = difference(recorded, current_files) if recorded is not None else None
-                scope = evidence.scope_paths(row, set(current_files) | set(recorded or {}))
-                if diff is not None and scope is not None:
-                    diff = {k: [n for n in v if evidence.in_scope(n, scope)] for k, v in diff.items()}
-                if diff is not None and not any(diff.values()):
-                    continue
-                changed = describe_drift(diff, 6) if diff is not None else 'unknown'
+            changed = _drift(root, row, proof, current_files)
+            if changed:
                 errors.append(f'TASKS.md: {rid}: files in its scope changed after {rel}: {changed}. Run "ws.py verify {rid}" '
                               'again; if a file is generated output, add it to WORKSPACE exclude in ARCHITECTURE.md first')
     return errors
@@ -538,6 +596,14 @@ def advisories(root: Path) -> list:
         result += spec_warnings(root, data)
         result += secret_warnings(root)
         result += evidence.rules_notes(root, data['live']['tasks'])
+        result += evidence.scope_notes(root, data['live']['tasks'])
+        state = state_of(root)
+        cp = checkpoint_of(root, state) if state.get('checkpoint') else None
+        found = regressions(root, cp, data['live']['tasks'])
+        if found:
+            result.append(regression_text(found) + (' READY waits for that.' if stale_policy(root, cp) == 'block' else
+                          ' READY does not wait for it: stale_evidence is "warn", or this is the first session after '
+                          'an upgrade.'))
     except (WorkspaceError, ValueError, OSError):
         pass
     return result

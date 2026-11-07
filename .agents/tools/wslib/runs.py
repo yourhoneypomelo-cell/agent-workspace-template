@@ -36,6 +36,29 @@ def acceptance_argv(row: dict) -> list:
         return text.split()
 
 
+def verify_stale(root: Path, timeout: int, writer=None, rev=None) -> int:
+    """Run the acceptance of every done task whose files changed after it was verified, once per command, and attach
+    the new evidence. Returns 1 when any run is rejected."""
+    stale = [rid for rid, _ in validate.regressions(root, fresh_too=True)]
+    if not stale:
+        print('No done task has stale evidence.')
+        return 0
+    rows = {r['ID']: r for r in tables.rows(root, tables.table_for('tasks'))}
+    groups = {}
+    for rid in stale:
+        last = evidence.evidence_paths(rows[rid].get('Evidence', ''))
+        try:
+            report = (json.loads(read(root, last[-1])).get('report') or {}).get('format') if last else None
+        except (WorkspaceError, ValueError, OSError):
+            report = None
+        groups.setdefault((tuple(acceptance_argv(rows[rid])), report), []).append(rid)
+    failed = 0
+    for (command, report), ids in groups.items():
+        print(f'== verify {" ".join(ids)} -- {" ".join(command)}', flush=True)
+        failed += verify(root, ids, list(command), True, None, report, None, timeout, writer, rev) != 0
+    return 1 if failed else 0
+
+
 def verify(root: Path, ids: list, command: list, done: bool, kind: str | None, report: str | None, label: str | None,
            timeout: int, writer=None, rev=None, because: str | None = None) -> int:
     if not command:

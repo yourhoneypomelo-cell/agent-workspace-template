@@ -29,7 +29,7 @@ for the Stop nudge.
 
 | Command | Writes | Purpose |
 | --- | --- | --- |
-| `brief` | no | Resume summary: attention items, goal, card, open questions, tasks, sessions, guides, unsaved files |
+| `brief [--retired]` | no | Resume summary: attention items, goal, card, delivery lines, open questions, tasks, sessions, guides, unsaved files. `--retired` lists every retired row in full |
 | `turn` | no, except the prompt journal of Kiro and Cursor hooks | The per-turn reminder that prompt-submit hooks inject |
 | `status` | no | Same facts as JSON |
 | `check [--ready] [--strict]` | no | Validate. `--ready` also requires a released, sealed, covered workspace |
@@ -41,6 +41,7 @@ for the Stop nudge.
 | `card --set f=v` | yes | Changes handoff card fields |
 | `goal TEXT [--source S]` | yes | Changes the goal; the old text goes to REQUIREMENT_LOG |
 | `verify [IDs] [--done] -- CMD` | yes | Runs acceptance, stores evidence, attaches it, optionally marks done |
+| `verify --stale` | yes | Runs again every done task whose files changed after it was verified, once per acceptance command |
 | `checkpoint --stop T --next T [--keep]` | yes | Seals and logs the session. Releases ownership unless `--keep` |
 | `compact [--dry-run]` | yes | Moves closed rows to CLOSED_ITEMS.md, full rows to `docs/archive/closed/`, and rolls long logs |
 | `snapshot --label L [PATHS]` | yes | Zips the documents and named paths to `docs/archive/snapshots/` and sets the card `baseline` |
@@ -157,10 +158,11 @@ Set the mode in the WORKSPACE block of ARCHITECTURE.md.
 | Part | From |
 | --- | --- |
 | Tasks | The IDs given |
-| Paths | Every project path named in each task's Scope or Acceptance (a module `tests.test_x` is `tests/test_x.py`) |
+| Paths | Each existing path named in a task's Scope, and each `new:<path>` for a file the task creates |
 | Resources | Each `resource:<name>` in the Scope, such as `resource:vps/unpaywall` for a deployed service |
 
-A task that names no existing path holds the whole tree, and so does a session that claims no task.
+A task whose Scope says `tree:`, or names no existing or `new:` path, holds the whole tree, and so does a session that
+claims no task. `ws add` and `ws set` refuse a Scope that is only prose, and note a path that does not exist yet.
 `ws start` compares the claim with every session still working (its window runs, or it wrote within
 20 minutes when the window cannot be checked). The claim is refused when they share a task, a path
 (one inside the other counts) or a resource; the error names the other session and what it holds.
@@ -263,7 +265,17 @@ Use a script for pipelines. The command is accepted when all of these hold:
 
 Recognized summaries: Python unittest, pytest, Node TAP, Jest and Vitest. For other runners write a
 report with `--report json` (schema `test-summary.v1`) or `--report junit`. The examples in
-`.agents/template/examples/` show both.
+`.agents/template/examples/` show both: a small script runs the tests and writes the report to the path in the
+`CONTINUITY_REPORT` variable. A script is needed because verify runs without a shell, so `$CONTINUITY_REPORT` in an
+argument is not expanded.
+
+- Node 23 and later print the spec reporter by default; `node --test --test-reporter=tap` prints TAP, which is read.
+- Go: `python .agents/template/examples/go_json.py ./...` with `--report json`.
+- Rust: a script that runs `cargo nextest run` with a JUnit profile, or passes `cargo test` output to cargo2junit.
+- .NET: a script that runs `dotnet test --logger "junit;LogFilePath=<report path>"` (JunitXml.TestLogger).
+
+Coverage files a run writes (`.coverage`, `coverage.xml`, `htmlcov/`, `coverage/`) and `test-results/` are not
+watched, so `pytest --cov` and similar runs are accepted.
 
 Evidence records which version of these reading rules summarized its output (`rules`, 2 since 3.7.0) and is
 always read again with those rules, so a newer tool never invalidates older evidence. `ws check` notes a done
@@ -280,11 +292,17 @@ anyway and writes the reason to MAINTENANCE_LOG. This stops a task being proven 
 - Evidence records the tasks it was run for. A task marked done with evidence from another run fails
   the checkpoint.
 
-Evidence is stale when a file in the task's scope changes after it was recorded. The scope is every
-project path named in the task's Scope or Acceptance cell (a module such as `tests.test_x` counts as
-`tests/test_x.py`); when the cells name no existing path, the whole project counts. Edits under
-`docs/`, `.agents/` and the adapter files never make evidence stale. A task marked done must have
-evidence from the current owner, recorded after it claimed the workspace.
+Evidence is stale when a file in the task's scope changes after it was recorded. The scope is the paths the
+Scope names, plus the files the acceptance command runs (a module after `unittest`, such as `tests.test_x`,
+counts as `tests/test_x.py`); when the Scope says `tree:` or names no existing path, the whole project
+counts. Edits under `docs/`, `.agents/` and the adapter files never make evidence stale. A task marked done
+must have evidence from the current owner, recorded after it claimed the workspace.
+
+A sealed task stays checked. When a file in its scope changes later, `ws check` names the task and the file,
+the brief stops counting its requirements as verified, and READY waits until `ws verify --stale` runs its
+acceptance again, once per command. `"stale_evidence": "warn"` in the WORKSPACE block makes this a warning only.
+The first session after `ws upgrade` only warns, so work verified under an older tool can be run again first.
+Evidence of tasks that `ws compact` moved to CLOSED_ITEMS.md is sealed as well.
 
 The watch skips `.tmp/`, `tmp/`, `.scratch/`, database files and journals (`.db`, `.sqlite`, `-wal`,
 `-shm`), `.swp`, `.tmp`, `.out` and `.pid` files, so services and probes running next to a verify do not

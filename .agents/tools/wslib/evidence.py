@@ -242,20 +242,95 @@ def shrank(previous: dict | None, data: dict) -> list:
 EMPTY_RUN = re.compile(r'^(?:Ran 0 tests in |collected 0 items\s*$|=+ no tests ran in |ok\s+\S+\s+.*\[no test files\]$)', re.M)
 
 
-def scope_paths(row: dict, files) -> list | None:
-    """Project paths a task's Scope and Acceptance name, as found in the watched files; None when it names none, so the whole tree
-    counts. Scope is free text such as "src/gateway.py and tests/", so only tokens that match a file or folder count."""
+def scope_terms(cell: str) -> dict:
+    """What a Scope cell names: paths as written, "new:" paths of files the task creates, "resource:" names, and
+    "tree:" for the whole project. Words split at spaces, commas and the Chinese list marks, and lose the quotes,
+    brackets, backticks and sentence punctuation around them. No word is turned into a path."""
+    terms = {'paths': [], 'new': [], 'resources': [], 'tree': False}
+    for word in re.split(r'[\s,，、;；]+', cell or ''):
+        word = word.strip('`"\'“”‘’()（）[]【】<>《》*')
+        prefix = re.match(r'(new|resource|tree):', word, re.I)
+        kind, word = (prefix[1].lower(), word[prefix.end():]) if prefix else ('', word)
+        word = word.rstrip('.:!?。：！？…').replace('\\', '/')
+        word = (word[2:] if word.startswith('./') else word).rstrip('/')
+        if kind == 'tree':
+            terms['tree'] = True
+        elif word:
+            terms[{'new': 'new', 'resource': 'resources'}.get(kind, 'paths')].append(word)
+    return terms
+
+
+def path_shaped(word: str) -> bool:
+    """A word written as a path: it has a folder separator or a file extension, such as src/app or report.md."""
+    return '/' in word or bool(re.search(r'\.[A-Za-z][A-Za-z0-9]{0,7}$', word))
+
+
+def _named(path: str, names) -> bool:
+    return path in names or any(n.startswith(path + '/') for n in names)
+
+
+def scope_paths(row: dict, files, acceptance=False) -> list | None:
+    """Project paths a task holds: the Scope paths found in files and the "new:" paths, and with acceptance also the
+    files its acceptance command runs. None when the Scope says "tree:" or names no such path: the whole tree counts."""
+    terms = scope_terms(row.get('Scope', ''))
+    if terms['tree']:
+        return None
     names = set(files)
-    found = []
-    for token in re.findall(r'[A-Za-z0-9_.\-/\\]+', row.get('Scope', '') + ' ' + row.get('Acceptance', '')):
-        token = token.replace('\\', '/')
-        token = (token[2:] if token.startswith('./') else token).rstrip('/')
-        # "python -m unittest tests.test_x" names a module; its file is tests/test_x.py.
-        for candidate in (token, token.replace('.', '/') + '.py'):
-            if candidate and (candidate in names or any(n.startswith(candidate + '/') for n in names)):
-                found.append(candidate)
-                break
-    return found or None
+    found = [p for p in terms['paths'] if _named(p, names)] + terms['new']
+    if not found:
+        return None
+    return sorted(set(found + (acceptance_files(row, names) if acceptance else [])))
+
+
+def acceptance_files(row: dict, names) -> list:
+    """Project files and folders the acceptance command runs: its arguments that name one, and the test modules
+    after "unittest", such as tests.test_x for tests/test_x.py."""
+    from .runs import acceptance_argv
+    found, modules = [], False
+    for arg in acceptance_argv(row):
+        arg = arg.replace('\\', '/').split('::', 1)[0]
+        arg = (arg[2:] if arg.startswith('./') else arg).rstrip('/')
+        if arg == 'unittest':
+            modules = True
+        elif arg and _named(arg, names):
+            found.append(arg)
+        elif modules and re.fullmatch(r'[A-Za-z_][\w.]*', arg) and _named(arg.replace('.', '/') + '.py', names):
+            found.append(arg.replace('.', '/') + '.py')
+    return found
+
+
+def scope_notes(root: Path, task_rows: list) -> list:
+    """Live tasks whose Scope is prose that names no path, written before ws add refused it. Advisory only."""
+    vague = [r['ID'] for r in task_rows if r.get('Status') != 'dropped' and scope_check(root, r.get('Scope', ''))[0]]
+    if not vague:
+        return []
+    return [f'{", ".join(vague[:6])}{" and more" if len(vague) > 6 else ""}: the scope names no path, so the task holds '
+            'the whole tree: a claim on it blocks every other session, and any product change makes its evidence '
+            'stale. Name the files it changes with "ws set <ID> --set scope=...", or write "tree:" if it really spans '
+            'the project']
+
+
+def _exists(root: Path, path: str) -> bool:
+    try:
+        return safe_path(root, path).exists()
+    except WorkspaceError:
+        return False
+
+
+def scope_check(root: Path, cell: str) -> tuple:
+    """(refusal or None, notes) for a Scope a task is given. Prose that names no path is refused, because the task
+    would silently hold the whole tree; a path that does not exist yet is noted, since "new:" makes the intent clear."""
+    terms = scope_terms(cell)
+    if terms['tree'] or terms['new'] or terms['resources']:
+        return None, []
+    present = [p for p in terms['paths'] if _exists(root, p)]
+    planned = [p for p in terms['paths'] if p not in present and path_shaped(p)]
+    if not present and not planned:
+        return ('the scope names no path. Name the files or folders the task changes, "new:<path>" for a file it '
+                'creates, "resource:<name>" for an outside system it touches, or "tree:" for the whole project, for '
+                'example --set "scope=src/login.py, tests/test_login.py"'), []
+    return None, [f'scope: {p} does not exist yet; if the task creates it, write "new:{p}" so a parallel session sees '
+                  'it is taken' for p in planned[:3]]
 
 
 def in_scope(rel: str, scope: list | None) -> bool:
@@ -399,7 +474,9 @@ def run(root: Path, command: list, label: str, writer: str, revision: int, kind:
     if empty_run:
         reasons.append('the command reports that no tests ran; a run with zero tests is not evidence')
     if kind == 'test' and not passed(summary):
-        reasons.append('no passing tests were recognized' if not summary['known'] else
+        reasons.append('no passing tests were recognized: for a runner whose summary is not read, have a script write '
+                       'a JUnit or JSON report and add --report junit or --report json (.agents/guides/PROTOCOL.md, '
+                       '"Evidence")' if not summary['known'] else
                        f'tests: {summary["passed"]} passed, {summary["failed"]} failed, {summary["errors"]} errors')
     if report_error:
         reasons.append('report: ' + report_error)

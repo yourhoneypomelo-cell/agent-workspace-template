@@ -13,7 +13,6 @@ from . import evidence, tables
 from .core import WorkspaceError, host_alive, host_process, same_host, session_identity, watched_files
 from .schema import TABLES
 
-RESOURCE_RE = re.compile(r'\bresource:([A-Za-z0-9_.\-/]+)')
 WHOLE = {'tasks': [], 'paths': None, 'resources': []}
 RECENT_SECONDS = 20 * 60
 # A host process such as an IDE or desktop app outlives its conversations; past this age a claim is stale.
@@ -27,7 +26,8 @@ def task_rows(root: Path) -> dict:
 
 
 def scope_of(root: Path, ids: list, rows: dict | None = None) -> dict:
-    """Tasks, paths and resources a claim holds. A task that names no existing path holds the whole tree."""
+    """Tasks, paths and resources a claim holds, read from each task's Scope only. A task whose Scope names no
+    existing or "new:" path, or says "tree:", holds the whole tree."""
     rows = rows or task_rows(root)
     files = set(watched_files(root))
     paths, resources, whole = [], [], not ids
@@ -37,8 +37,7 @@ def scope_of(root: Path, ids: list, rows: dict | None = None) -> dict:
             raise WorkspaceError(f'{rid} is not a live task in docs/state/TASKS.md')
         if row['Status'] in ('done', 'dropped'):
             raise WorkspaceError(f'{rid} is {row["Status"]}; claim an open task')
-        text = row.get('Scope', '') + ' ' + row.get('Acceptance', '')
-        resources += RESOURCE_RE.findall(text)
+        resources += evidence.scope_terms(row.get('Scope', ''))['resources']
         found = evidence.scope_paths(row, files)
         if found is None:
             whole = True

@@ -8,7 +8,7 @@ from support import Workspace
 
 class Review(Workspace):
     def task(self, acceptance):
-        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=x', '--set', 'action=y',
+        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=tree:', '--set', 'action=y',
                 '--set', f'acceptance={acceptance}')
 
     def test_evidence_of_another_run_cannot_mark_a_task_done(self):

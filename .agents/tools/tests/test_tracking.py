@@ -23,7 +23,7 @@ class Tracking(Workspace):
 
     def test_brief_shows_requirement_coverage_and_the_ready_task(self):
         self.planned()
-        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=b', '--set', 'action=Second step',
+        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=tree:', '--set', 'action=Second step',
                 '--set', 'acceptance=python -m unittest test_demo', '--set', 'depends=T1')
         brief = self.ws('brief').stdout
         self.assertIn('Requirements verified: 0/1 (not yet: R1)', brief)

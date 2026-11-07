@@ -44,10 +44,10 @@ T1 = T0 + ('docs/state/FEATURES.md', 'docs/state/TASKS.md', 'docs/state/ARCHITEC
 
 LIB_MODULES = ('__init__', 'schema', 'core', 'tables', 'evidence', 'logs', 'validate', 'views', 'ops', 'capture', 'nudge', 'words', 'coverage',
                'reconcile', 'runs', 'rows', 'claims', 'distribution', 'defaults', 'lint', 'migrate', 'snapshot', 'dsh', 'verifying', 'retired',
-               'hooks', 'upgrade', 'doctor')
+               'hooks', 'upgrade', 'doctor', 'delivery')
 TEST_MODULES = ('support', 'test_core', 'test_workflow', 'test_distribution', 'test_reconcile', 'test_capture', 'test_tracking',
                 'test_nudge', 'test_review', 'test_session', 'test_messages', 'test_probes', 'test_v36', 'test_field',
-                'test_static', 'test_regressions', 'test_upgrade', 'test_doctor', 'run')
+                'test_static', 'test_regressions', 'test_upgrade', 'test_doctor', 'test_v38', 'run')
 # Files only the template maintainer uses. They stay in the template folder and are never installed into a project:
 # a business agent searching its project should not find the template's own requirements, history or self-tests.
 MAINTAINER_GUIDES = ('MAINTAINING', 'DESIGN_REQUIREMENTS', 'FIXES')
@@ -101,7 +101,7 @@ PRUNE_DIRS = frozenset({
     '.git', '.hg', '.svn', 'node_modules', '.venv', 'venv', '__pycache__', '.pytest_cache', '.mypy_cache',
     '.ruff_cache', '.tox', '.nox', 'dist', 'build', '.next', '.nuxt', '.svelte-kit', '.turbo', '.parcel-cache',
     '.angular', '.expo', 'target', 'out', 'obj', 'coverage', 'htmlcov', '.cache', '.gradle', '.idea', '.vscode',
-    '.dart_tool', 'Pods', 'DerivedData', '.terraform',
+    '.dart_tool', 'Pods', 'DerivedData', '.terraform', 'test-results',
 })
 DIST_DIR = 'dist'
 PACKAGE_PREFIX = 'agent-workspace-'
@@ -115,7 +115,7 @@ HOOK_FILES = {
 }
 PRUNE_PATHS = ('.tmp', 'tmp', '.scratch', 'dist', 'docs/archive', 'docs/chats', '.agents/cache', '.agents/hooks.json', '.claude', '.cursor', '.codex',
                '.kimi-code', '.grok', '.dsh', '.codebuddy', '.qoder', '.qwen', '.github/hooks', '.kiro/hooks')
-PRUNE_FILES = frozenset({'.DS_Store', 'Thumbs.db', 'desktop.ini'})
+PRUNE_FILES = frozenset({'.DS_Store', 'Thumbs.db', 'desktop.ini', '.coverage', 'coverage.xml'})
 SECRET_SUFFIXES = ('.pem', '.key', '.p12', '.pfx', '.pyc', '.log')
 # Database journals, editor swap files and process output change while services and tests run; they are never source.
 SCRATCH_SUFFIXES = ('.db', '.sqlite', '.sqlite3', '.db-wal', '.db-shm', '.db-journal', '.sqlite-wal', '.sqlite-shm',

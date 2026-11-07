@@ -142,6 +142,34 @@ def mark(root: Path, message: str, ids: str | None, reason: str | None) -> dict:
     return {'marked': targets, 'outcome': outcome}
 
 
+def review(root: Path, last=20) -> list:
+    """The last user messages beside what accounts for each: the rows that record it, with their text, or the
+    reason none is needed. A sample for checking the bookkeeping by eye; messages are shown redacted."""
+    from .ops import short
+    done = accounted(root)
+    rows = {r['ID']: r for t in PREFIX_TABLE.values() for r in tables.rows(root, t)}
+    rows.update({r['ID']: r for r in tables.closed_rows(root)})
+    picked = [(mid, rel) for mid, rel, is_routine in user_messages(root) if not is_routine][-max(1, last):]
+    bodies, lines = {}, []
+    for mid, rel in picked:
+        if rel not in bodies:
+            bodies[rel] = texts(root / rel)
+        lines.append(f'{mid}  {rel}\n    user: {short(redact(bodies[rel].get(mid, "")), 300)}')
+        entry = done.get(mid)
+        if not entry:
+            lines.append('    -> NOT RECONCILED')
+            continue
+        outcome = entry['Outcome']
+        if outcome.startswith('no record:'):
+            lines.append(f'    -> {outcome}')
+            continue
+        for rid in re.findall(r'\b[A-Z][1-9]\d*\b', outcome):
+            row = rows.get(rid) or {}
+            field = PREFIX_TABLE[rid[0]].summary if rid[0] in PREFIX_TABLE else 'Summary'
+            lines.append(f'    -> {rid} {row.get("Status", "unknown")}: {short(row.get(field) or row.get("Summary", ""), 160)}')
+    return lines
+
+
 def summary_line(root: Path) -> str | None:
     try:
         count = len(pending(root))

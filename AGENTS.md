@@ -52,8 +52,8 @@ act" at the end of this file lists them; `ws` also names the section when the mo
 
 Several sessions may work at once on tasks that touch different paths and resources.
 
-- A session the user talks to claims its tasks: `ws start --task T5`. The claim holds the task's Scope and
-  Acceptance paths and each `resource:<name>` in its Scope; no path means the whole tree. A claim that meets
+- A session the user talks to claims its tasks: `ws start --task T5`. The claim holds the paths in the task's
+  Scope (`new:<path>` for a file it creates) and each `resource:<name>`; `tree:` is the whole tree. A claim that meets
   another is refused: ask the user, then `--force --reason "<what the user said>"`, which is logged.
 - A subagent, workflow step or helper window you start runs with `WS_ROLE=worker`, and its prompt says it must not
   write ws state, and `ws` refuses its writes. It reports results and evidence paths, and its parent records them.

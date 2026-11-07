@@ -496,7 +496,12 @@ def findings(root: Path, live: dict) -> list:
         claimed = {t for _, scope in holders(state_of(root)) for t in scope['tasks']}
     except (WorkspaceError, ValueError, OSError):
         claimed = set()
-    changed = outside_tasks(changed, live, claimed)
+    try:
+        from .validate import regressions
+        stale = {rid for rid, _ in regressions(root, cp, live.get('tasks', []), fresh_too=True)} if changed else set()
+    except (WorkspaceError, ValueError, OSError):
+        stale = set()
+    changed = outside_tasks(changed, live, claimed, now, stale)
     if untracked(changed, cp, live):
         result.append(('warn', f'{len(changed)} product files changed since the work was last registered '
                                f'({", ".join(changed[:4])}), but no task is doing and no requirement or task row was '
@@ -552,14 +557,17 @@ def untracked(changed: list, cp, live: dict) -> bool:
         and not tracking_changed(cp, live)
 
 
-def outside_tasks(changed: list, live: dict, claimed=()) -> list:
-    """Changed files that no finished or claimed task covers. A file inside the Scope or Acceptance of a task that
-    was verified, or that a parallel session claimed, is registered work: parallel sessions do not mark their tasks
-    doing. A file of a task still todo is not covered: editing it before starting the task is what this warns about."""
+def outside_tasks(changed: list, live: dict, claimed=(), files=None, stale=()) -> list:
+    """Changed files that no finished or claimed task covers. A file inside the Scope of a task that was verified, or
+    that a parallel session claimed, or among the files its acceptance runs, is registered work: parallel sessions do
+    not mark their tasks doing. A file of a task still todo is not covered: editing it before starting the task is
+    what this warns about, and neither is one of a task in stale, whose evidence the change made stale. files are the
+    project's files, against which Scope paths are looked up."""
     from . import evidence
-    rows = [r for r in live.get('tasks', [])
-            if (r['Status'] == 'done' and r.get('Evidence', 'none').lower() != 'none') or r['ID'] in claimed]
-    scopes = [evidence.scope_paths(r, set(changed)) for r in rows]
+    rows = [r for r in live.get('tasks', []) if r['ID'] not in stale and
+            ((r['Status'] == 'done' and r.get('Evidence', 'none').lower() != 'none') or r['ID'] in claimed)]
+    names = set(changed) | set(files or ())
+    scopes = [evidence.scope_paths(r, names, acceptance=True) for r in rows]
     return [f for f in changed if not any(s and evidence.in_scope(f, s) for s in scopes)]
 
 
@@ -604,15 +612,16 @@ def v2_cited(closed: list | None) -> set:
             for rid in _prefix_ids(row.get('Summary', ''))}
 
 
-def requirement_coverage(live: dict, closed: list | None = None) -> tuple:
+def requirement_coverage(live: dict, closed: list | None = None, stale=()) -> tuple:
     """(verified, total, unverified IDs): an active requirement counts when a done task with evidence cites it and
-    no open task cites it, because an open task means part of the requirement is still unbuilt.
+    no open task cites it, because an open task means part of the requirement is still unbuilt. A task in stale,
+    whose files changed after it was verified, proves nothing until it runs again.
 
     Done tasks moved to CLOSED_ITEMS.md by compact still count; their Summary keeps the requirement IDs."""
     active = [r['ID'] for r in live.get('requirements', []) if r['Status'] == 'active']
     proven, pending = set(), set()
     for task in live.get('tasks', []):
-        if task['Status'] == 'done' and task.get('Evidence', 'none').lower() != 'none':
+        if task['Status'] == 'done' and task.get('Evidence', 'none').lower() != 'none' and task['ID'] not in stale:
             proven |= set(_cited(task.get('Requirements', '')))
         elif task['Status'] in OPEN_TASK:
             pending |= set(_cited(task.get('Requirements', '')))

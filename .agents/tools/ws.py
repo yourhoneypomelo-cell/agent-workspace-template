@@ -37,7 +37,7 @@ TOOL = Path(__file__).resolve()
 TEMPLATE_ROOT = TOOL.parents[2]
 
 COMMANDS = '''commands:
-  brief                      print the resume summary (read-only)
+  brief [--retired]          print the resume summary, or every retired row in full (read-only)
   turn                       print the per-turn reminder used by prompt-submit hooks (read-only)
   note TEXT                  append one progress line to SESSION_LOG; cheap, use it every few turns
   status                     ownership, revision and unsaved files as JSON (read-only)
@@ -50,6 +50,7 @@ COMMANDS = '''commands:
   card --set f=v ...         change handoff card fields
   goal TEXT [--source S]     change the goal when the user widens or narrows it; the old text is logged
   verify [IDs] [--done] -- CMD   run acceptance, store evidence, optionally mark tasks done
+  verify --stale             run again every done task whose files changed after it was verified
   checkpoint --stop TEXT --next TEXT [--keep]   save and seal; releases the workspace unless --keep
   compact [--dry-run] [--prune-evidence]        move closed rows to CLOSED_ITEMS.md, roll logs
   snapshot --label NAME [PATHS]                 zip the documents before a large reorganization; no restore
@@ -59,6 +60,7 @@ COMMANDS = '''commands:
   chats import HOST          copy this project's sessions from a local store: kimi, codex, antigravity,
                              kiro, cursor, workbuddy, codebuddy, qoder, qwen, gemini, dsh
   reconcile [ID --ids R1,T2 | --reason "chat: ..."]   list user messages not yet matched to rows, or mark one
+  reconcile --review [--last N]  the last user messages beside the rows or reasons that account for them
   lint                       advisory layout and wording checks for reusable documents
   doctor [--json]            hooks, interpreter, session identity and tool files at a glance, each problem with its
                              fix (read-only); exit 1 when a problem is found
@@ -89,6 +91,7 @@ def parser() -> argparse.ArgumentParser:
 
     brief = subs.add_parser('brief')
     brief.add_argument('--hook', choices=HOSTS, help='print in the session-start hook format of this host')
+    brief.add_argument('--retired', action='store_true', help='list every retired row in full, newest first')
     turn = subs.add_parser('turn')
     turn.add_argument('--hook', choices=HOSTS, help='print in the prompt-submit hook format of this host')
     note = subs.add_parser('note')
@@ -132,6 +135,8 @@ def parser() -> argparse.ArgumentParser:
     verify.add_argument('--label')
     verify.add_argument('--timeout', type=int, default=900)
     verify.add_argument('--because', help='why the command differs from the task acceptance; logged')
+    verify.add_argument('--stale', action='store_true', help='run again every done task whose files changed after it '
+                        'was verified, once per acceptance command')
     cp = owned(subs.add_parser('checkpoint'))
     cp.add_argument('--stop', required=True, help='exact stop point, one line')
     cp.add_argument('--next', required=True, help='concrete next step, one line')
@@ -160,6 +165,9 @@ def parser() -> argparse.ArgumentParser:
     rec.add_argument('--ids', help='rows that record the message, for example R4,P2')
     rec.add_argument('--reason', help='why no row is needed: question, chat, duplicate, superseded, out-of-scope, secret')
     rec.add_argument('--limit', type=int, default=20)
+    rec.add_argument('--review', action='store_true', help='show the last user messages beside the rows or reasons '
+                     'that account for them')
+    rec.add_argument('--last', type=int, default=20, help='how many messages --review shows')
     subs.add_parser('lint')
     tidy = subs.add_parser('tidy', help='remove template maintainer files an older install left in this project')
     tidy.add_argument('--dry-run', action='store_true')
@@ -323,6 +331,12 @@ def hook_turn(root: Path, host: str):
         text = ops.turn_context(root)
     except Exception:  # a hook must never break the host session
         text = ops.turn_reminder(root)
+    try:
+        from wslib.nudge import turn_record
+        record = turn_record(root)
+        text = text + ' ' + record if record else text
+    except Exception:  # a hook must never break the host session
+        pass
     taken = taken_over(root, payload, host)
     if taken:
         text = taken + '\n\n' + text
@@ -448,6 +462,9 @@ def main(argv=None) -> int:
     try:
         if args.command == 'brief' and args.hook:
             hook_brief(root, args.hook)
+        elif args.command == 'brief' and args.retired:
+            from wslib.views import retired_list
+            print(retired_list(root), end='')
         elif args.command == 'brief':
             print(ops.brief(root), end='')
         elif args.command == 'turn':
@@ -480,6 +497,11 @@ def main(argv=None) -> int:
             ops.set_card(root, args.set, args.writer, args.rev)
         elif args.command == 'goal':
             ops.set_goal(root, ' '.join(args.text), args.source, args.writer, args.rev)
+        elif args.command == 'verify' and args.stale:
+            if args.ids or rest or args.done or args.because:
+                raise WorkspaceError('verify --stale takes no task IDs, command, --done or --because: it runs each '
+                                     "stale task's own acceptance and keeps it done")
+            return ops.verify_stale(root, args.timeout, args.writer, args.rev)
         elif args.command == 'verify':
             return ops.verify(root, args.ids, rest, args.done, args.kind, args.report, args.label, args.timeout, args.writer, args.rev,
                               args.because)
@@ -525,7 +547,9 @@ def main(argv=None) -> int:
             print(json.dumps(capture.import_sessions(root, args.host), ensure_ascii=False))
         elif args.command == 'reconcile':
             from wslib import reconcile
-            if args.message:
+            if args.review:
+                print('\n'.join(reconcile.review(root, args.last)) or 'No user message is saved in docs/chats/.')
+            elif args.message:
                 print(json.dumps(reconcile.mark(root, args.message, args.ids, args.reason), ensure_ascii=False))
             else:
                 open_items = reconcile.pending(root)

@@ -243,7 +243,7 @@ class MergeAndCard(Workspace):
 
     def test_next_step_citing_a_dropped_task_is_refused(self):
         self.planned()
-        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=x', '--set', 'action=CSV export',
+        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=tree:', '--set', 'action=CSV export',
                 '--set', 'acceptance=python -m unittest test_demo')
         self.ws('set', 'T2', '--set', 'status=dropped', '--set', 'reason=user dropped CSV')
         args = ('--set', 'phase=build', '--set', 'risks=demo only', '--set', 'next_acceptance=T1 passes')

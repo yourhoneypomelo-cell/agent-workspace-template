@@ -72,8 +72,12 @@ def add(root: Path, table_name: str, sets: list, source: str | None, writer=None
         missing = [h.lower() for h in t.required if not row.get(h, '').strip() or row[h].lower() == NONE]
         if missing:
             raise WorkspaceError(f'{t.key}: missing {", ".join(missing)}. Pass --set {missing[0]}=...')
+        notes = []
         if t.key == 'tasks':
             evidence.split_expect(row['Acceptance'])
+            refusal, notes = evidence.scope_check(root, row['Scope'])
+            if refusal:
+                raise WorkspaceError(f'tasks: {refusal}')
         row['ID'] = tables.next_id(root, t, ledger(root))
         changes = {t.file: tables.upsert(read(root, t.file), t.headers, t.file, row)}
         if t.log:
@@ -87,8 +91,9 @@ def add(root: Path, table_name: str, sets: list, source: str | None, writer=None
         guarded(root, changes)
         bump(root, state)
     emit({'id': row['ID'], 'revision': state['revision']})
+    print(f'Tell the user in your reply: recorded {row["ID"]} ({t.key[:-1]}): {short(row[t.summary], 120)}')
     from .lint import cell_notes
-    for message in cell_notes(fields):
+    for message in cell_notes(fields) + notes:
         print(f'NOTE: {row["ID"]} {message}')
     for rid, status, reason in revived:
         print(f'WARNING: {row["ID"]} repeats {rid}, which is {status} ({short(reason, 120)}). Unless the user asked for it '
@@ -148,6 +153,11 @@ def set_row(root: Path, identifier: str, sets: list, source: str | None, writer=
         row = {**old, **fields}
         if t.key == 'tasks' and 'Acceptance' in fields:
             evidence.split_expect(row['Acceptance'])
+        notes = []
+        if t.key == 'tasks' and 'Scope' in fields:
+            refusal, notes = evidence.scope_check(root, row['Scope'])
+            if refusal:
+                raise WorkspaceError(f'{identifier}: {refusal}')
         overwritten = [(k, old[k]) for k in fields if k not in appended and k not in ('Status',)
                        and old.get(k, NONE).lower() not in (NONE, '') and old[k] != fields[k]]
         if row['Status'] in NEEDS_REASON[t.key] and 'Reason' in t.headers and row.get('Reason', NONE).lower() == NONE:
@@ -220,8 +230,15 @@ def set_row(root: Path, identifier: str, sets: list, source: str | None, writer=
         if t.key == 'requirements' and (row['Status'] != old['Status'] or row[t.summary] != old[t.summary]):
             affected = coverage.dependents(validate.gather(root)['live'], identifier)
     emit({'id': identifier, 'revision': state['revision']})
+    if row['Status'] != old['Status']:
+        reason = row.get('Reason', NONE)
+        print(f'Tell the user in your reply: {identifier} is now {row["Status"]}' +
+              (f' ({short(reason, 100)})' if reason.lower() != NONE else ''))
+    elif any(old.get(k) != row.get(k) for k in fields):
+        print(f'Tell the user in your reply: changed {identifier} ' +
+              ', '.join(k.lower() for k in fields if old.get(k) != row.get(k)))
     from .lint import cell_notes
-    for message in cell_notes({k: v for k, v in row.items() if k in fields}):
+    for message in cell_notes({k: v for k, v in row.items() if k in fields}) + notes:
         print(f'NOTE: {identifier} {message}')
     for key, value in overwritten:
         print(f'{identifier} {key.lower()} replaced; it was: {short(value, 300)}. Use --set "{key.lower()}+=..." to append instead')

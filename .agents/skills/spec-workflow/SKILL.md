@@ -24,9 +24,10 @@ user request -> requirement (R) -> tasks (T) -> code + tests -> ws verify --done
    `requirements.md` and set the requirement's Detail to `docs/specs/<slug>/requirements.md`.
 4. Record design choices and rejected options with `ws add decision`.
 5. Split the work into tasks of a few hours each, each with its own acceptance command. Name in the
-   Scope the paths the task changes and each outside system it touches as `resource:<name>`, for
-   example `services/unpaywall/ resource:vps/unpaywall`. Parallel sessions claim tasks by these, and
-   a task with no path in its Scope blocks every other session.
+   Scope the paths the task changes, `new:<path>` for a file it creates and each outside system it
+   touches as `resource:<name>`, for example `services/unpaywall/ new:tests/test_proxy.py
+   resource:vps/unpaywall`. Parallel sessions claim tasks by these, and a task with no path in its
+   Scope, or with `tree:`, blocks every other session.
 6. Add the feature with status `planned`, naming the requirement and tasks.
 7. Implement one task, run `ws verify T<n> --done -- <command>`, repeat.
 8. When all tasks are done: `ws set F<n> --set status=shipped`.

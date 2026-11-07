@@ -91,7 +91,7 @@ class Writing(Workspace):
     def test_lint_reports_state_rows_a_new_session_cannot_read(self):
         self.init()
         self.ws('add', 'decision', '--set', f'decision={self.LONG}', '--set', 'reason=audit T56', '--set', 'source=T56')
-        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=x', '--set', 'action=Gateway',
+        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=tree:', '--set', 'action=Gateway',
                 '--set', 'acceptance=python -m unittest')
         self.ws('add', 'feature', '--set', 'behavior=Gateway v3.2 auth, v3.3 HTML recovery, v3.4 impersonation',
                 '--set', 'requirements=R1', '--set', 'tasks=T1')
@@ -434,7 +434,7 @@ class Parallel(Workspace):
         self.write('b/test_b.py', test)
         self.ws('init', '--goal', 'Demo', env=self.a)
         self.ws('add', 'requirement', '--set', 'requirement=x', '--set', 'acceptance=y', env=self.a)
-        for scope, src in (('a/', 'a'), ('b/ resource:vps/svc', 'b'), ('a/test_a.py', 'a'), ('docs/x resource:vps/svc', 'a')):
+        for scope, src in (('a/', 'a'), ('b/ resource:vps/svc', 'b'), ('a/test_a.py', 'a'), ('new:docs/x resource:vps/svc', 'a')):
             self.ws('add', 'task', '--set', 'requirements=R1', '--set', f'scope={scope}', '--set', f'action=Work {src}',
                     '--set', f'acceptance=python -m unittest discover -s {src}', env=self.a)
         self.ws('checkpoint', '--stop', 's', '--next', 'n', '--set', 'phase=p', '--set', 'risks=r',
@@ -520,7 +520,7 @@ class Parallel(Workspace):
         self.assertIn('elsewhere.py', self.ws('brief', env=self.c).stdout)
 
     def test_a_task_with_no_path_holds_the_whole_tree(self):
-        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=the login flow', '--set', 'action=Login',
+        self.ws('add', 'task', '--set', 'requirements=R1', '--set', 'scope=tree:', '--set', 'action=Login',
                 '--set', 'acceptance=check: python -c "print(1)" expect "1"', env=self.a)
         self.assertIn('the whole tree', self.ws('start', '--task', 'T5', env=self.b, expect=2).stderr)
 

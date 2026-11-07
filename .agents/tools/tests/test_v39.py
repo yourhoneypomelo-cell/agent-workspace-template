@@ -1,6 +1,7 @@
 """3.9.0: the system file lock, the permission table, message timing and IDs, redaction, chat import and credentials
 as the owner decided, and hook paths. Each test fails on 3.8.0 unless its comment says it guards a behavior."""
 import errno
+import json
 import os
 import subprocess
 import sys
@@ -173,6 +174,132 @@ class Permits(Workspace):
                 done = self.ws(*command, env=self.env[actor], expect=None)
                 self.assertEqual(done.returncode, code, done.stdout[-300:] + done.stderr[-300:])
                 self.assertIn(part, done.stderr)
+
+
+def claude_lines(*messages):
+    """A Claude Code transcript from (role, text, time) triples."""
+    return ''.join(json.dumps({'type': role, 'message': {'role': role, 'content': text}, 'timestamp': stamp},
+                              ensure_ascii=False) + '\n' for role, text, stamp in messages)
+
+
+OLD_TRANSCRIPT = ('# Transcript claude s1\n\n## 1. user 2026-11-01T01:00:00Z\n\nKeep the CSV export\n\n'
+                  '## 2. assistant 2026-11-01T01:00:05Z\n\nok\n\n## 3. user 2026-11-01T01:01:00Z\n\n可以\n')
+
+
+class Messages(Workspace):
+    def prompt(self, text, session='s1', host='claude'):
+        payload = {'session_id': session, 'prompt': text}
+        return self.ws('turn', '--hook', host, stdin=json.dumps(payload, ensure_ascii=False)).stdout
+
+    def stop(self, *messages, session='s1'):
+        transcript = self.parent / f'{session}.jsonl'
+        transcript.write_text(claude_lines(*messages), encoding='utf-8')
+        self.ws('capture', '--host', 'claude', '--event', 'Stop',
+                stdin=json.dumps({'session_id': session, 'transcript_path': str(transcript)}))
+
+    def open_ids(self):
+        return [line.split()[0] for line in self.ws('reconcile').stdout.splitlines() if line.startswith('m')]
+
+    def old_transcript(self):
+        self.write('docs/chats/claude/s1.md', OLD_TRANSCRIPT)
+        index = self.read('docs/chats/INDEX.md').rstrip('\n')
+        self.write('docs/chats/INDEX.md', index + '\n| 2026-11-01 | claude | s1 | 3 | docs/chats/claude/s1.md | none |\n')
+
+    def test_24_ready_survives_the_stop_hook_that_copies_the_turn(self):
+        # Claude Code saved a turn only in its Stop hook, after the checkpoint had released the workspace.
+        self.done()
+        self.save()
+        self.ws('start')
+        said = self.prompt('Add a dark mode toggle')
+        mid, = self.open_ids()
+        self.assertIn(f'saved as {mid}', said)
+        self.ws('reconcile', mid, '--ids', 'R1')
+        self.save()
+        self.ready()
+        self.stop(('user', 'Add a dark mode toggle', '2026-11-07T01:00:00Z'),
+                  ('assistant', 'Recorded as R1.', '2026-11-07T01:00:05Z'))
+        self.ready()
+        self.assertIn(f'## 1. user 2026-11-07T01:00:00Z [{mid}]', self.read('docs/chats/claude/s1.md'))
+        self.prompt('thanks')
+        self.assertIn('| docs/chats/claude/s1.md | docs/chats/claude/raw/s1.jsonl |', self.read('docs/chats/INDEX.md'))
+
+    def test_24_a_message_saved_after_the_seal_waits_for_the_next_session(self):
+        self.done()
+        self.save()
+        self.prompt('Also add a footer with the version', host='kiro')
+        self.ready()
+        self.assertIn('saved after the last checkpoint', self.ws('check').stdout)
+        self.assertIn('not reconciled', self.ws('brief').stdout)
+        self.ws('start')
+        mid, = self.open_ids()
+        self.ws('add', 'requirement', '--set', 'requirement=Footer shows the version', '--set', 'acceptance=seen')
+        self.ws('reconcile', mid, '--ids', 'R2')
+        self.save()
+        self.ready()
+
+    def test_24_the_same_sentence_in_two_sessions_is_reconciled_in_each(self):
+        self.init()
+        for session in ('s1', 's2'):
+            self.prompt('Use PostgreSQL for storage', session=session, host='kiro')
+        first, second = self.open_ids()
+        self.ws('reconcile', first, '--ids', 'R1')
+        self.assertEqual(self.open_ids(), [second])
+
+    def test_24_marks_of_3_8_stay_valid_when_the_transcript_is_written_again(self):
+        # Guards the upgrade: a transcript of 3.8 has no IDs in its headings, and its marks name the hash of the text.
+        self.init()
+        self.old_transcript()
+        mid, = self.open_ids()
+        self.ws('reconcile', mid, '--ids', 'R1')
+        self.stop(('user', 'Keep the CSV export', '2026-11-01T01:00:00Z'), ('assistant', 'ok', '2026-11-01T01:00:05Z'),
+                  ('user', '可以', '2026-11-01T01:01:00Z'), ('user', 'Export to JSON too', '2026-11-01T01:02:00Z'))
+        later, = self.open_ids()
+        self.assertNotEqual(later, mid)
+
+    def test_24_yes_and_no_are_reconciled_like_other_messages(self):
+        # Before 3.9 a lone "no", the answer to a question, was skipped as small talk; messages saved then keep the rule.
+        self.init()
+        self.old_transcript()
+        self.ws('reconcile', self.open_ids()[0], '--ids', 'R1')
+        for text in ('no', '可以', '行'):
+            self.prompt(text, host='kiro')
+        self.assertEqual(len(self.open_ids()), 3)
+
+    def test_24_the_stop_hook_keeps_the_id_when_the_host_copy_adds_to_the_typed_text(self):
+        self.init()
+        self.prompt('Rename calc to compute')
+        mid, = self.open_ids()
+        self.stop(('user', 'Rename calc to compute\n[Image #1]', '2026-11-07T01:00:00Z'))
+        self.assertEqual(self.open_ids(), [mid])
+
+    def test_24_a_transcript_missing_from_the_index_is_reported(self):
+        self.init()
+        self.write('docs/chats/claude/lost.md', '# Transcript claude lost\n\n## 1. user\n\nAdd an export button\n')
+        out = self.ws('reconcile').stdout
+        self.assertNotIn('All user messages in docs/chats/ are reconciled', out)
+        self.assertIn('docs/chats/claude/lost.md', out)
+        self.assertIn('not listed in docs/chats/INDEX.md', self.ws('check', expect=None).stdout)
+
+    def test_24_reconcile_all_names_how_many_it_marks(self):
+        self.init()
+        for text in ('What is the build status?', 'And the tests?', 'Any open bugs?'):
+            self.prompt(text, host='kiro')
+        all_of = ('reconcile', 'all', '--reason', 'question: status only')
+        self.assertIn('--confirm 3', self.ws(*all_of, expect=2).stderr)
+        self.ws(*all_of, '--confirm', '2', expect=2)
+        self.ws(*all_of, '--confirm', '3')
+        self.assertEqual(self.open_ids(), [])
+        self.assertIn('(reconcile all, 3 messages)', self.read('docs/logs/RECONCILE_LOG.md'))
+
+    def test_24_the_stop_nudge_lets_a_pure_question_pass(self):
+        self.init()
+        text = self.read('docs/state/ARCHITECTURE.md')
+        self.write('docs/state/ARCHITECTURE.md', text.replace('"credentials": "ask"}', '"credentials": "ask", "stop_nudge": true}'))
+        stop = {'stdin': json.dumps({'session_id': 's1'})}
+        self.prompt('What does the demo return?')
+        self.assertEqual(self.ws('capture', '--host', 'claude', '--event', 'Stop', **stop).stdout, '')
+        self.prompt('Make the demo return 5')
+        self.assertIn('not recorded', self.ws('capture', '--host', 'claude', '--event', 'Stop', **stop).stdout)
 
 
 if __name__ == '__main__':

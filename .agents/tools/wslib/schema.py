@@ -32,9 +32,9 @@ HANDOFF = 'docs/state/HANDOFF.md'
 REQUIREMENTS = 'docs/state/REQUIREMENTS.md'
 ARCHITECTURE = 'docs/state/ARCHITECTURE.md'
 CHAT_INDEX = 'docs/chats/INDEX.md'
-# Optional text after a transcript heading "## 3. user": the UTC time and a compaction mark. Kept strict, so a
-# body line in a transcript written before 3.6 cannot start being read as a heading.
-HEADING_NOTE = r'(?: \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ)?(?: \(after compaction\))?'
+# Optional text after a transcript heading "## 3. user": the UTC time, a compaction mark and, since 3.9, the message
+# ID. Kept strict, so a body line in a transcript written before 3.6 cannot start being read as a heading.
+HEADING_NOTE = r'(?: \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ)?(?: \(after compaction\))?(?: \[m[0-9a-f]{10}(?:[0-9a-f]{2})?\])?'
 LOCK = '.agents/cache/ws.lock'  # the lock file of 3.8 and older, still honored while its process runs
 FLOCK = '.agents/cache/ws.flock'  # locked by the operating system, never written or deleted
 LOCK_INFO = '.agents/cache/ws.lock.info'  # who holds FLOCK, for messages only
@@ -46,7 +46,7 @@ T1 = T0 + ('docs/state/FEATURES.md', 'docs/state/TASKS.md', 'docs/state/ARCHITEC
 
 LIB_MODULES = ('__init__', 'schema', 'core', 'tables', 'evidence', 'logs', 'validate', 'views', 'ops', 'capture', 'nudge', 'words', 'coverage',
                'reconcile', 'runs', 'rows', 'claims', 'distribution', 'defaults', 'lint', 'migrate', 'snapshot', 'dsh', 'verifying', 'retired',
-               'hooks', 'upgrade', 'doctor', 'delivery', 'permits', 'locks')
+               'hooks', 'upgrade', 'doctor', 'delivery', 'permits', 'locks', 'messages', 'compaction')
 TEST_MODULES = ('support', 'test_core', 'test_workflow', 'test_distribution', 'test_reconcile', 'test_capture', 'test_tracking',
                 'test_nudge', 'test_review', 'test_session', 'test_messages', 'test_probes', 'test_v36', 'test_field',
                 'test_static', 'test_regressions', 'test_upgrade', 'test_doctor', 'test_v38', 'test_v39', 'run')

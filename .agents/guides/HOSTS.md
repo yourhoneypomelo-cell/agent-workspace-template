@@ -106,9 +106,13 @@ mode a marker such as `讨论:` sets (PROTOCOL.md, "Mode markers"). The other ho
 `docs/chats/<host>/<session>.md`. On Stop it also appends `last_assistant_message` when the
 transcript file does not hold the final reply yet.
 
-Kiro and Cursor hooks send no transcript file. Their per-turn hook saves the prompt from the
-payload, one message at a time, and Cursor's afterAgentResponse saves the reply. Answers given
-through a question tool (Claude AskUserQuestion, Kiro choices) are saved as user messages.
+The per-turn hook saves the user message as it arrives whenever the payload holds the prompt, as on
+Claude Code, Codex, Gemini, Kiro, Cursor and the hosts shaped like Claude Code. The turn can then
+reconcile it before its checkpoint. When the Stop hook writes the transcript again from the host's
+file, each user message keeps the ID it got on arrival. Kiro and Cursor hooks send no transcript
+file, so their transcripts hold what the hooks saved, and Cursor's afterAgentResponse saves the
+reply. Answers given through a question tool (Claude AskUserQuestion, Kiro choices) are saved as
+user messages.
 
 A hook problem is reported on stderr and never stops the host: hooks wait at most 3 s for a busy
 workspace and print valid output even when the state files are broken. Saved user messages then

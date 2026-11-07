@@ -103,21 +103,20 @@ class Transcript(Workspace):
 
     def test_times_and_compaction_marks_go_in_headings_and_ids_do_not_change(self):
         self.init()
-        old = '# Transcript claude s1\n\n## 1. user\n\nkeep the CSV export\n\n## 2. assistant\n\nok\n'
+        path = self.root / 'docs/chats/claude/s1.md'
+        self.write('docs/chats/claude/s1.md', '# Transcript claude s1\n\n## 1. user\n\nkeep the CSV export\n\n## 2. assistant\n\nok\n')
+        before = list(reconcile.texts(path))
         new = self.capture([
             user('keep the CSV export', timestamp='2026-11-02T01:02:03.456Z'),
             {'type': 'assistant', 'message': {'role': 'assistant', 'content': 'ok'}, 'timestamp': 1793581323456},
             user('summary', isCompactSummary=True, timestamp='2026-11-02T02:00:00Z'),
             user('now add tags', timestamp='2026-11-02T03:00:00+08:00'),
         ])
-        self.assertIn('## 1. user 2026-11-02T01:02:03Z\n', new)
-        self.assertIn('## 3. user 2026-11-01T19:00:00Z (after compaction)\n', new)
+        self.assertIn(f'## 1. user 2026-11-02T01:02:03Z [{before[0]}]\n', new)
+        self.assertRegex(new, r'## 3\. user 2026-11-01T19:00:00Z \(after compaction\) \[m[0-9a-f]{12}\]\n')
         self.assertNotIn('summary', new.split('## 1.', 1)[1])
-        old_path, new_path = self.parent / 'old.md', self.parent / 'new.md'
-        old_path.write_text(old, encoding='utf-8')
-        new_path.write_text(new, encoding='utf-8')
-        self.assertEqual(list(reconcile.texts(old_path)), list(reconcile.texts(new_path))[:1])
-        self.assertEqual(len(reconcile.texts(new_path)), 2)
+        self.assertEqual(list(reconcile.texts(path))[:1], before)
+        self.assertEqual(len(reconcile.texts(path)), 2)
 
     def test_body_lines_that_look_like_headings_stay_in_the_body(self):
         self.init()
@@ -134,7 +133,7 @@ class Transcript(Workspace):
             self.ws('turn', '--hook', 'kiro', stdin=payload)
         text = self.read('docs/chats/kiro/k1.md')
         self.assertEqual(text.count('use port 8080'), 1)
-        self.assertRegex(text, r'## 1\. user \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ\n')
+        self.assertRegex(text, r'## 1\. user \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ \[m[0-9a-f]{12}\]\n')
 
 
 class Signals(Workspace):

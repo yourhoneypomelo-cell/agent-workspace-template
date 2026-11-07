@@ -162,8 +162,7 @@ def messages(text: str) -> list:
 def import_sessions(root: Path, automatic: bool = False) -> dict:
     """Write docs/chats/dsh/<session>.md for each root session of this project. Unchanged files are rewritten
     with the same text, so a second import changes nothing."""
-    from .capture import _index, render
-    from .core import atomic_write, safe_path
+    from .capture import _index, rewrite
     from .locks import lock
     found = sessions(root)
     if not found:
@@ -185,7 +184,7 @@ def import_sessions(root: Path, automatic: bool = False) -> dict:
             continue
         rel = f'docs/chats/dsh/{name}.md'
         with lock(root):
-            atomic_write(safe_path(root, rel), render('dsh', name, found_messages, path.name))
+            rewrite(root, rel, 'dsh', name, found_messages, path.name)
             _index(root, 'dsh', name, len(found_messages), rel, 'none')
         written, total = written + 1, total + len(found_messages)
     return {'host': 'dsh', 'sessions': written, 'messages': total}

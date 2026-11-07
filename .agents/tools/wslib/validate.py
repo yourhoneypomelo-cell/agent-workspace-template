@@ -347,9 +347,9 @@ def semantics(root: Path, ready=False, sealing=False, card_changes=None) -> list
                     errors.append(f'{", ".join(rid for rid, _ in found[:8])} changed after being verified and must be '
                                   'verified again before READY: run "ws.py verify --stale"')
             # A saved user message that no row accounts for may hold a requirement the next session never sees.
-            from .reconcile import pending
+            from .reconcile import at_seal
             try:
-                unreconciled = pending(root)
+                unreconciled = at_seal(root, cp)[0]
             except (WorkspaceError, OSError, ValueError):
                 unreconciled = []
             if unreconciled:
@@ -605,6 +605,19 @@ def advisories(root: Path) -> list:
             result.append(regression_text(found) + (' READY waits for that.' if stale_policy(root, cp) == 'block' else
                           ' READY does not wait for it: stale_evidence is "warn", or this is the first session after '
                           'an upgrade.'))
+    except (WorkspaceError, ValueError, OSError):
+        pass
+    try:
+        from .reconcile import at_seal, unlisted, unlisted_text
+        state = state_of(root)
+        later = at_seal(root, checkpoint_of(root, state) if state.get('checkpoint') else None)[1]
+        if later:
+            result.append(f'{len(later)} user messages were saved after the last checkpoint '
+                          f'({", ".join(m for m, _ in later[:3])}{" and more" if len(later) > 3 else ""}). READY does '
+                          'not wait for them; the next session to work reconciles them with "ws reconcile"')
+        missing = unlisted(root)
+        if missing:
+            result.append(unlisted_text(missing))
     except (WorkspaceError, ValueError, OSError):
         pass
     return result

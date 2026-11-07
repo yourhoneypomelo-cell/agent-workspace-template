@@ -169,3 +169,12 @@ every test named here exists.
 | 3.9.0 | A parallel session could not drop its own task while the card named it: the status was refused, and so was the card | `test_v39.Permits.test_23_p8_a_dropped_task_leaves_the_card` | fails |
 | 3.9.0 | Verify was rejected when another session edited files inside its own claim during the run | `test_v39.Permits.test_23_p7_verify_ignores_edits_inside_another_sessions_claim` | fails |
 | 3.9.0 | A session that claimed with the --session key the hook prints lost that identity at the next write command, which did not accept --session | `test_v39.Permits.test_23_p6_a_session_key_tells_two_conversations_in_one_window_apart` | fails |
+| 3.9.0 | Claude Code, Codex and Gemini saved a turn only in the Stop hook, after the checkpoint had released the workspace, so a READY workspace failed at once | `test_v39.Messages.test_24_ready_survives_the_stop_hook_that_copies_the_turn` | fails |
+| 3.9.0 | A user message saved after the checkpoint overturned READY; it is now left to the next session | `test_v39.Messages.test_24_a_message_saved_after_the_seal_waits_for_the_next_session` | fails |
+| 3.9.0 | The same sentence in two sessions had one message ID, so the second was never reconciled | `test_v39.Messages.test_24_the_same_sentence_in_two_sessions_is_reconciled_in_each` | fails |
+| 3.9.0 | Reconcile rows of 3.8 stay valid when the transcript is written again | `test_v39.Messages.test_24_marks_of_3_8_stay_valid_when_the_transcript_is_written_again` | guard |
+| 3.9.0 | A lone "no", "yes", "可以" or "行" was skipped as small talk, although it may answer a question | `test_v39.Messages.test_24_yes_and_no_are_reconciled_like_other_messages` | fails |
+| 3.9.0 | A message ID was the hash of the redacted text, so the host's copy of a turn or a change of redaction rules reopened the message | `test_v39.Messages.test_24_the_stop_hook_keeps_the_id_when_the_host_copy_adds_to_the_typed_text` | fails |
+| 3.9.0 | A transcript missing from INDEX.md was never read, while reconcile said every message was reconciled | `test_v39.Messages.test_24_a_transcript_missing_from_the_index_is_reported` | fails |
+| 3.9.0 | One "ws reconcile all" closed every open message without naming how many | `test_v39.Messages.test_24_reconcile_all_names_how_many_it_marks` | fails |
+| 3.9.0 | With the Stop nudge on, a turn that only answered a question was asked to record it | `test_v39.Messages.test_24_the_stop_nudge_lets_a_pure_question_pass` | fails |

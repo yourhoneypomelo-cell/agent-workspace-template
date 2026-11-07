@@ -48,7 +48,7 @@ class Reconcile(Workspace):
         self.assertIn('are not reconciled', self.ready(expect=1).stdout)
         self.ws('start')
         self.ws('reconcile', 'all', '--ids', 'R1', expect=2)
-        self.ws('reconcile', 'all', '--reason', 'question: status only')
+        self.ws('reconcile', 'all', '--reason', 'question: status only', '--confirm', '2')
         self.assertEqual(self.pending(), [])
         self.assertNotIn('not reconciled', self.save().stdout)
         self.ready()

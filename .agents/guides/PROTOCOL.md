@@ -30,7 +30,7 @@ for the Stop nudge, the per-turn record and the mode markers.
 | Command | Writes | Purpose |
 | --- | --- | --- |
 | `brief [--retired]` | no | Resume summary: attention items, goal, card, delivery lines, open questions, tasks, sessions, guides, unsaved files. `--retired` lists every retired row in full |
-| `turn` | no, except the prompt journal of Kiro and Cursor hooks | The per-turn reminder that prompt-submit hooks inject |
+| `turn` | no, except the user message that a hook payload holds, saved to `docs/chats/` | The per-turn reminder that prompt-submit hooks inject |
 | `status` | no | Same facts as JSON |
 | `check [--ready] [--strict]` | no | Validate. `--ready` also requires a released, sealed, covered workspace |
 | `note TEXT` | yes | One progress line in SESSION_LOG. No validation, no seal |
@@ -50,7 +50,7 @@ for the Stop nudge, the per-turn record and the mode markers.
 | `doctor [--json]` | no | Hooks, interpreter, session identity, lock and tool files at a glance. Exits with 1 when it finds a problem, and names the fix for each |
 | `capture --host H --event E` | yes | Hook target. Copies the transcript named in the payload, or saves the message text it holds |
 | `chats import HOST` | yes | Copies this project's sessions from a host store: kimi, codex, antigravity, kiro, cursor, workbuddy, codebuddy, qoder, qwen, gemini or dsh |
-| `reconcile [ID --ids \| --reason]` | yes when marking | Lists saved user messages no row accounts for, or marks one |
+| `reconcile [ID --ids \| --reason]` | yes when marking | Lists saved user messages no row accounts for, or marks one. `all --reason R --confirm N` marks the N open ones |
 | `lint` | no | Advisory layout and wording checks |
 | `install`, `export`, `migrate`, `release` | yes | Distribution, see QUICKSTART.md |
 | `upgrade --target DIR` | yes | Run from a newer template folder: brings the project's template files and hook entries to that version, keeps edited files for a hand merge and takes the new files into the checkpoint. `--dry-run`, `--rollback NAME`, `--scan FOLDER`; see QUICKSTART.md |
@@ -428,17 +428,32 @@ The coverage checks see an empty table, not a missed sentence. Reconciliation cl
 when the conversation is on disk, copied by a hook or by `ws chats import`.
 
 ```text
-ws reconcile                        list user messages that no row accounts for yet
-ws reconcile m3fa91c02e --ids R4,P2 the message is recorded by these rows
-ws reconcile m77b0e1d4a --reason "chat: thanks"
-ws reconcile all --reason "duplicate: pasted twice"
+ws reconcile                          list user messages that no row accounts for yet
+ws reconcile m3fa91c02e7b --ids R4,P2 the message is recorded by these rows
+ws reconcile m77b0e1d4a05 --reason "chat: thanks"
+ws reconcile all --reason "duplicate: pasted twice" --confirm 3
 ```
 
 A reason starts with `question`, `chat`, `duplicate`, `superseded`, `out-of-scope` or `secret`.
-Short continuation messages such as "继续" or "ok" are skipped automatically. Each answer is a row
-in `docs/logs/RECONCILE_LOG.md`, so a later session can see why a message produced no record.
-The brief, the per-turn hook and the checkpoint report how many messages are still open.
-READY is refused while any saved message is open: answer each one with row IDs or a reason, then checkpoint again.
+Short continuation messages such as "继续" or "ok" are skipped automatically. "yes", "no", "是", "对",
+"可以" and "行" are not, because they may answer a question; messages saved before 3.9 keep the older rule.
+`all` gives every open message one reason, so `--confirm` must name how many there are, and each row
+records that count. Each answer is a row in `docs/logs/RECONCILE_LOG.md`, so a later session can see
+why a message produced no record. The brief, the per-turn hook and the checkpoint report how many
+messages are still open.
+
+A message gets its ID when it is first saved, and the ID is written in its heading, for example
+`## 3. user 2026-11-07T01:00:00Z [m3fa91c02e7b]`. Writing the transcript again keeps it: the Stop
+hook's copy, an import or a change of redaction rules does not reopen a message. The ID covers the
+transcript and the message number, so the same sentence in two sessions is reconciled in each. An
+ID of 10 hex digits comes from 3.8 or older, where it was the hash of the text alone; the rows that
+name one stay valid.
+
+Each checkpoint lists the messages still open at that moment. READY is refused while one of those is
+open: answer each one with row IDs or a reason, then checkpoint again. A message saved after the
+checkpoint, such as the Stop hook's copy of the last turn or the next user message, leaves READY as
+it is; `ws check` lists it and the next session reconciles it. A transcript in `docs/chats/` that
+INDEX.md does not list is never read, so `ws reconcile`, `ws check` and the brief name it.
 A host with no hook and no import saves no messages, so READY cannot check them; checkpoint prints a notice.
 
 ## Credentials
@@ -522,8 +537,9 @@ each autosave adds a checkpoint manifest.
 Set `"stop_nudge": true` in the WORKSPACE block to have the Stop hook ask once when a turn ended
 without any record. The per-turn hook notes the revision when a user message arrives. If the turn
 ends with the same revision and no new `ws note`, the Stop hook tells the agent to record the message
-or write `ws note "no record: <reason>"`. The marker is removed before the hook answers, so the next
-stop always passes.
+or write `ws note "no record: <reason>"`. A message that only asks questions, with no word for a
+change, passes without asking when the turn changed no file. The marker is removed before the hook
+answers, so the next stop always passes.
 
 | Host | Stop output |
 | --- | --- |

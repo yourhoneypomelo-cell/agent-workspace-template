@@ -12,34 +12,22 @@ from pathlib import Path
 
 from . import logs, tables
 from .coverage import redact
-from .core import READ_ONLY, WorkspaceError, atomic_write, read, safe_path, sha, state_of
+from .core import READ_ONLY, WorkspaceError, atomic_write, read, safe_path, state_of
 from .locks import lock
-from .schema import CACHE_DIR, CHAT_DIR, CHAT_INDEX, HEADING_NOTE, PREFIX_TABLE
+from .messages import entries, routine
+from .schema import CACHE_DIR, CHAT_DIR, CHAT_INDEX, PREFIX_TABLE
 
 LOG = 'RECONCILE_LOG'
 CACHE = CACHE_DIR + '/messages.json'
-MESSAGE_RE = re.compile(r'^## (\d+)\. (user|assistant)' + HEADING_NOTE + r'\n\n(.*?)(?=^## \d+\. (?:user|assistant)'
-                        + HEADING_NOTE + r'\n|\Z)', re.M | re.S)
-# Messages that carry no requirement: continuation prompts, acknowledgements, bare questions about status.
-ROUTINE = re.compile(r'^(?:(?:继续|继续吧|接着|好的?|好|行|可以|ok(?:ay)?|yes|no|是的?|对|嗯|谢谢|thanks?|continue|go on|next|'
-                     r'完美丝滑接续任务|完美接续中断任务|继续中断任务|继续未完成任务)[。.!！,，\s]*)+$', re.I)
-ROUTINE_MAX = 40
+CACHE_RULES = 2  # raised when message IDs or the routine rule change, so cached lists are read again
+INDEX_HEADERS = ('Date', 'Host', 'Session', 'Messages', 'Transcript', 'Raw copy')
 REASONS = ('question', 'chat', 'duplicate', 'superseded', 'out-of-scope', 'secret')
-
-
-def message_id(text: str) -> str:
-    return 'm' + sha(' '.join(text.split()).encode('utf-8'))[:10]
-
-
-def routine(text: str) -> bool:
-    return len(text) <= ROUTINE_MAX and bool(ROUTINE.match(text))
 
 
 def texts(path: Path) -> dict:
     """Message id to text for the user messages in one transcript file."""
     content = path.read_text(encoding='utf-8', errors='replace')
-    bodies = (m.group(3).strip() for m in MESSAGE_RE.finditer(content) if m.group(2) == 'user')
-    return {message_id(body): body for body in bodies if body}
+    return {mid: body for _, _, _, mid, body in entries(content) if mid}
 
 
 def _valid(entry, key) -> bool:
@@ -54,7 +42,7 @@ def user_messages(root: Path) -> list:
     Parsed messages are cached per transcript by size and modification time, because the per-turn
     hook calls this on every user message.
     """
-    rows = tables.parse(read(root, CHAT_INDEX), ('Date', 'Host', 'Session', 'Messages', 'Transcript', 'Raw copy'), CHAT_INDEX)
+    rows = tables.parse(read(root, CHAT_INDEX), INDEX_HEADERS, CHAT_INDEX)
     try:
         cache = json.loads((root / CACHE).read_text(encoding='utf-8'))
         if not isinstance(cache, dict):
@@ -73,10 +61,10 @@ def user_messages(root: Path) -> list:
         if not path.is_file():
             continue
         info = path.stat()
-        key = [info.st_size, info.st_mtime_ns]
+        key = [info.st_size, info.st_mtime_ns, CACHE_RULES]
         entry = cache.get(rel)
         if not _valid(entry, key):
-            entry = {'key': key, 'messages': [[mid, routine(body)] for mid, body in texts(path).items()]}
+            entry = {'key': key, 'messages': [[mid, routine(mid, body)] for mid, body in texts(path).items()]}
         fresh[rel] = entry
         for mid, is_routine in entry['messages']:
             if mid not in seen:
@@ -101,13 +89,51 @@ def pending(root: Path) -> list:
     return [(mid, rel) for mid, rel, is_routine in user_messages(root) if mid not in done and not is_routine]
 
 
+def at_seal(root: Path, cp) -> tuple:
+    """(open messages that block READY, open messages saved after the last seal). A seal lists the messages open at
+    that moment; one saved later, by a Stop hook after the checkpoint or with the next user message, is left to the
+    next session. A seal of 3.8 or older lists none, so then every open message blocks."""
+    found = pending(root)
+    if not cp or not isinstance(cp.get('messages_open'), list):
+        return found, []
+    sealed = set(cp['messages_open'])
+    return [m for m in found if m[0] in sealed], [m for m in found if m[0] not in sealed]
+
+
+def unlisted(root: Path) -> list:
+    """Transcripts in docs/chats/ that INDEX.md does not list, so nothing reconciles their messages."""
+    folder = root / CHAT_DIR
+    if not folder.is_dir():
+        return []
+    listed = {row.get('Transcript') for row in tables.parse(read(root, CHAT_INDEX), INDEX_HEADERS, CHAT_INDEX)}
+    found = []
+    for path in sorted(folder.glob('*/*.md')):
+        rel = path.relative_to(root).as_posix()
+        if rel in listed:
+            continue
+        try:
+            with path.open(encoding='utf-8', errors='replace') as stream:
+                if stream.readline().startswith('# Transcript '):
+                    found.append(rel)
+        except OSError:
+            continue
+    return found
+
+
+def unlisted_text(found: list) -> str:
+    return (f'{len(found)} transcripts in docs/chats/ are not listed in docs/chats/INDEX.md, so nothing reconciles '
+            f'their messages ({", ".join(found[:3])}{" and more" if len(found) > 3 else ""}). Add a row for each to '
+            'INDEX.md, or move the file out of docs/chats/')
+
+
 def _known_ids(root: Path) -> set:
     ids = {r['ID'] for t in PREFIX_TABLE.values() for r in tables.rows(root, t)}
     return ids | {r['ID'] for r in tables.closed_rows(root)}
 
 
-def mark(root: Path, message: str, ids: str | None, reason: str | None) -> dict:
-    """Record how one message was handled: by row IDs, or by a reason it needs none."""
+def mark(root: Path, message: str, ids: str | None, reason: str | None, confirm: int | None = None) -> dict:
+    """Record how one message was handled: by row IDs, or by a reason it needs none. "all" gives every open message
+    one reason, so it must name how many it marks."""
     if bool(ids) == bool(reason):
         raise WorkspaceError('give either --ids R1,T2 or --reason, not both')
     with lock(root):
@@ -121,6 +147,10 @@ def mark(root: Path, message: str, ids: str | None, reason: str | None) -> dict:
         targets = sorted(open_ids) if message == 'all' else [message]
         if message == 'all' and not reason:
             raise WorkspaceError('"all" needs --reason; map messages with requirements to IDs one by one')
+        if message == 'all' and targets and confirm != len(targets):
+            raise WorkspaceError(f'"all" would give {len(targets)} open messages one reason. Read them with "ws reconcile", '
+                                 'map each that asks for something to its rows, then mark the rest with --confirm '
+                                 f'{len(targets)}' + (f' (not {confirm})' if confirm is not None else ''))
         for mid in targets:
             if mid not in open_ids:
                 known = {m for m, _, _ in user_messages(root)}
@@ -138,6 +168,8 @@ def mark(root: Path, message: str, ids: str | None, reason: str | None) -> dict:
             if head not in REASONS:
                 raise WorkspaceError(f'reason must start with one of: {", ".join(REASONS)}, for example "chat: greeting"')
             outcome = 'no record: ' + redact(' '.join(reason.split()))
+            if message == 'all':
+                outcome += f' (reconcile all, {len(targets)} messages)'
         for mid in targets:
             logs.append(root, LOG, {'Message': mid, 'Outcome': outcome})
     return {'marked': targets, 'outcome': outcome}
@@ -173,10 +205,9 @@ def review(root: Path, last=20) -> list:
 
 def summary_line(root: Path) -> str | None:
     try:
-        count = len(pending(root))
+        count, missing = len(pending(root)), unlisted(root)
     except (WorkspaceError, OSError, ValueError) as error:
         return f'docs/chats/ cannot be reconciled: {str(error).splitlines()[0][:160]}. Repair it, then run "ws reconcile"'
-    if not count:
-        return None
-    return (f'{count} user messages in docs/chats/ are not reconciled with the state files. '
-            'Run "ws reconcile" and confirm each one is recorded')
+    parts = [f'{count} user messages in docs/chats/ are not reconciled with the state files. '
+             'Run "ws reconcile" and confirm each one is recorded'] if count else []
+    return '. '.join(parts + ([unlisted_text(missing)] if missing else [])) or None

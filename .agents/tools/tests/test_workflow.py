@@ -498,7 +498,11 @@ class Hooks(Workspace):
         self.ws('capture', '--host', 'claude', '--event', 'Stop', stdin=payload)
         self.assertIn('hello', self.read('docs/chats/claude/abc.md'))
         self.assertIn('| claude | abc | 1 |', self.read('docs/chats/INDEX.md'))
-        # The copied chat is not an unsaved change; only the open message blocks READY.
+        # The copied chat is not an unsaved change, and its message came after the checkpoint, so READY holds. The
+        # next checkpoint lists the message as open; then only that message blocks READY.
+        self.assertIn('saved after the last checkpoint', self.ready().stdout)
+        self.ws('start')
+        self.save()
         errors = [l for l in self.ready(expect=1).stdout.splitlines() if l.startswith('ERROR')]
         self.assertEqual(len(errors), 1, errors)
         self.assertIn('not reconciled', errors[0])

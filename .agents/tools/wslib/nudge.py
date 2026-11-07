@@ -120,7 +120,26 @@ def enabled(root: Path) -> bool:
         return False
 
 
-def remember(root: Path, host: str, session: str, message_id: str):
+# A message that only asks: each sentence is a question and none names a change. A turn that answers it and changes
+# no file is not asked to record anything.
+ASKING = re.compile(r'(?:[?？]|吗|呢|么)$')
+WANTING = re.compile(r"(?i)\b(?:add|change|fix|remove|delete|rename|move|create|make|implement|update|write|use|should|"
+                     r"must|need|please|don't|do not|never|always|stop)\b|要|需|必须|别|请|改|加|修|删|换|实现|应该|帮|给我|把|用")
+QUESTION_MAX = 500
+
+
+def question_only(text: str) -> bool:
+    parts = [p.strip() for p in re.split(r'(?<=[?？。！!])|(?<=\.)(?=\s)|\n', text or '') if p.strip()]
+    return (bool(parts) and len(text) <= QUESTION_MAX and all(ASKING.search(p.rstrip('。.!！ ')) for p in parts)
+            and not WANTING.search(text))
+
+
+def _files(root: Path) -> str:
+    from .core import fingerprint, sha
+    return sha(json.dumps(fingerprint(root), sort_keys=True).encode('utf-8'))
+
+
+def remember(root: Path, host: str, session: str, message_id: str, question: bool = False):
     """Called by the prompt hook after it saves a user message."""
     if not enabled(root):
         return
@@ -128,8 +147,9 @@ def remember(root: Path, host: str, session: str, message_id: str):
         state = state_of(root)
         if state.get('mode') != 'active':
             return
-        atomic_write(root / MARKER, json.dumps({'host': host, 'session': session, 'message': message_id,
-                                                'revision': state['revision'], 'notes': _answers(root)}))
+        marker = {'host': host, 'session': session, 'message': message_id, 'revision': state['revision'],
+                  'notes': _answers(root)}
+        atomic_write(root / MARKER, json.dumps({**marker, 'files': _files(root)} if question else marker))
     except Exception:
         pass
 
@@ -165,6 +185,8 @@ def check(root: Path, payload: dict, session: str | None = None) -> str | None:
         state = state_of(root)
         if state.get('revision') != marker.get('revision') or _answers(root) != marker.get('notes'):
             return None
+        if marker.get('files') and marker['files'] == _files(root):
+            return None  # a question answered without changing a file
         return MESSAGE
     except Exception:
         return None

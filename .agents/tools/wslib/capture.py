@@ -12,6 +12,7 @@ from . import tables
 from .core import atomic_write, read, safe_path, today
 from .locks import lock
 from .coverage import redact, redact_json_lines, redact_pasted
+from .messages import STAMP_RE, carry, new_id, routine
 from .schema import CHAT_INDEX, HEADING_NOTE
 
 INDEX_HEADERS = ('Date', 'Host', 'Session', 'Messages', 'Transcript', 'Raw copy')
@@ -281,14 +282,26 @@ def escape_headings(text: str) -> str:
     return HEADING_RE.sub(r' \1', text)
 
 
-def render(host: str, session: str, messages: list, source: str) -> str:
+def render(host: str, session: str, messages: list, source: str, old: str = '', rel: str = '') -> str:
+    """The transcript file. User messages keep the IDs they have in old, the file being replaced."""
     lines = [f'# Transcript {host} {session}', '', f'Source: `{source}`. Copied by the {host} hook; secrets matching common key patterns are redacted.', '']
+    cleaned = []
     for number, (role, text, *note) in enumerate(messages, 1):
-        # A message line that looks like a message heading would split the message when it is read back.
-        clean = redact_pasted(text) if role == 'user' else redact(text)
-        suffix = f' {note[0]}' if note and note[0] else ''
-        lines += [f'## {number}. {role}{suffix}', '', escape_headings(clean), '']
+        body = escape_headings(redact_pasted(text) if role == 'user' else redact(text))
+        cleaned.append((number, role, body, note[0] if note and note[0] else ''))
+    users = [(number, body, (STAMP_RE.search(note) or [''])[0]) for number, role, body, note in cleaned if role == 'user']
+    ids = iter(carry(old, rel or f'docs/chats/{host}/{session}.md', users))
+    for number, role, body, note in cleaned:
+        suffix = (f' {note}' if note else '') + (f' [{next(ids)}]' if role == 'user' else '')
+        lines += [f'## {number}. {role}{suffix}', '', body, '']
     return '\n'.join(lines)
+
+
+def rewrite(root: Path, rel: str, host: str, session: str, messages: list, source: str):
+    """Write a transcript again from the host's copy. Call with the lock held: a prompt hook may be appending."""
+    path = safe_path(root, rel)
+    old = path.read_text(encoding='utf-8', errors='replace') if path.is_file() else ''
+    atomic_write(path, render(host, session, messages, source, old, rel))
 
 
 def _same_dir(a: str, b: Path) -> bool:
@@ -568,6 +581,19 @@ def journal(root: Path, host: str, payload: dict, role: str, text: str) -> dict:
         return _append(root, host, session, rel, role, text)
 
 
+def submit(root: Path, host: str, payload: dict) -> dict:
+    """Prompt-submit hook: save the user message as it arrives, so the turn can reconcile it before its checkpoint.
+    The text is cleaned as the host's own copy will be, and the Stop hook's rewrite keeps the ID it gets here."""
+    prompt = _first(payload, PROMPT_KEYS)
+    found = _message({'role': 'user', 'content': prompt}) if prompt else None
+    if not found:
+        return {'captured': False, 'reason': 'no typed text in the hook payload'}
+    source = _first(payload, TRANSCRIPT_KEYS)
+    if host == 'codex' and source and Path(source).is_file() and _codex_delegated(Path(source)):
+        return {'captured': False, 'reason': 'a subagent or guardian thread; its prompts come from the agent'}
+    return journal(root, host, payload, 'user', found[1])
+
+
 def _append(root: Path, host: str, session: str, rel: str, role: str, text: str) -> dict:
     path = safe_path(root, rel)
     existing = path.read_text(encoding='utf-8') if path.is_file() else ''
@@ -579,17 +605,23 @@ def _append(root: Path, host: str, session: str, rel: str, role: str, text: str)
     if last and last[-1][0] == role and last[-1][1].strip() == body.strip():
         return {'captured': False, 'reason': 'same message already written'}
     number = max(numbers, default=0) + 1
-    _index(root, host, session, number, rel, 'none')
+    _index(root, host, session, number, rel, None)
     stamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')  # the hook fires as the message arrives
-    atomic_write(path, existing.rstrip('\n') + f'\n\n## {number}. {role} {stamp}\n\n{body}\n')
-    return {'captured': True, 'messages': number, 'transcript': rel}
+    mid = new_id(rel, number, body) if role == 'user' else ''
+    mark = f' [{mid}]' if mid else ''
+    atomic_write(path, existing.rstrip('\n') + f'\n\n## {number}. {role} {stamp}{mark}\n\n{body}\n')
+    found = {'captured': True, 'messages': number, 'transcript': rel}
+    return {**found, 'id': mid} if mid and not routine(mid, body.strip()) else found
 
 
-def _index(root: Path, host: str, session: str, count: int, transcript_rel: str, raw_rel: str):
+def _index(root: Path, host: str, session: str, count: int, transcript_rel: str, raw_rel: str | None):
+    """Add or update the INDEX.md row of a session. A raw_rel of None keeps the raw copy the row names."""
     index = read(root, CHAT_INDEX)
     row = {'Date': today(), 'Host': host, 'Session': session, 'Messages': str(count),
-           'Transcript': transcript_rel, 'Raw copy': raw_rel}
+           'Transcript': transcript_rel, 'Raw copy': raw_rel or 'none'}
     existing = [r for r in tables.parse(index, INDEX_HEADERS, CHAT_INDEX) if r['Session'] == session and r['Host'] == host]
+    if raw_rel is None and existing:
+        row['Raw copy'] = existing[0].get('Raw copy') or 'none'
     if existing:
         start, actual, raw = tables._find(index, INDEX_HEADERS, CHAT_INDEX)
         lines = index.split('\n')
@@ -630,7 +662,7 @@ def capture(root: Path, host: str, event: str, payload: dict) -> dict:
     with lock(root):
         transcript_rel = f'{folder}/{session}.md'
         if messages:
-            atomic_write(safe_path(root, transcript_rel), render(host, session, messages, path.name))
+            rewrite(root, transcript_rel, host, session, messages, path.name)
         raw_rel = f'{folder}/raw/{session}{path.suffix or ".txt"}'
         if path.stat().st_size <= MAX_RAW and os.environ.get('WS_CAPTURE_RAW', '1') != '0':
             # The raw copy keeps the host format but gets the same redaction as the Markdown copy.

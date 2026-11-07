@@ -60,6 +60,7 @@ COMMANDS = '''commands:
   chats import HOST          copy this project's sessions from a local store: kimi, codex, antigravity,
                              kiro, cursor, workbuddy, codebuddy, qoder, qwen, gemini, dsh
   reconcile [ID --ids R1,T2 | --reason "chat: ..."]   list user messages not yet matched to rows, or mark one
+  reconcile all --reason "..." --confirm N   give the N open messages one reason, after reading them
   reconcile --review [--last N]  the last user messages beside the rows or reasons that account for them
   lint                       advisory layout and wording checks for reusable documents
   doctor [--json]            hooks, interpreter, session identity and tool files at a glance, each problem with its
@@ -166,10 +167,11 @@ def parser() -> argparse.ArgumentParser:
     chats.add_argument('action', choices=('import',))
     chats.add_argument('host', choices=capture.IMPORT_HOSTS)
     rec = subs.add_parser('reconcile')
-    rec.add_argument('message', nargs='?', help='message ID from the list, or "all" with --reason')
+    rec.add_argument('message', nargs='?', help='message ID from the list, or "all" with --reason and --confirm')
     rec.add_argument('--session', help='session key printed by the brief hook, on a host without a session variable')
     rec.add_argument('--ids', help='rows that record the message, for example R4,P2')
     rec.add_argument('--reason', help='why no row is needed: question, chat, duplicate, superseded, out-of-scope, secret')
+    rec.add_argument('--confirm', type=int, metavar='N', help='with "all": how many open messages it marks')
     rec.add_argument('--limit', type=int, default=20)
     rec.add_argument('--review', action='store_true', help='show the last user messages beside the rows or reasons '
                      'that account for them')
@@ -275,7 +277,6 @@ REBRIEF_AFTER_COMPACT = ('gemini', 'antigravity', 'cursor')
 
 TURN_EVENTS = {'claude': 'UserPromptSubmit', 'codex': 'UserPromptSubmit', 'gemini': 'BeforeAgent',
                **{name: 'UserPromptSubmit' for name in CLAUDE_SHAPED}}
-PROMPT_IN_PAYLOAD = ('kiro', 'cursor')
 
 
 def taken_over(root: Path, payload, host: str) -> str:
@@ -313,11 +314,12 @@ def hook_turn(root: Path, host: str):
         # PreInvocation fires before every model call; remind only before the first one.
         print('{}')
         return
-    if host in PROMPT_IN_PAYLOAD and isinstance(payload, dict):
-        # These hosts give hooks no transcript file, so the prompt is saved here, one message per turn.
+    saved = {}
+    if isinstance(payload, dict):
+        # Saved as it arrives, so this turn can reconcile it before its checkpoint; the Stop hook's copy keeps its ID.
         try:
             os.environ.setdefault('WS_LOCK_WAIT', '3')
-            capture.journal(root, host, payload, 'user', capture._first(payload, capture.PROMPT_KEYS) or '')
+            saved = capture.submit(root, host, payload)
         except Exception as error:  # a hook must never break the host session
             print(f'capture skipped: {str(error).splitlines()[0][:200]}', file=sys.stderr)
     kinds = []
@@ -327,7 +329,8 @@ def hook_turn(root: Path, host: str):
         prompt = capture._first(payload, capture.PROMPT_KEYS) or ''
         if prompt and not prompt.startswith(nudge.MESSAGE[:40]):
             # The marker sits in an ignored cache folder, but a pasted key must not land on disk unredacted.
-            nudge.remember(root, host, capture.session_name(payload), redact_pasted(prompt[:200])[:80])
+            nudge.remember(root, host, capture.session_name(payload), redact_pasted(prompt[:200])[:80],
+                           nudge.question_only(prompt))
         try:
             from wslib.core import CREDENTIALS
             kinds = credential_kinds(prompt) if prompt and CREDENTIALS.get() == 'ask' else []
@@ -337,6 +340,9 @@ def hook_turn(root: Path, host: str):
         text = ops.turn_context(root)
     except Exception:  # a hook must never break the host session
         text = ops.turn_reminder(root)
+    if saved.get('id'):
+        text += (f' This message is saved as {saved["id"]}: after recording what it asks for, run "ws reconcile '
+                 f'{saved["id"]} --ids <rows>", or --reason "<why none>" if it needs no record.')
     try:
         from wslib.nudge import turn_mode, turn_record
         record = turn_record(root)
@@ -566,11 +572,14 @@ def main(argv=None) -> int:
             if args.review:
                 print('\n'.join(reconcile.review(root, args.last)) or 'No user message is saved in docs/chats/.')
             elif args.message:
-                print(json.dumps(reconcile.mark(root, args.message, args.ids, args.reason), ensure_ascii=False))
+                print(json.dumps(reconcile.mark(root, args.message, args.ids, args.reason, args.confirm), ensure_ascii=False))
             else:
-                open_items = reconcile.pending(root)
+                open_items, missing = reconcile.pending(root), reconcile.unlisted(root)
                 if not open_items:
-                    print('All user messages in docs/chats/ are reconciled.')
+                    print('All user messages in the transcripts that docs/chats/INDEX.md lists are reconciled.' if missing
+                          else 'All user messages in docs/chats/ are reconciled.')
+                if missing:
+                    print('WARNING: ' + reconcile.unlisted_text(missing))
                 bodies = {}
                 for mid, rel in open_items[:max(1, args.limit)]:
                     if rel not in bodies:

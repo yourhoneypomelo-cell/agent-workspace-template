@@ -467,8 +467,10 @@ def main(argv=None) -> int:
     if args.command in READ_ONLY_COMMANDS:
         READ_ONLY.set(True)  # the cache is not written; the turn hook still keeps its Stop-nudge marker
     try:
-        from wslib.core import CREDENTIALS, config
-        CREDENTIALS.set(config(root)['credentials'])
+        from wslib.core import CREDENTIAL_FILES, CREDENTIALS, config
+        settings = config(root)
+        CREDENTIALS.set(settings['credentials'])
+        CREDENTIAL_FILES.set(tuple(settings['credential_files']))
     except Exception:  # a broken or missing WORKSPACE block keeps the cautious default
         pass
     if getattr(args, 'hook', None) and args.command in ('brief', 'turn'):

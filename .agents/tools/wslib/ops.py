@@ -355,6 +355,8 @@ def checkpoint(root: Path, stop: str, next_step: str, sets: list, keep: bool, wr
         live = validate.gather(root)['live']
         recorded = coverage.session_summary(root, live, previous)
         notices = [message for _, message in coverage.findings(root, live)]
+        from .redaction import chat_warnings
+        notices += chat_warnings(root)  # also fills the cache that the read-only ws check uses
         from .reconcile import summary_line
         from .views import hooked
         line = summary_line(root)

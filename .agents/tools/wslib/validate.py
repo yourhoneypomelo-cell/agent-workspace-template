@@ -595,7 +595,12 @@ def advisories(root: Path) -> list:
         data = gather(root)
         result += [message for level, message in findings(root, data['live']) if level == 'warn']
         result += spec_warnings(root, data)
-        result += secret_warnings(root)
+        result += secret_warnings(root, chats=True)
+        settings = config(root)
+        if settings['credentials'] == 'plain' and not settings['credential_files']:
+            result.append('WORKSPACE "credentials" is "plain" but "credential_files" names no file, so every credential '
+                          'is redacted. Name the files where the user keeps them as written, such as '
+                          '["docs/guides/server.md"]')
         result += evidence.rules_notes(root, data['live']['tasks'])
         result += evidence.scope_notes(root, data['live']['tasks'])
         state = state_of(root)

@@ -302,5 +302,93 @@ class Messages(Workspace):
         self.assertIn('not recorded', self.ws('capture', '--host', 'claude', '--event', 'Stop', **stop).stdout)
 
 
+FAKE_KEY = ('-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA1234567890abcdefghijFAKEFAKE\n'
+            'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345==\n-----END RSA PRIVATE KEY-----')
+
+
+class Redaction(Workspace):
+    def test_27_a_private_key_goes_as_one_block(self):
+        # Only the BEGIN line was removed; the key lines below it stayed.
+        from wslib.coverage import redact, redact_json_lines
+        self.assertEqual(redact(f'key:\n{FAKE_KEY}\nend'), 'key:\n[REDACTED]\nend')
+        self.assertEqual(redact(FAKE_KEY.rsplit('\n', 1)[0] + '\n\nnext line'), '[REDACTED]\n\nnext line')
+        escaped = json.dumps({'type': 'note', 'text': 'here: ' + FAKE_KEY})
+        self.assertNotIn('ABCDEFGHIJKLMNOP', redact_json_lines(escaped))
+        self.assertNotIn('ABCDEFGHIJKLMNOP', redact(escaped))
+
+    def test_27_invisible_characters_are_removed_before_matching_and_kept_elsewhere(self):
+        # Appendix A6: the second password, hidden by a soft hyphen, was kept.
+        from wslib.coverage import redact, redact_pasted
+        self.assertEqual(redact('password: A1b2c3d4! and pass\u00adword: Second2!'),
+                         'password: [REDACTED] and pass\u00adword: [REDACTED]')
+        self.assertNotIn('defghij', redact_pasted('sk-abc\u200bdefghijklmnopqrstuvwxyz0123'))
+        family = 'with the \U0001F468\u200d\U0001F469\u200d\U0001F467 family, password: Hunter2Hunter2!'
+        self.assertEqual(redact(family), 'with the \U0001F468\u200d\U0001F469\u200d\U0001F467 family, password: [REDACTED]')
+
+    def test_27_a_json_key_says_its_string_is_the_secret(self):
+        # Appendix A6: both values stayed in the raw copy.
+        from wslib.coverage import redact, redact_json_lines
+        raw = redact_json_lines('{"password": " hunterhunter ", "secret_key": "MySuperSecret", "public_key": "ssh-rsa AAAA"}')
+        self.assertEqual(json.loads(raw), {'password': '[REDACTED]', 'secret_key': '[REDACTED]', 'public_key': 'ssh-rsa AAAA'})
+        self.assertEqual(redact('{"secret_key": "MySuperSecret", "token": "${TOKEN}"}'),
+                         '{"secret_key": "[REDACTED]", "token": "${TOKEN}"}')
+
+    def test_27_chinese_labels_sentences_and_command_lines(self):
+        from wslib.coverage import redact
+        for text, kept in (('账号admin 密码admin123', '账号admin 密码'), ('密码：123456', '密码：'),
+                           ('The password for the staging server is Xk9#mPq2vL.', 'The password for the staging server is '),
+                           ("sshpass -p 'S3cr3tPass!' ssh root@10.0.0.5", 'sshpass -p'),
+                           ('mysql -u shop_admin -pS3cretPass1 shop', 'mysql -u shop_admin -p'),
+                           ('api key 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08', 'api key ')):
+            with self.subTest(text=text):
+                self.assertIn('[REDACTED]', redact(text))
+                self.assertTrue(redact(text).startswith(kept), redact(text))
+        for text in ('密码至少8位', '密码是什么？', '账号和密码在 docs/guides/server.md', 'mysql -u root -p shop'):
+            self.assertEqual(redact(text), text)
+
+    def test_27_explanatory_text_is_left_alone(self):
+        # These were replaced with [REDACTED] for good, with the original text lost.
+        from wslib.coverage import redact
+        for text in ('Password: minimum 8 characters', 'Release key: v2.3.1-beta', 'S3 key: exports/2026/data.csv',
+                     '“Release key: v2.3.1-beta”', 'Password: at least 12 characters long'):
+            self.assertEqual(redact(text), text)
+        self.assertIn('[REDACTED]', redact('aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'))
+
+    def test_27_ws_check_scans_the_saved_transcripts(self):
+        self.init()
+        self.write('docs/chats/claude/old.md', '# Transcript claude old\n\n## 1. user\n\nthe db password: Hunter2Fake9x\n')
+        out = self.ws('check', expect=None).stdout
+        self.assertIn('docs/chats/claude/old.md:5: looks like a credential (password)', out)
+        self.assertNotIn('Hunter2Fake9x', out)
+
+    def test_27_d2_plain_keeps_credentials_only_in_the_files_the_owner_names(self):
+        self.init()
+        text = self.read('docs/state/ARCHITECTURE.md').replace('"credentials": "ask"', '"credentials": "plain"')
+        self.write('docs/state/ARCHITECTURE.md', text)
+        self.assertIn('"credential_files" names no file', self.ws('check', expect=None).stdout)
+        named = text.replace('"credentials": "plain"', '"credentials": "plain", "credential_files": '
+                                                       '["docs/guides/*.md", "docs/state/DESIGN.md"]')
+        self.write('docs/state/ARCHITECTURE.md', named)
+        self.write('docs/guides/server.md', '# Server\n\nLogin password: Hunter2Fake9x\n')
+        self.write('docs/specs/login/notes.md', '# Notes\n\nLogin password: Hunter2Fake9x\n')
+        out = self.ws('check', expect=None).stdout
+        self.assertNotIn('docs/guides/server.md:3: looks like a credential', out)
+        self.assertIn('docs/specs/login/notes.md:3: looks like a credential', out)
+        self.ws('add', 'question', '--set', 'question=Server login? password: Hunter2Fake9x')
+        self.assertNotIn('Hunter2Fake9x', self.read('docs/state/REQUIREMENTS.md'))
+        self.ws('add', 'decision', '--set', 'decision=Staging login password: Hunter2Fake9x', '--set', 'reason=user',
+                '--set', 'source=user 2026-11-07')
+        self.assertIn('Hunter2Fake9x', self.read('docs/state/DESIGN.md'))
+        self.ws('turn', '--hook', 'kiro', stdin=json.dumps({'session_id': 'k1', 'prompt': 'password: Hunter2Fake9x'}))
+        self.assertNotIn('Hunter2Fake9x', self.read('docs/chats/kiro/k1.md'))
+
+    def test_27_ask_mode_refuses_no_write(self):
+        # Guards owner decision D2: a credential in ask mode is redacted and the write goes through.
+        self.init()
+        done = self.ws('add', 'question', '--set', 'question=Server login? password: Hunter2Fake9x')
+        self.assertIn('ask the user how credentials are kept', done.stderr)
+        self.assertIn('password: [REDACTED]', self.read('docs/state/REQUIREMENTS.md'))
+
+
 if __name__ == '__main__':
     unittest.main()

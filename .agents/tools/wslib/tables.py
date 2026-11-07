@@ -219,20 +219,25 @@ def assignments(table: Table, items: list) -> dict:
             value = STATUS_SYNONYMS.get(table.key, {}).get(value.lower(), value.lower())
             if value not in table.statuses:
                 raise WorkspaceError(f'{table.key} status "{value}" is not valid; use one of: {", ".join(table.statuses)}')
-        result[key] = redact_value(value)
+        result[key] = redact_value(value, table.file)
     return result
 
 
-def redact_value(value: str) -> str:
-    """A credential in a row or card field follows the project rule: kept as written under "plain", otherwise stored
-    as [REDACTED] until the user decides."""
+def redact_value(value: str, rel: str | None = None) -> str:
+    """A credential in a row or card field follows the project rule (owner decision D2): kept as written only in a
+    file that WORKSPACE credential_files names under "plain", otherwise stored as [REDACTED]."""
     from .core import CREDENTIALS
-    from .coverage import redact
+    from .redaction import plain_file, redact
+    if rel and plain_file(rel):
+        return value
     cleaned = redact(value)
     if cleaned != value:
         import sys
-        print('NOTE: a value looked like a credential and was stored as [REDACTED]. ' +
-              ('This project has no credential rule yet: ask the user how credentials are kept, then set WORKSPACE '
-               '"credentials" in docs/state/ARCHITECTURE.md ("plain" keeps them as written).' if CREDENTIALS.get() == 'ask'
-               else 'The project keeps credentials out of files.'), file=sys.stderr)
+        mode = CREDENTIALS.get()
+        print('NOTE: a value looked like a credential and was stored as [REDACTED]. ' + (
+            'This project has no credential rule yet: ask the user how credentials are kept, then set WORKSPACE '
+            '"credentials" in docs/state/ARCHITECTURE.md ("plain" keeps them as written in the files "credential_files" '
+            'names).' if mode == 'ask' else
+            f'Credentials are kept as written only in the files WORKSPACE "credential_files" names, not in {rel}.'
+            if mode == 'plain' else 'The project keeps credentials out of files.'), file=sys.stderr)
     return cleaned

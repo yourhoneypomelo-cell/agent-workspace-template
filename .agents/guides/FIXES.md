@@ -178,3 +178,11 @@ every test named here exists.
 | 3.9.0 | A transcript missing from INDEX.md was never read, while reconcile said every message was reconciled | `test_v39.Messages.test_24_a_transcript_missing_from_the_index_is_reported` | fails |
 | 3.9.0 | One "ws reconcile all" closed every open message without naming how many | `test_v39.Messages.test_24_reconcile_all_names_how_many_it_marks` | fails |
 | 3.9.0 | With the Stop nudge on, a turn that only answered a question was asked to record it | `test_v39.Messages.test_24_the_stop_nudge_lets_a_pure_question_pass` | fails |
+| 3.9.0 | Only the BEGIN line of a private key was removed; its key lines stayed | `test_v39.Redaction.test_27_a_private_key_goes_as_one_block` | fails |
+| 3.9.0 | Invisible characters were removed only from a line with no other credential, so a second one hidden by a soft hyphen stayed (appendix A6) | `test_v39.Redaction.test_27_invisible_characters_are_removed_before_matching_and_kept_elsewhere` | fails |
+| 3.9.0 | JSON strings were redacted without their keys, so "password" and "secret_key" values stayed in the raw copy (appendix A6) | `test_v39.Redaction.test_27_a_json_key_says_its_string_is_the_secret` | fails |
+| 3.9.0 | "账号admin 密码admin123", a password in a sentence, sshpass -p, mysql -p and a hex key after "api key" were kept | `test_v39.Redaction.test_27_chinese_labels_sentences_and_command_lines` | fails |
+| 3.9.0 | "Password: minimum 8 characters", "Release key: v2.3.1-beta" and "S3 key: exports/2026/data.csv" were rewritten as [REDACTED] for good | `test_v39.Redaction.test_27_explanatory_text_is_left_alone` | fails |
+| 3.9.0 | ws check did not scan the transcripts in docs/chats | `test_v39.Redaction.test_27_ws_check_scans_the_saved_transcripts` | fails |
+| 3.9.0 | "plain" kept every credential as written everywhere, transcripts included; it now applies only to the files credential_files names (owner decision D2) | `test_v39.Redaction.test_27_d2_plain_keeps_credentials_only_in_the_files_the_owner_names` | fails |
+| 3.9.0 | In ask mode a credential is redacted and no write is refused (owner decision D2) | `test_v39.Redaction.test_27_ask_mode_refuses_no_write` | guard |

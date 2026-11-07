@@ -42,7 +42,8 @@ CREDENTIAL_SENTENCES = {
     'ask': 'Passwords and keys the user sent are never repeated or written to a file.',
     'redact': 'Passwords and keys the user sent are never repeated or written to a file; name the variable or file '
               'that holds each one.',
-    'plain': 'Passwords and keys the user sent are kept as written, where the user said they go.',
+    'plain': 'Passwords and keys the user sent are kept as written only in the files WORKSPACE "credential_files" '
+             'names; elsewhere they are redacted.',
 }
 TURN_REMINDER = TURN_RULE + ' ' + CREDENTIAL_SENTENCES['ask']
 

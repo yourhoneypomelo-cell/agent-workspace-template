@@ -1,17 +1,20 @@
 """Credentials in text the tool writes: what it redacts, and what the credential scan of ws check reports."""
 from __future__ import annotations
 
+import fnmatch
+import json
+import os
 import re
 from pathlib import Path
 
-from .core import CREDENTIALS, watched_files
-from .schema import CHAT_DIR
+from .core import CREDENTIAL_FILES, CREDENTIALS, READ_ONLY, atomic_write, watched_files
+from .schema import CACHE_DIR, CHAT_DIR
 
 LABEL_EN = (r'(?<![A-Za-z])((?:client[_-]?)?secret(?:[_-]?key)?|password|passwd|pwd|passphrase|'
             r'api[_-]?key|access[_-]?key|private[_-]?key|auth[_-]?token|access[_-]?token|token|authorization|key|pw|pass)(?![A-Za-z])')
 LABEL_ZH = r'(密码|口令|密钥|秘钥|令牌|私钥)'
 QUOTED = r'"([^"\n]{4,128})"|\'([^\'\s][^\'\n]{3,127})\'(?![A-Za-z0-9])|`([^`\n]{4,128})`'
-BARE = r'([^\s"\'`|，,。；;、）)\]}<>][^\s"`|，,。；;、）)\]}<>]{2,126}[^\s"\'`|，,。；;、）)\]}<>])'
+BARE = r'([^\s"\'`|，,。；;、）)\]}<>“”‘’「」][^\s"`|，,。；;、）)\]}<>“”「」]{2,126}[^\s"\'`|，,。；;、）)\]}<>“”‘’「」])'
 SEP_EN = r'["\']?\s*(?:[:=：＝]|\s+is\s+)\s*(?:(?:bearer|basic|token)\s+)?'
 SEP_ZH = r'\s*(?:[:=：＝]|是|为)?\s*'
 SECRET_PATTERNS = (
@@ -76,6 +79,16 @@ FULLWIDTH = {ord(c): ord(c) - 0xFEE0 for c in '０１２３４５６７８９Ａ
 
 # A value that is code reading a secret: a call or subscript whose argument starts with a quote or a name.
 CODE_READ = re.compile(r'''(?:[A-Za-z_]\w*\.(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*|(?i:get_?env|getenv|environ|env|secrets?|config|cfg|settings|vault|keyring|os\.getenv))[\[(](?:["']|[A-Za-z_]\w*[\])]|$)''')
+VERSION = re.compile(r'v?\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?')
+
+
+def _pathlike(value: str) -> bool:
+    """A file or object path: segments that are words or numbers, such as exports/2026/data.csv, ending in a file
+    suffix, in lower case or starting with ./ or ~/. A secret with slashes, such as an AWS secret key, has segments
+    that run letters and digits together, in mixed case."""
+    parts = re.split(r'[/\\]', value)
+    return len(parts) > 1 and all(not p or re.fullmatch(r'(?:[A-Za-z]+|\d+)(?:[-_.][A-Za-z0-9]+)*', p) for p in parts) \
+        and bool(re.search(r'\.[A-Za-z0-9]{1,8}$', value) or not re.search(r'[A-Z]', value) or value.startswith(('.', '~')))
 
 
 def looks_like_secret(value: str) -> bool:
@@ -86,8 +99,10 @@ def looks_like_secret(value: str) -> bool:
         return False
     if value.startswith(('http', '$', '%', '<', '[', '~', '/', '.', '{', '(')) or re.fullmatch(r'\*+|x+|\.+|-+', lowered):
         return False
-    if re.fullmatch(r'v?\d+(?:\.\d+)+', value) or re.fullmatch(r'\d{1,9}', value):
-        return False  # a version or a count, for example "token: v2.3.3" or "token: 128000"
+    if VERSION.fullmatch(value) or re.fullmatch(r'\d{1,9}', value):
+        return False  # a version or a count, for example "Release key: v2.3.1-beta" or "token: 128000"
+    if _pathlike(value):
+        return False  # a path, for example "S3 key: exports/2026/data.csv"
     if CODE_READ.match(value):
         return False  # code that reads the value, such as os.environ["X"] or getenv("X")
     if re.fullmatch(r'[a-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+', value) or re.fullmatch(r'[a-z]+\d{1,3}', value):
@@ -126,6 +141,36 @@ def _value_span(match):
 # Names that contain "key" or "token" but hold no secret (from the gitleaks generic-key allowlist).
 NOT_SECRET_NAME = re.compile(r'(?i)(?:primary|foreign|public|schema|idx|sort|partition)[_.-]?key|csrf[_.-]?token'
                              r'|key[_.-]?(?:id|name|size|file|path|type)\b')
+# A JSON key that names a credential, such as "password", "db_password", "secret_key" or "refresh_token".
+SECRET_KEY = (r'(?:[A-Za-z0-9]+[_-])*(?:password|passwd|pwd|passphrase|secret|client[_-]?secret|secret[_-]?key|'
+              r'api[_-]?key|apikey|access[_-]?key|private[_-]?key|(?:access|auth|refresh|bearer|id)[_-]?token|token|'
+              r'authorization)')
+SECRET_KEY_RE = re.compile(r'(?i)' + SECRET_KEY)
+JSON_PAIR = re.compile(r'(?i)"(' + SECRET_KEY + r')"\s*:\s*"((?:[^"\\\n]|\\.){1,512})"')
+# A value right after 密码, 口令 or 密钥, with or without a separator: "账号admin 密码admin123", "密码：123456".
+ZH_VALUE = re.compile(r'(密码|口令|密钥|秘钥|私钥|令牌)[ \t]*(?:[:=：＝]|是|为)?[ \t]*["\'“]?'
+                      r'([A-Za-z0-9!@#$%^&*_+=./-]{4,64})(?![A-Za-z0-9!@#$%^&*_+=./-])')
+# "The password for the staging server is Xk9#mPq2vL": words between the label and "is".
+PASSWORD_PHRASE = re.compile(r'(?i)(?<![A-Za-z])(?:password|passwd|passphrase)(?![A-Za-z])[^\n:=.]{1,60}?[ \t]'
+                             r'(?:is|was)[ \t]+["\'“]?([^\s"\'”]{6,64})')
+# A password on a command line: sshpass -p 'S3cr3t!', mysql -pS3cret.
+COMMAND_PASSWORD = re.compile(r"\b(?:sshpass\b[^\n]*?[ \t]-p[ \t]*|mysql(?:dump|admin)?\b[^\n]*?[ \t]-p)"
+                              r"(?:'([^'\n]{1,128})'|\"([^\"\n]{1,128})\"|([^\s'\"]{1,128}))")
+# A long hex key a few characters after its name: "api key 9f86d081...".
+HEX_AFTER_LABEL = re.compile(r'(?i)(?<![A-Za-z])(?:api|access|secret|private|auth)[ _-]?(?:key|token)(?![A-Za-z])'
+                             r'[^\n]{0,24}?(?<![0-9a-f])([0-9a-f]{32,128})(?![0-9a-f])')
+
+
+def keyed_secret(value: str) -> bool:
+    """Whether a value whose label or key says it is a credential holds one: anything but a placeholder, a mask, a
+    variable name or code that reads the value."""
+    value = value.strip()
+    lowered = value.lower()
+    if len(value) < 4 or lowered in COMMON_VALUES or lowered.startswith(('your', 'xxx', '<', '$', '%', '{', '[redacted')):
+        return False
+    if re.fullmatch(r'\*+|x+|\.+|-+|•+', lowered) or re.fullmatch(r'[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+', value):
+        return False
+    return not CODE_READ.match(value)
 
 
 def _scan(line: str):
@@ -137,10 +182,29 @@ def _scan(line: str):
                     not NOT_SECRET_NAME.search(line[max(0, match.start() - 12):match.start(index)]):
                 yield match.start(index), match.end(index), match.group(1).lower()
     for match in LETTERS_AFTER_SEPARATOR.finditer(line):
-        # After "is" the next word can be prose ("the password is correct"), so common words are spared.
-        spoken = bool(re.search(r'(?i)[ \t]is[ \t]', line[match.start():match.start(1)]))
+        # After "is", or with more words after it, the word can be prose ("the password is correct", "Password:
+        # minimum 8 characters"), so common words are spared.
+        spoken = bool(re.search(r'(?i)[ \t]is[ \t]', line[match.start():match.start(1)])
+                      or re.match(r'[ \t]+[A-Za-z0-9]', line[match.end(1):]))
         if _letters_password(match.group(1), prose=spoken):
             yield match.start(1), match.end(1), 'password'
+    for match in JSON_PAIR.finditer(line):
+        if keyed_secret(match.group(2)) and not NOT_SECRET_NAME.search(match.group(1)):
+            yield match.start(2), match.end(2), match.group(1).lower()
+    for match in ZH_VALUE.finditer(line):
+        value = match.group(2)
+        if keyed_secret(value) and not _pathlike(value) and not VERSION.fullmatch(value):
+            yield match.start(2), match.end(2), match.group(1)
+    for match in PASSWORD_PHRASE.finditer(line):
+        value = match.group(1).rstrip('.,;)')
+        if looks_like_secret(value) or re.fullmatch(r'[a-z]{2,20}\d{1,8}|\d{6,16}', value):
+            yield match.start(1), match.start(1) + len(value), 'password'
+    for match in COMMAND_PASSWORD.finditer(line):
+        index = next(i for i in (1, 2, 3) if match.group(i) is not None)
+        if keyed_secret(match.group(index)):
+            yield match.start(index), match.end(index), 'password'
+    for match in HEX_AFTER_LABEL.finditer(line):
+        yield match.start(1), match.end(1), 'api key'
     for match in WEAK_AFTER_SEPARATOR.finditer(line):
         yield match.start(1), match.end(1), 'password'
     for match in LETTERS_AFTER_LABEL.finditer(line):
@@ -180,16 +244,39 @@ def _scan(line: str):
 
 
 # Invisible format characters split a key so no pattern matches it: zero-width space and joiners, soft hyphen,
-# word joiner, BOM. They are removed only from a line that hides a credential, so emoji joiners elsewhere stay.
+# word joiner, BOM. Lines are matched without them and each redaction is mapped back, so the rest of the line keeps
+# them, emoji joiners included.
 INVISIBLE = re.compile('[\u00ad\u180e\u200b-\u200f\u2060-\u2064\ufeff]')
+# A private key spans lines, so it goes as one block: up to its END line, or over the key lines that follow when the
+# END line is missing, also when the lines are written as \n inside one JSON string.
+PRIVATE_KEY = re.compile(r'-----BEGIN ([A-Z0-9 ]*PRIVATE KEY[A-Z ]*)-----(?:.*?-----END \1-----|'
+                         r'(?:(?:\r?\n|\\r?\\n)[ \t]*(?:[A-Za-z0-9+/=]{16,}|Proc-Type:[^\n\\]*|DEK-Info:[^\n\\]*))*)', re.S)
 
 
-def _visible(line: str) -> str:
-    """The line itself, or the line without invisible characters when only that form shows a credential."""
-    if not INVISIBLE.search(line):
-        return line
-    bare = INVISIBLE.sub('', line)
-    return bare if _spans(bare) and not _spans(line) else line
+def _bare(line: str):
+    """The line without invisible characters, and where each remaining character stands in the line."""
+    keep = [i for i, char in enumerate(line) if not INVISIBLE.match(char)]
+    return ''.join(line[i] for i in keep), keep
+
+
+def _replace(text: str, find) -> str:
+    """Replace with [REDACTED] the spans that find(line) gives for each line, found with invisible characters removed
+    and mapped back to the line."""
+    out = []
+    for line in text.split('\n'):
+        bare, where = _bare(line) if INVISIBLE.search(line) else (line, None)
+        merged = []
+        for start, end in sorted(find(bare)):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
+            else:
+                merged.append((start, end))
+        for start, end in reversed(merged):
+            if where is not None:
+                start, end = where[start], where[end - 1] + 1
+            line = line[:start] + '[REDACTED]' + line[end:]
+        out.append(line)
+    return '\n'.join(out)
 
 
 # Host data that is neither user text nor a credential the user chose to keep: Codex stores compaction and
@@ -198,25 +285,23 @@ HOST_BLOBS = ('encrypted_content',)
 
 
 def redact_json_lines(text: str) -> str:
-    """Redact a JSON or JSONL transcript. Strings inside the JSON are redacted after decoding, so
-    escaped quotes and \\u escapes cannot hide a credential. Encrypted host blobs are always dropped."""
-    import json
-    plain = keep_plain()
-    if plain and not any(f'"{key}"' in text for key in HOST_BLOBS):
-        return text
+    """Redact a JSON or JSONL transcript. Strings inside the JSON are redacted after decoding, so escaped quotes and
+    \\u escapes cannot hide a credential, and a string under a key such as "password" or "secret_key" goes whole
+    unless it is a placeholder. Encrypted host blobs are always dropped."""
 
-    def clean(value):
+    def clean(value, key=''):
         if isinstance(value, str):
-            if plain:
-                return value
+            if key in HOST_BLOBS:
+                return '[removed: encrypted host data]'
+            if SECRET_KEY_RE.fullmatch(key) and not NOT_SECRET_NAME.search(key) and keyed_secret(value):
+                return '[REDACTED]'
             # The raw copy is a backup kept out of version control, so blanking an ID that looks random
             # costs little, while a pasted key that survived here would defeat the Markdown redaction.
             return redact_pasted(value)
         if isinstance(value, list):
             return [clean(v) for v in value]
         if isinstance(value, dict):
-            return {k: '[removed: encrypted host data]' if k in HOST_BLOBS and isinstance(v, str) else clean(v)
-                    for k, v in value.items()}
+            return {k: clean(v, k) for k, v in value.items()}
         return value
 
     stripped = text.lstrip()
@@ -230,7 +315,7 @@ def redact_json_lines(text: str) -> str:
         try:
             item = json.loads(line) if line.strip() else None
         except ValueError:
-            out.append(line if plain else redact(line))
+            out.append(redact(line))
             continue
         out.append(line if item is None else json.dumps(clean(item), ensure_ascii=False))
     return '\n'.join(out)
@@ -285,16 +370,16 @@ def _mixed(value: str) -> bool:
 # Labels precise enough to warn on (B41). On 10,140 local user messages these fired on 65 (0.64%), mostly real.
 # Bare "key", "token", "pass" and "login" are left out: they fire on prose about keys.
 NOTICE_LABELS = frozenset({'password', 'passwd', 'pwd', 'passphrase', '密码', '口令', '密钥', '秘钥', '私钥',
-                           'api_key', 'api-key', 'apikey', 'auth_token', 'auth-token', 'access_token', 'client_secret',
+                           'api_key', 'api-key', 'apikey', 'api key', 'auth_token', 'auth-token', 'access_token', 'client_secret',
                            'client-secret', 'secret_key', 'bearer token', 'environment variable', 'url password', *dict(TOKEN_KINDS).values()})
 
 
 def credential_kinds(text: str, limit: int = 20000) -> list:
     """Names (never values) of the precise credential kinds in a user message, for the prompt hook notice."""
     text = text[:limit]
-    kinds = {label for line in text.split('\n') for _, _, label in _scan(_visible(line[:WINDOW])) if label in NOTICE_LABELS}
-    clean = redact(text)
-    if _short_and_pairs(clean) != clean:
+    kinds = {label for line in text.split('\n') for _, _, label in _scan(INVISIBLE.sub('', line[:WINDOW]))
+             if label in NOTICE_LABELS}
+    if any(_short_spans(INVISIBLE.sub('', line)) for line in redact(text).split('\n')):
         kinds.add('unlabeled key')
     return sorted(kinds)
 
@@ -303,62 +388,50 @@ def redact_pasted(text: str) -> str:
     """redact() plus unlabeled random tokens. For text the user typed, where a pasted key has no label.
     Measured on 5,191 local user messages from Claude, Codex and Kiro: the token rule fired 18 times, 12 on values that
     redact() already removed. It cannot catch hex keys or short passwords."""
-    if keep_plain():
-        return text
-    text = redact(text)
-    def replace(match):
+    return _replace(redact(text), lambda line: _random_spans(line) + _short_spans(line))
+
+
+def _random_spans(line: str) -> list:
+    found = []
+    for match in RANDOM_TOKEN.finditer(line):
         value = match.group(1)
-        if ID_PREFIX.match(value) or re.fullmatch(r'[0-9a-fA-F-]+', value) or 'base64,' in text[max(0, match.start() - 8):match.start()]:
-            return value
-        if not _mixed(value):
-            return value
-        return '[REDACTED]' if _entropy(value) >= 4.3 else value
-    return _short_and_pairs(RANDOM_TOKEN.sub(replace, text))
+        if ID_PREFIX.match(value) or re.fullmatch(r'[0-9a-fA-F-]+', value) or 'base64,' in line[max(0, match.start() - 8):match.start()]:
+            continue
+        if _mixed(value) and _entropy(value) >= 4.3:
+            found.append(match.span(1))
+    return found
 
 
-def _short_and_pairs(text: str) -> str:
+def _short_spans(line: str) -> list:
     """B43 short keys, applied after redact(). Account pairs (email|value) were measured and left out: 7 of 11
     ordinary lines such as tab-separated rosters were redacted, against 2 real hits."""
-    def short(match):
+    found = []
+    for match in SHORT_TOKEN.finditer(line):
         value = match.group(1)
         if not _mixed(value) or ID_PREFIX.match(value) or FORMULA.fullmatch(value) or CAMEL.fullmatch(value) \
-                or _entropy(value) < 3.6 or _has_word(value) or URL_BEFORE.search(text[max(0, match.start() - 200):match.start()]):
-            return value
-        return '[REDACTED]'
-    return SHORT_TOKEN.sub(short, text)
+                or _entropy(value) < 3.6 or _has_word(value) or URL_BEFORE.search(line[max(0, match.start() - 200):match.start()]):
+            continue
+        found.append(match.span(1))
+    return found
 
 
-def keep_plain() -> bool:
-    """The user decided this project keeps credentials as written (WORKSPACE "credentials": "plain")."""
-    return CREDENTIALS.get() == 'plain'
+def plain_file(rel: str) -> bool:
+    """Whether credentials are kept as written in this file: the rule is "plain" and WORKSPACE credential_files names
+    the file (owner decision D2). Everything else the tool writes is redacted, transcripts included."""
+    return CREDENTIALS.get() == 'plain' and any(fnmatch.fnmatch(rel, p) for p in CREDENTIAL_FILES.get())
 
 
 def redact(text: str) -> str:
-    """Replace credential values in free text. Keeps the label so the reader knows what was removed.
-    Does nothing when the user decided to keep credentials as written."""
-    if keep_plain():
-        return text
-    out = []
-    for line in text.split('\n'):
-        line = _visible(line)
-        spans = sorted(_spans(line))
-        merged = []
-        for start, end in spans:
-            if merged and start <= merged[-1][1]:
-                merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
-            else:
-                merged.append((start, end))
-        for start, end in reversed(merged):
-            line = line[:start] + '[REDACTED]' + line[end:]
-        out.append(line)
-    return '\n'.join(out)
+    """Replace credential values in free text. Keeps the label so the reader knows what was removed. A private key
+    goes as one block."""
+    return _replace(PRIVATE_KEY.sub('[REDACTED]', text), _spans)
 
 
 def find_secrets(text: str) -> list:
     """(line number, label) of likely credentials. Placeholders and environment variable names are allowed."""
     found = []
     for number, line in enumerate(text.split('\n'), 1):
-        found += [(number, label) for label in sorted({label for _, _, label in _scan(_visible(line))})]
+        found += [(number, label) for label in sorted({label for _, _, label in _scan(INVISIBLE.sub('', line))})]
     return found
 
 
@@ -369,14 +442,18 @@ def project_file_in_agents(rel: str) -> bool:
             and rel not in STATIC_FILES and rel not in ('.agents/.gitattributes', '.agents/.gitignore', '.agents/hooks.json'))
 
 
-def secret_warnings(root: Path) -> list:
-    """Credentials written into project files. Silent when the user decided to keep credentials as written."""
+def secret_warnings(root: Path, chats: bool = False) -> list:
+    """Credentials written into project files, and with chats also into saved transcripts. The files where the user
+    keeps credentials as written (WORKSPACE credential_files under "plain") are not reported."""
     warnings = []
-    if keep_plain():
-        return warnings
+    fix = {'plain': 'credentials are kept as written only in the files WORKSPACE "credential_files" names: move it '
+                    'there, or name the variable or file that holds it',
+           'redact': 'the project keeps credentials out of files: name the variable or file that holds it'}.get(
+        CREDENTIALS.get(), 'the user has not chosen how credentials are kept: ask, then set WORKSPACE "credentials", '
+                           'or name the variable or file that holds it')
     for rel in watched_files(root):
         # Project files kept under .agents/ by mistake (reports, task notes) are scanned too; template files are not.
-        if not (rel.startswith(('docs/', 'ops/')) or project_file_in_agents(rel)) or rel.startswith(CHAT_DIR + '/'):
+        if not (rel.startswith(('docs/', 'ops/')) or project_file_in_agents(rel)) or plain_file(rel):
             continue
         if not rel.endswith(('.md', '.txt', '.json', '.yaml', '.yml', '.toml', '.ini', '.ps1', '.sh', '.py', '.env.example')):
             continue
@@ -385,8 +462,48 @@ def secret_warnings(root: Path) -> list:
         except OSError:
             continue
         for number, label in find_secrets(text)[:3]:
-            fix = ('history rows stay as they are' if rel.startswith('docs/logs/') else
-                   'the user has not chosen to keep credentials in files: ask, then set WORKSPACE "credentials", '
-                   'or name the variable or file that holds it')
-            warnings.append(f'{rel}:{number}: looks like a credential ({label}). {fix[0].upper() + fix[1:]}')
-    return warnings
+            told = 'history rows stay as they are' if rel.startswith('docs/logs/') else fix
+            warnings.append(f'{rel}:{number}: looks like a credential ({label}). {told[0].upper() + told[1:]}')
+    return warnings + (chat_warnings(root) if chats else [])
+
+
+CHAT_SCAN = CACHE_DIR + '/chat-secrets.json'
+CHAT_RULES = 1  # raised when the rules change, so cached transcripts are scanned again
+
+
+def chat_warnings(root: Path) -> list:
+    """Credentials left in saved transcripts, by a version with older rules or by hand. Findings are cached per
+    transcript by size and time, because transcripts are large and most never change again."""
+    folder = root / CHAT_DIR
+    if not folder.is_dir():
+        return []
+    try:
+        cache = json.loads((root / CHAT_SCAN).read_text(encoding='utf-8'))
+        cache = cache if isinstance(cache, dict) else {}
+    except (OSError, ValueError):
+        cache = {}
+    fresh, found = {}, []
+    for path in sorted(folder.glob('*/*.md')):
+        rel = path.relative_to(root).as_posix()
+        if plain_file(rel):
+            continue
+        try:
+            info = path.stat()
+            key = [info.st_size, info.st_mtime_ns, CHAT_RULES]
+            entry = cache.get(rel)
+            if not (isinstance(entry, dict) and entry.get('key') == key and isinstance(entry.get('found'), list)):
+                entry = {'key': key, 'found': find_secrets(path.read_text(encoding='utf-8', errors='replace'))[:3]}
+        except OSError:
+            continue
+        fresh[rel] = entry
+        found += [(rel, number, label) for number, label in entry['found'][:1]]
+    if fresh != cache and not READ_ONLY.get() and not os.environ.get('WS_NO_CACHE'):
+        try:
+            atomic_write(root / CHAT_SCAN, json.dumps(fresh))
+        except OSError:
+            pass
+    lines = [f'{rel}:{number}: looks like a credential ({label}). The transcript kept it when it was saved: remove the '
+             'value by hand, here and in its raw copy' for rel, number, label in found[:5]]
+    if len(found) > 5:
+        lines.append(f'{len(found) - 5} more transcripts in docs/chats/ hold values that look like credentials')
+    return lines

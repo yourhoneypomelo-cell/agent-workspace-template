@@ -392,10 +392,13 @@ class Credentials(Workspace):
     def test_plain_credentials_are_kept_as_written(self):
         self.init()
         self.rule('plain')
+        text = self.read('docs/state/ARCHITECTURE.md')
+        self.write('docs/state/ARCHITECTURE.md', text.replace('"credentials": "plain"', '"credentials": "plain", '
+                                                              '"credential_files": ["docs/guides/server.md"]'))
         self.ws('add', 'preference', '--set', 'preference=Server passwords go in docs/guides/server.md as written',
                 '--source', 'user 2026-11-05')
         self.ws('add', 'question', '--set', f'question=Server login? password: {self.FAKE}')
-        self.assertIn(self.FAKE, self.read('docs/state/REQUIREMENTS.md'))
+        self.assertNotIn(self.FAKE, self.read('docs/state/REQUIREMENTS.md'))
         self.write('docs/guides/server.md', f'# Server\n\nLogin password: {self.FAKE}\n')
         self.assertNotIn('looks like a credential', self.ws('check', expect=1).stdout)
         hook = json.loads(self.ws('turn', '--hook', 'claude', stdin=json.dumps({'prompt': f'password: {self.FAKE}'})).stdout)

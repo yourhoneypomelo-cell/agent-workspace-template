@@ -53,8 +53,9 @@ Examples: how to reach a server, how to deploy, how to run a data job.
 
 1. Write `docs/guides/<topic>.md`: what it controls, how to use it, conventions, failure handling.
 2. Put scripts it calls in `ops/`, and test them before you write the guide.
-3. Write credentials the way the project's credential rule says (AGENTS.md Rule 6): as written when the user
-   chose that, or by location, such as an SSH key path or an environment variable.
+3. Write credentials the way the project's credential rule says (AGENTS.md Rule 6): as written in the files
+   the user named (WORKSPACE `"credential_files"`), or by location, such as an SSH key path or an environment
+   variable.
 4. `ws brief` lists every guide under "Project guides", so the next session finds it.
 5. Register the procedure as a requirement and a task, and verify the task with the script.
 

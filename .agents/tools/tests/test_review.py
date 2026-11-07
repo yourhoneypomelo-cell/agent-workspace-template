@@ -177,7 +177,7 @@ class Review(Workspace):
         from wslib.coverage import credential_kinds, find_secrets, redact
         key = 'sk-proj-abcdefghij\u200bklmnopqrstuvwxyz0123456789'
         self.assertEqual(redact('key ' + key), 'key [REDACTED]')
-        self.assertEqual(redact('pass\u00adword: Hunter2Hunter2!'), 'password: [REDACTED]')
+        self.assertEqual(redact('pass\u00adword: Hunter2Hunter2!'), 'pass\u00adword: [REDACTED]')
         self.assertEqual(find_secrets('ghp_abcdefghijklmnop\u200dqrstuvwxyz0123456789'), [(1, 'GitHub token')])
         self.assertIn('API key (sk-)', credential_kinds(key))
         family = 'family \U0001F468\u200d\U0001F469\u200d\U0001F467 photo'
@@ -197,7 +197,7 @@ class Review(Workspace):
                 CREDENTIALS.reset(token)
             self.assertNotIn(blob, out, setting)
             self.assertIn('[removed: encrypted host data]', out)
-            self.assertEqual('Hunter2Hunter2!' in out, setting == 'plain', setting)
+            self.assertNotIn('Hunter2Hunter2!', out, setting)  # D2: "plain" keeps credentials only in named files
         plain = json.dumps({'a': 1})
         token = CREDENTIALS.set('plain')
         try:

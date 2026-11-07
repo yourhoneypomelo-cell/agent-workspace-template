@@ -312,7 +312,7 @@ def card_fields(sets: list) -> dict:
             raise WorkspaceError(f'unknown card field "{name}"; valid: {", ".join(CARD_FIELDS)}')
         if not value.strip() or '\n' in value:
             raise WorkspaceError(f'card field "{key}" must be one non-empty line')
-        result[key] = tables.redact_value(value.strip())
+        result[key] = tables.redact_value(value.strip(), HANDOFF)
     if 'recovery_notes' in result:
         from .core import stamp_jobs
         result['recovery_notes'] = stamp_jobs(result['recovery_notes'])

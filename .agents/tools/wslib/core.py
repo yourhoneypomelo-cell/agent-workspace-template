@@ -318,7 +318,14 @@ def config(root: Path) -> dict:
                              'with forward slashes and no drive letter, such as "data/**"')
     if merged['credentials'] not in CREDENTIAL_RULES:
         raise WorkspaceError('WORKSPACE credentials must be "ask" (the user has not decided), "plain" (credentials are '
-                             'kept as written) or "redact" (credentials are kept out of files)')
+                             'kept as written in the files credential_files names) or "redact" (credentials are kept '
+                             'out of files)')
+    files = merged.get('credential_files', [])
+    if not isinstance(files, list) or any(not isinstance(p, str) or not p or '..' in Path(p).parts or
+                                          Path(p).is_absolute() or ':' in p for p in files):
+        raise WorkspaceError('WORKSPACE credential_files must be a list of relative paths or glob patterns, such as '
+                             '["docs/guides/server.md"]: the files where "plain" keeps credentials as written')
+    merged['credential_files'] = [p.replace('\\', '/') for p in files]
     if merged.get('stale_evidence', 'block') not in ('block', 'warn'):
         raise WorkspaceError('WORKSPACE stale_evidence must be "block" (READY waits until a done task whose files changed '
                              'is verified again) or "warn"')
@@ -392,8 +399,10 @@ def _load_cache(root: Path) -> dict:
         return {}
 
 
-# The project's credential rule for this command, set by ws.py from the WORKSPACE block (default "ask").
+# The project's credential rule for this command, set by ws.py from the WORKSPACE block (default "ask"), and the
+# files where "plain" keeps credentials as written (owner decision D2: nowhere else).
 CREDENTIALS = contextvars.ContextVar('ws_credentials', default='ask')
+CREDENTIAL_FILES = contextvars.ContextVar('ws_credential_files', default=())
 
 # Read-only commands set this, so brief, status, check, turn and lint never write a file, not even the cache.
 READ_ONLY = contextvars.ContextVar('ws_read_only', default=False)

@@ -464,35 +464,40 @@ one appears and records the answer twice: as a preference in the user's words, a
 
 | Setting | Meaning | What the tool does |
 | --- | --- | --- |
-| `"ask"` (default) | Not decided yet | Redacts as below, and the prompt hook tells the agent to ask before writing a credential anywhere |
-| `"plain"` | Keep credentials as written, where the user said | Writes every value as given, in rows, cards, notes, evidence and transcripts; `ws check` does not report them |
+| `"ask"` (default) | Not decided yet | Redacts as below, and the prompt hook tells the agent to ask before writing a credential anywhere. No write is refused |
+| `"plain"` | Keep credentials as written in the files the user named | Keeps values as given only in the files `"credential_files"` lists, for example `["docs/guides/server.md"]` or `["docs/guides/*.md"]`: rows written into those state files, and no `ws check` report for any of them. Redacts everything else as below, transcripts included |
 | `"redact"` | Keep credentials out of the workspace files | Redacts as below; the agent names the variable or file that holds each one |
 
 The preference says where a credential goes when it is kept as written, for example
-"server passwords go in docs/guides/server.md". Changing the answer later is a `ws set` on the
+"server passwords go in docs/guides/server.md", and `"credential_files"` names the same files for the
+tool. `ws check` warns when `"plain"` names no file. Changing the answer later is a `ws set` on the
 preference and an edit of the setting.
 
-With `"ask"` and `"redact"`, values that look like credentials are replaced with `[REDACTED]` wherever
-the tool writes text:
+Outside the files `"credential_files"` names, values that look like credentials are replaced with
+`[REDACTED]` wherever the tool writes text:
 rows and card fields from `add`, `set` and `card`, the goal, stop point and next step, sources,
 reasons, verify labels, notes, and both copies of a transcript. User messages also lose unlabeled
 random tokens of 24 or more mixed-case letters and digits.
 
 A password of letters only is removed after `password:`, `password =`, `password is`, `密码：` or
 `密码是`. After a bare label, as in "my password hunterhunter", it is removed unless it is a common
-English word, as in "password manager". Names that hold no secret, such as `primary_key`,
-`public_key` and `csrf_token`, are left alone.
-`ws check` scans `docs/` and `ops/` for credentials written by hand and names the file and line.
+English word, as in "password manager", or followed by more words, as in "Password: minimum 8
+characters". Names that hold no secret, such as `primary_key`, `public_key` and `csrf_token`, are left
+alone. `ws check` scans `docs/`, `ops/` and the transcripts in `docs/chats/` for credentials and
+names the file and line; a transcript saved by an older version can hold one that today's rules remove.
 
-Recognized forms include `password: ...`, `"password": "..."`, `secret_key = ...`, `密码：...`,
-`| 密码 | ... |`, `user:password@host` and `?token=...` in URLs, and key formats such as `sk-`,
-`ghp_`, `github_pat_`, `AKIA`, JWTs and private key headers. Environment variable names such as
-`LITGW_API_KEY`, placeholders such as `<your password>`, versions, counts and plain words are not
-reported. A credential split by invisible characters (zero-width space or joiner, soft hyphen, BOM)
-is found and redacted with them removed.
+Recognized forms include `password: ...`, `secret_key = ...`, `密码：...`, `密码admin123`,
+`| 密码 | ... |`, "the password for the server is ...", `sshpass -p '...'`, `mysql -p...`,
+`user:password@host` and `?token=...` in URLs, a long hex key after "api key", and key formats such
+as `sk-`, `ghp_`, `github_pat_`, `AKIA` and JWTs. A private key goes as one block, up to its END line.
+In JSON, a string under a key such as `"password"`, `"secret_key"` or `"refresh_token"` goes whole
+unless it is a placeholder. Environment variable names such as `LITGW_API_KEY`, placeholders such as
+`<your password>`, versions such as `v2.3.1-beta`, paths such as `exports/2026/data.csv`, counts and
+plain words are not reported. Lines are matched with invisible characters removed (zero-width space
+or joiner, soft hyphen, BOM), and only the redacted value loses them.
 
-The raw transcript copy never keeps a host's `encrypted_content` fields, even with `"plain"`: Codex
-stores compaction and reasoning there as blobs the host can replay, and they hold no user text.
+The raw transcript copy never keeps a host's `encrypted_content` fields: Codex stores compaction and
+reasoning there as blobs the host can replay, and they hold no user text.
 
 ## Recovery
 

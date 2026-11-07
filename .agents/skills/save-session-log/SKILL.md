@@ -39,8 +39,8 @@ Do this before the final checkpoint of a session.
 
 ## Rules
 
-- Never store hidden reasoning or private host data. Credentials follow the project's credential rule:
-  until the user decides, the capture redacts common English and Chinese forms, such as `password: ...`
-  and `密码：...`, not every secret; with `"credentials": "plain"` transcripts keep them as written.
+- Never store hidden reasoning or private host data. The capture redacts common English and Chinese forms
+  of credentials, such as `password: ...` and `密码：...`, not every secret. It does so also under
+  `"credentials": "plain"`, which keeps credentials as written only in the files the user named.
 - A transcript does not override the state files.
 - Raw copies in `docs/chats/*/raw/` stay out of version control.

@@ -130,8 +130,9 @@ Multiple agent windows can work on the same project. Each session claims tasks b
 paths in their scope. Overlapping claims are refused. The user can force a claim with a reason,
 which is logged.
 
-The lock file carries a generation number (the workspace's revision). A window that was taken
-over holds an older generation, so its lock is stale even if its process is still alive.
+The workspace lock is a system file lock on `.agents/cache/ws.flock`. It ends with the process that
+holds it, so a crashed or killed window never leaves a lock behind. A window that was taken over can
+still run commands, but its writes are refused because another session owns the workspace.
 
 ### 9. Credentials follow the user's decision
 

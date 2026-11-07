@@ -12,8 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .core import SESSION_VARS, WorkspaceError, config, delegated, env_session, host_process, linked, pid_alive, state_of
-from .schema import HOOK_FILES, LOCK, MANIFEST, SCHEMA, TEMPLATE_MARKER, VERSION
+from .core import SESSION_VARS, WorkspaceError, config, delegated, env_session, host_process, linked, state_of
+from .schema import HOOK_FILES, MANIFEST, SCHEMA, TEMPLATE_MARKER, VERSION
 
 WS = 'python .agents/tools/ws.py'
 # The variable each host sets in the commands it runs. A host started from a Cursor agent shell inherits Cursor's
@@ -197,16 +197,11 @@ def tool(root: Path, add):
     if linked(root / '.agents'):
         add('problems', 'tool', f'.agents is a link to {(root / ".agents").resolve()}, so ws.py reads and writes that '
             'other project', 'replace the link with a copy of the .agents folder')
+    from .core import _holder_text, lock_busy
     try:
-        holder = json.loads((root / LOCK).read_text(encoding='utf-8')) if (root / LOCK).is_file() else None
-    except (OSError, ValueError):
-        holder = {}
-    if holder is None:
-        add('facts', 'lock', 'free')
-    elif isinstance(holder, dict) and holder.get('pid') and pid_alive(int(holder['pid'])):
-        add('facts', 'lock', f'held by pid {holder["pid"]} since {holder.get("created_at")}: a ws command is running')
-    else:
-        add('facts', 'lock', 'left by a command that no longer runs; the next ws command removes it')
+        add('facts', 'lock', f'held ({_holder_text(root)}): a ws command is running' if lock_busy(root) else 'free')
+    except WorkspaceError as error:
+        add('problems', 'lock', str(error), 'move the project to a local disk, or set WS_LOCK=legacy for this version')
     template = (root / TEMPLATE_MARKER).is_file()
     try:
         manifest = json.loads((root / MANIFEST).read_text(encoding='utf-8'))

@@ -157,3 +157,9 @@ every test named here exists.
 | 3.8.0 | The prompt hook did not tell the agent that the user marked a message as a confirmation | `test_v38.Modes.test_30_a_confirmation_is_named` | fails |
 | 3.9.0 | Python 3.9, the python3 that comes with macOS, was refused by the version gate (owner decision D0) | `test_regressions.Entry.test_x1_python_version_message` | fails |
 | 3.9.0 | Upgrade and snapshot files were written with a keyword argument that Python 3.9 does not have | `test_static.SourceBytes.test_no_call_needs_a_python_newer_than_3_9` | fails |
+| 3.9.0 | An empty lock file left by a command killed while writing it blocked every command for 60 seconds | `test_v39.Lock.test_22_an_empty_lock_file_from_a_crash_does_not_block` | fails |
+| 3.9.0 | The READY check counted the lock of the process that ran it | `test_v39.Lock.test_22_the_ready_check_does_not_count_its_own_lock` | fails |
+| 3.9.0 | A drive that cannot lock files gave no way out | `test_v39.Lock.test_22_a_drive_that_cannot_lock_names_the_way_out` | fails |
+| 3.9.0 | A killed holder frees the system lock at once | `test_v39.Lock.test_22_a_killed_holder_frees_the_lock_at_once` | guard |
+| 3.9.0 | WS_LOCK=legacy uses the lock file of 3.8 for this version | `test_v39.Lock.test_22_ws_lock_legacy_uses_the_older_lock_file` | guard |
+| 3.9.0 | Eight concurrent writers lose and duplicate no row | `test_v39.Lock.test_22_eight_writers_get_unique_ids_and_lose_no_row` | guard |

@@ -35,7 +35,9 @@ CHAT_INDEX = 'docs/chats/INDEX.md'
 # Optional text after a transcript heading "## 3. user": the UTC time and a compaction mark. Kept strict, so a
 # body line in a transcript written before 3.6 cannot start being read as a heading.
 HEADING_NOTE = r'(?: \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ)?(?: \(after compaction\))?'
-LOCK = '.agents/cache/ws.lock'
+LOCK = '.agents/cache/ws.lock'  # the lock file of 3.8 and older, still honored while its process runs
+FLOCK = '.agents/cache/ws.flock'  # locked by the operating system, never written or deleted
+LOCK_INFO = '.agents/cache/ws.lock.info'  # who holds FLOCK, for messages only
 FINGERPRINT_CACHE = '.agents/cache/fingerprint.json'
 SELFTEST = '.agents/cache/selftest.json'
 
@@ -47,7 +49,7 @@ LIB_MODULES = ('__init__', 'schema', 'core', 'tables', 'evidence', 'logs', 'vali
                'hooks', 'upgrade', 'doctor', 'delivery')
 TEST_MODULES = ('support', 'test_core', 'test_workflow', 'test_distribution', 'test_reconcile', 'test_capture', 'test_tracking',
                 'test_nudge', 'test_review', 'test_session', 'test_messages', 'test_probes', 'test_v36', 'test_field',
-                'test_static', 'test_regressions', 'test_upgrade', 'test_doctor', 'test_v38', 'run')
+                'test_static', 'test_regressions', 'test_upgrade', 'test_doctor', 'test_v38', 'test_v39', 'run')
 # Files only the template maintainer uses. They stay in the template folder and are never installed into a project:
 # a business agent searching its project should not find the template's own requirements, history or self-tests.
 MAINTAINER_GUIDES = ('MAINTAINING', 'DESIGN_REQUIREMENTS', 'FIXES')

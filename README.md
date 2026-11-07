@@ -35,8 +35,8 @@ that the next session reads before doing anything.
   stores the output, and marks the task done only when it passed — zero tests, skipped tests and
   stale evidence are all reported, never silently accepted.
 - **Parallel agent windows.** Sessions claim tasks by file path and resource name; overlapping
-  claims are refused. A lock whose generation is older than the workspace's current revision is
-  reclaimed, so a taken-over window cannot keep writing.
+  claims are refused. A taken-over window cannot keep writing, and the workspace lock is a system
+  file lock that ends with the process holding it.
 - **Credentials.** You decide once whether the project keeps credentials as written, redacts
   them, or asks each time. Every write path follows that decision, including chat transcripts.
 
@@ -182,8 +182,8 @@ Next session:     ↑                                                           
 - **Verified completion.** A task is done only when its acceptance command passes in the current
   session. The tool runs the test, stores the evidence, and marks it done.
 - **Parallel sessions.** Multiple agent windows can work on the same project. Task claims use
-  file paths and resource names to prevent conflicts. A stale lock is reclaimed by generation
-  number, not by guessing whether a process is alive.
+  file paths and resource names to prevent conflicts. The workspace lock ends with the process
+  that holds it, so a crashed window never leaves it behind.
 - **Credential safety.** The tool asks how the project handles credentials (keep, redact, or
   ask each time) and follows that rule in every write.
 - **Host adapters.** AGENTS.md is the single contract. Adapters for Claude Code, Codex, Cursor,

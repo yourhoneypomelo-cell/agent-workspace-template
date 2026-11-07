@@ -131,11 +131,11 @@ refuses a newer one with a message to upgrade, so an older tool never misreads n
 | Template manifest | optional keys | `maintainer_files`, `source_modified` (3.7.0) | 3.6.x ignores them |
 | WORKSPACE block | optional keys | `stale_evidence`, block by default (3.8.0) | Older tools ignore it |
 | Task Scope | words | `new:<path>`, `resource:<name>`, `tree:` (3.8.0) | A 3.7.x tool reads them as plain words |
-| Lock `.agents/cache/ws.lock` | none | Unchanged since 3.6.7 | |
+| Workspace lock | file | A system lock on `.agents/cache/ws.flock` (3.9.0) | The `ws.lock` of 3.8 and older still counts while its process runs, and `WS_LOCK=legacy` uses it instead; 3.10.0 drops both |
 | Message IDs in RECONCILE_LOG | none | Unchanged | |
 
-Nothing is retired in 3.8.0. A later version that stops reading an older mark says so here first, one
-release ahead.
+Announced for 3.10.0: the `ws.lock` of 3.8 and `WS_LOCK=legacy` stop counting, so every window must run 3.9 or
+later by then. A version that stops reading an older mark says so here first, one release ahead.
 
 Rules 2 reads two kinds of output differently from rules 1: a unittest run whose program prints an "OK"
 or "FAILED" line of its own, and a log line such as "FAILED to connect". To go back to 3.6.x, run

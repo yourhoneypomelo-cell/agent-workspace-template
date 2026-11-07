@@ -7,11 +7,11 @@ from pathlib import Path
 
 from . import evidence, logs, tables
 from .core import (
-    WorkspaceError, card, checkpoint_of, config, describe_drift, difference, exists, fingerprint, goal, read, rewatch,
-    safe_path, sha, state_of,
+    WorkspaceError, card, checkpoint_of, config, describe_drift, difference, exists, fingerprint, goal, lock_busy, read,
+    rewatch, safe_path, sha, state_of,
 )
 from .schema import (
-    ADAPTERS, BUDGETS, CARD_FIELDS, CLOSED, NEEDS_REASON, GUIDE_DIR, LOCK, LOG_DIR, LOG_NAMES, NONE, OPTIONAL_CARD_FIELDS,
+    ADAPTERS, BUDGETS, CARD_FIELDS, CLOSED, NEEDS_REASON, GUIDE_DIR, LOG_DIR, LOG_NAMES, NONE, OPTIONAL_CARD_FIELDS,
     PLACEHOLDERS, PREFIX_TABLE, PROTOCOL_MARKER, REQUIRED, SCHEMA, SKILLS, SPEC_DIR, STATE_DIR, STATE_NAMES,
     STATIC_FILES, T0, TABLES, RUNTIME_FILES, MAINTAINER_FILES,
 )
@@ -366,8 +366,8 @@ def semantics(root: Path, ready=False, sealing=False, card_changes=None) -> list
                 if alive(entry):
                     errors.append(f'{label} is still working on {", ".join(entry["scope"]["tasks"]) or "the whole tree"}; '
                                   'the workspace is READY when every session has checkpointed')
-            if (root / LOCK).exists():
-                errors.append(f'a command lock is present: {LOCK}')
+            if lock_busy(root):
+                errors.append('another ws.py command is running; check again when it has finished')
             from .coverage import secret_warnings
             errors += [w for w in secret_warnings(root) if w.startswith(('docs/state/', 'docs/specs/', 'docs/guides/', 'ops/'))]
             if not state.get('checkpoint'):

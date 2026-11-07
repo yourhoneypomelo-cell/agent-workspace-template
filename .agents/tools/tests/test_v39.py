@@ -416,9 +416,10 @@ class ChatImport(Workspace):
                                                              'content': [{'type': 'input_text', 'text': text}]}}]
             path.write_text(''.join(json.dumps(r) + '\n' for r in records), encoding='utf-8')
         if days:
-            # A session written in the same second as init is older than the install: a filesystem that rounds
-            # timestamps to whole seconds, as the CI runners do, cannot tell the two moments apart.
-            then = time.time() - (2 if days < 0 else days * 86400)
+            # A session dated two seconds after this moment is safely newer than init, which runs next; one dated
+            # in whole days is safely older. A filesystem that rounds to seconds, as the CI runners do, still keeps
+            # them on their own side of the install.
+            then = time.time() + (2 if days < 0 else -days * 86400)
             os.utime(path, (then, then))
         return {'HOME': str(home), 'USERPROFILE': str(home), 'WS_IMPORT': '', 'WS_IMPORT_DEBUG': '1'}
 
@@ -426,23 +427,6 @@ class ChatImport(Workspace):
         args = ('start', *(('--import', importing) if importing else ()))
         out = self.ws(*args, env=env).stdout
         found = json.loads(out.splitlines()[0])['imported_sessions']
-        if not found:
-            import os as _os
-            from wslib import capture
-            home = env.get('HOME', '')
-            saved = {k: _os.environ.get(k) for k in ('HOME', 'USERPROFILE')}
-            _os.environ.update(env)
-            try:
-                sessions = capture.local_sessions(self.root, 'codex')
-            finally:
-                for k, v in saved.items():
-                    if v is None:
-                        _os.environ.pop(k, None)
-                    else:
-                        _os.environ[k] = v
-            from wslib.core import config
-            times = ', '.join(f'{p.name} {p.stat().st_mtime}' for _, p in sessions)
-            self.fail(f'imported nothing; since {config(self.root).get("chat_import_since")}; {times}')
         return found
 
     def set_up(self, *options, env):

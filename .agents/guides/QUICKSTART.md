@@ -122,16 +122,18 @@ Afterwards open the project and say "Read AGENTS.md and continue."
 A stored format changes only together with its version mark. A tool reads every older mark it knows and
 refuses a newer one with a message to upgrade, so an older tool never misreads newer data.
 
-| Part | Mark | In 3.7.0 | Older forms |
+| Part | Mark | In 3.8.0 | Older forms |
 | --- | --- | --- | --- |
 | State line in HANDOFF.md | `schema` | continuity.v3, unchanged | continuity.v2 is converted once by `ws migrate` |
-| Evidence in `docs/archive/checks/` | `rules` | Summary rules 2; evidence without the field is rules 1 | Read again with the rules it records, so it stays valid |
-| Checkpoint manifests | optional keys | `rebaselined` and `upgraded` after an upgrade | 3.6.x ignores them |
-| Template manifest | optional keys | `maintainer_files`, `source_modified` | 3.6.x ignores them |
+| Evidence in `docs/archive/checks/` | `rules` | Summary rules 2 since 3.7.0; evidence without the field is rules 1 | Read again with the rules it records, so it stays valid |
+| Checkpoint manifests | optional keys | `rebaselined` and `upgraded` after an upgrade (3.7.0); `after_upgrade` in the first session after one (3.8.0) | Older tools ignore them |
+| Template manifest | optional keys | `maintainer_files`, `source_modified` (3.7.0) | 3.6.x ignores them |
+| WORKSPACE block | optional keys | `stale_evidence`, block by default (3.8.0) | Older tools ignore it |
+| Task Scope | words | `new:<path>`, `resource:<name>`, `tree:` (3.8.0) | A 3.7.x tool reads them as plain words |
 | Lock `.agents/cache/ws.lock` | none | Unchanged since 3.6.7 | |
 | Message IDs in RECONCILE_LOG | none | Unchanged | |
 
-Nothing is retired in 3.7.0. A later version that stops reading an older mark says so here first, one
+Nothing is retired in 3.8.0. A later version that stops reading an older mark says so here first, one
 release ahead.
 
 Rules 2 reads two kinds of output differently from rules 1: a unittest run whose program prints an "OK"

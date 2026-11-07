@@ -1,14 +1,14 @@
 {
- "created_at": "2026-11-07T01:27:23+00:00",
+ "created_at": "2026-11-07T01:27:49+00:00",
  "files": {
   ".agents/README.md": "e339e27d20c0874353796a72add8121a698b1878977ff659198509c7a16fc012",
   ".agents/TEMPLATE_CHECKOUT.md": "d88bf0d92630df240179e4a5d95f8406453bfe165b107b5557797cfaeac589b7",
   ".agents/guides/DESIGN_REQUIREMENTS.md": "8e602aa86990fb6286e49c511abc6b339e0d3ea79134f821996d186dfde2ee53",
   ".agents/guides/FIXES.md": "e72d147e7e9a5b56620170e0efb2768938389e743065e231724e13d325889d24",
-  ".agents/guides/HOSTS.md": "0f3a4bff59659576f048c03c64938b4caad2573348c0e450cb970c7eaa2140db",
-  ".agents/guides/MAINTAINING.md": "015ea91643c82a1c87d0b195338a760595b9dae9a79466c3f8945f2a4b1e1cff",
-  ".agents/guides/PROTOCOL.md": "e699210f65aa3a337e8379cd197fdd5735c9117328a45bf6cfa78a5c84bbc925",
-  ".agents/guides/QUICKSTART.md": "56cb6f46f80f0433f4f6f73eb4e318869778dceb9e9cd98b80883bd971a3cd89",
+  ".agents/guides/HOSTS.md": "4cc95d8f677a67a91ec05d6204e743688c7d53147b8ddb25a74db572aa580fcc",
+  ".agents/guides/MAINTAINING.md": "f6f6c40f46e0ce28c4e5900c505ddcea73fc7f2f63e627bdb8c6876d1ac4355c",
+  ".agents/guides/PROTOCOL.md": "e77aff2a95ebad8cb37e3ea01c2ead76c60c66d85330fef06c2baaf0b7456ec4",
+  ".agents/guides/QUICKSTART.md": "e8b8ab865a44939206332d779775353587ee9330c2cc1c4b475b1224f5aee821",
   ".agents/guides/README.md": "2e5383f443a3f010d6be70b71c5ebef626fb23ac4fea037523dcb4b4cf9d649a",
   ".agents/guides/STRUCTURE.md": "e26e45ce8ceedb6b5f80bf1f03cb5f644bce1da93988f5e437af3890ee34d100",
   ".agents/skills/README.md": "d961794e1fed60ef9fe07d47d491debaa208c1df69e32768acdf52d533df8560",
@@ -16,7 +16,7 @@
   ".agents/skills/save-session-log/SKILL.md": "a7e0ddbaba42fcd62177a368b55a5fca30fe226af77ff0e64d6c632f9cc54c10",
   ".agents/skills/spec-workflow/SKILL.md": "a8b442779ce104775c4773eb94d423c52857064fb1f49e82fb2a4a82ec3163fe",
   ".agents/template/README.md": "c02f349d8920e04d5a6222e084773ddadc8d7a91515326a63e78c14b2b7ed1eb",
-  ".agents/template/TOOL_TRIAL.md": "4b205c9a6bdf247d466ecadee4006d551edc7dae6f07b01139ae009045052156",
+  ".agents/template/TOOL_TRIAL.md": "ce385c1d613ca4dde7c737b6e772f82b4c71c376242537a97966b07d3c412ec3",
   ".agents/template/examples/go_json.py": "8cb5ff7f8d354da170e3ebe570a1c5c87189f96418977859933fda04abad409c",
   ".agents/template/examples/minimal_cycle.py": "9f4704fad5a6bc2d7362579c964c75a073ab3bae9769ed35f140ad1bd6f77afb",
   ".agents/template/examples/pytest_junit.py": "2f0649d9ada0856d7b2bd8d182c5e796854dc9f5b6d96ea7c0c54e6130cf734a",
@@ -69,7 +69,7 @@
   ".agents/tools/wslib/retired.py": "34d060048f154126f1e0c3d3cdf7e3bed21d8db0c0223700b7969a073b73dbb3",
   ".agents/tools/wslib/rows.py": "3a6561e0fdda9d89c45dea07a43d499ed633520b081c80271fb629e4e9d7be0e",
   ".agents/tools/wslib/runs.py": "428171771af20430ed7b1fa99becb81ed74fdeb246cc342df431d41bbcbffeaf",
-  ".agents/tools/wslib/schema.py": "0279fde08fefe25be336f8cea39c2be5451a478aeaa0c5261f22ccf4934ce401",
+  ".agents/tools/wslib/schema.py": "4ce977757795be0a01666173ce59371a9364da29629d23855fffd4ae2eca4b23",
   ".agents/tools/wslib/snapshot.py": "c608534c7b232820deb89f7ab1255174b03b8a05951aa774e716066acae3aced",
   ".agents/tools/wslib/tables.py": "836fc273fea985a5a47d3de110010be5b1706ca661e8b9bac4d7bf87013def52",
   ".agents/tools/wslib/upgrade.py": "b75c91068e62b53c860084c7b54d7eaf4a555c69edc98fc55cb94da091df10c0",
@@ -85,5 +85,5 @@
   "CODEBUDDY.md": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
  },
  "schema": "template-manifest.v3",
- "version": "3.7.0"
+ "version": "3.8.0"
 }

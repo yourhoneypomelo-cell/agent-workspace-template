@@ -100,7 +100,8 @@ These settings files are not watched, so enabling hooks leaves a READY workspace
 The session start hook runs `ws brief --hook <host>` and returns the brief in the field the host
 injects into the model context. The per-turn hook runs `ws turn --hook <host>`: before each user
 message is handled it reminds the agent to record new requirements, decisions and preferences
-first, and adds the current task, open questions and any coverage problem. The other hooks run
+first, and adds the current task, open questions, any coverage problem, what the previous turn recorded and the
+mode a marker such as `讨论:` sets (PROTOCOL.md, "Mode markers"). The other hooks run
 `ws capture`, which reads the transcript path from the hook payload and writes
 `docs/chats/<host>/<session>.md`. On Stop it also appends `last_assistant_message` when the
 transcript file does not hold the final reply yet.

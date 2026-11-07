@@ -554,14 +554,16 @@ IMPORT_QUESTION = ("Ask the user once, in your reply: may ws start copy this pro
 
 def import_rule(root: Path, override: str | None = None) -> tuple:
     """("on", "off" or "ask", and the time sessions must be newer than, or None). An override, from "ws start
-    --import", wins, then WS_IMPORT=0 or 1 in the environment, then WORKSPACE "chat_import". The environment lets a
-    user decide for every project at once (owner decision D1)."""
+    --import", wins, then the project's own WORKSPACE "chat_import", then WS_IMPORT=0 or 1 in the environment, which
+    decides only while the project has not (owner decision D1)."""
     from .core import WorkspaceError, config
     try:
         settings = config(root)
     except (WorkspaceError, ValueError, OSError):
         settings = {}
-    rule = override or {'0': 'off', '1': 'on'}.get(os.environ.get('WS_IMPORT', ''), settings.get('chat_import', 'ask'))
+    chosen = settings.get('chat_import', 'ask')
+    rule = override or (chosen if chosen in ('on', 'off') else
+                        {'0': 'off', '1': 'on'}.get(os.environ.get('WS_IMPORT', ''), 'ask'))
     since = settings.get('chat_import_since')
     if since:
         moment = datetime.fromisoformat(str(since))

@@ -424,18 +424,7 @@ class ChatImport(Workspace):
 
     def imported(self, env, importing=None):
         args = ('start', *(('--import', importing) if importing else ()))
-        done = self.ws(*args, env={**env, 'WS_IMPORT_TRACE': '1'})
-        out = done.stdout
-        found = json.loads(out.splitlines()[0])['imported_sessions']
-        if not found:
-            self.fail(f'args {args}; ' + done.stderr[-400:])
-        if not found:
-            from wslib.core import config
-            home = env.get('HOME', '')
-            files = list(Path(home).rglob('rollout-*.jsonl')) if home else []
-            times = ', '.join(f'{p.name} {p.stat().st_mtime}' for p in files)
-            self.fail(f'imported nothing; since {config(self.root).get("chat_import_since")}; now {time.time()}; {times}')
-        return found
+        return json.loads(self.ws(*args, env=env).stdout.splitlines()[0])['imported_sessions']
 
     def set_up(self, *options, env):
         out = self.ws('init', '--goal', 'Demo', *options, env=env).stdout
@@ -474,8 +463,8 @@ class ChatImport(Workspace):
         self.assertNotIn('should git ignore', out)
         self.assertEqual(self.read('.gitignore'), 'node_modules/\n/docs/chats/\n')
 
-    def test_26_ws_import_in_the_environment_decides_for_every_project(self):
-        # Guards the user-level override: WS_IMPORT=0 never imports, WS_IMPORT=1 imports without asking.
+    def test_26_ws_import_in_the_environment_decides_while_the_project_has_not(self):
+        # The project is still "ask" after init. WS_IMPORT then decides: 0 imports nothing, 1 imports.
         self.init()
         self.save()
         env = self.home(('new', 'Use SQLite for storage', -1))

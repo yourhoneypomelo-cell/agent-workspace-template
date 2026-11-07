@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import sys
 from pathlib import Path
 
 from . import coverage, evidence, logs, validate
@@ -293,8 +292,6 @@ def start(root: Path, writer: str | None, force: bool, reason: str | None, sessi
             logs.append(root, 'MAINTENANCE_LOG', {'Event': 'takeover' if previous else 'start', 'Detail': short(detail, 400)})
     from .capture import import_all, import_rule
     rule, since = import_rule(root, importing)
-    if os.environ.get('WS_IMPORT_TRACE'):
-        print(f'import trace: importing {importing!r}, rule {rule}, since {since}', file=sys.stderr)
     imported = import_all(root, since) if rule == 'on' else {}
     problems = validate.semantics(root, sealing=True)
     emit({'writer': writer, 'revision': state['revision'], 'took_over_from': previous, 'unsaved_changes': changes,

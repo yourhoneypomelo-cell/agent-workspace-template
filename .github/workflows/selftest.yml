@@ -1,0 +1,47 @@
+# Self-tests of the template on Windows, macOS and Linux, with the oldest supported Python and the newest.
+# Maintainer file: releases are built from the template's own file list, so this never reaches a project.
+name: selftest
+
+on:
+  push:
+    branches: [master, 'dev/**']
+  pull_request:
+  workflow_dispatch:
+
+env:
+  PYTHONUTF8: '1'
+  PYTHONDONTWRITEBYTECODE: '1'
+  WS_IMPORT: '0'
+
+jobs:
+  fast:
+    name: ${{ matrix.os }}, Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ['3.9', '3.x']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Static and fast tiers
+        run: python .agents/tools/tests/run.py --tier fast
+      - name: Tests of 3.9.0 (system lock, permissions, messages, redaction, chat import, hook paths)
+        working-directory: .agents/tools/tests
+        run: python -m unittest test_v39
+
+  full:
+    name: full tier, ubuntu-latest, newest Python
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Full tier
+        run: python .agents/tools/tests/run.py --tier full

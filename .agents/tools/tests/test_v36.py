@@ -45,7 +45,7 @@ class Tasks(Workspace):
             self.ws('set', rid, '--set', 'status=removed', '--set', 'reason=user dropped it')
         out = self.ws('add', 'requirement', '--set', 'requirement=支持把所有笔记导出成 CSV 表格', '--set', 'acceptance=x').stdout
         self.assertIn('Closest retired requirements', out)
-        self.assertIn('R2 removed', out.split('\n')[2])
+        self.assertIn('R2 removed', out.split('Closest retired requirements')[1].split('\n')[1])
         self.assertNotIn('Closest retired', self.ws('add', 'requirement', '--set', 'requirement=Add a dark theme',
                                                     '--set', 'acceptance=x').stdout)
 

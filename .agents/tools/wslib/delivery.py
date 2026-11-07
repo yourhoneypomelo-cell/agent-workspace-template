@@ -31,7 +31,8 @@ def _runs(root: Path, ids: set) -> dict:
             continue
         for rid in set(data.get('for_tasks') or []) & ids:
             found[rid].append(data)
-    return {rid: sorted(runs, key=lambda d: d.get('started_at') or '') for rid, runs in found.items()}
+    # Two runs can start within one second; every run after the first starts at a later workspace revision.
+    return {rid: sorted(runs, key=lambda d: (d.get('started_at') or '', d.get('revision') or 0)) for rid, runs in found.items()}
 
 
 def shortcuts(root: Path, previous, rows: list) -> list:

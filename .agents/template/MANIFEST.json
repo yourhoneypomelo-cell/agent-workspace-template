@@ -1,5 +1,5 @@
 {
- "created_at": "2026-11-07T01:27:49+00:00",
+ "created_at": "2026-11-07T02:10:28+00:00",
  "files": {
   ".agents/README.md": "e339e27d20c0874353796a72add8121a698b1878977ff659198509c7a16fc012",
   ".agents/TEMPLATE_CHECKOUT.md": "d88bf0d92630df240179e4a5d95f8406453bfe165b107b5557797cfaeac589b7",
@@ -44,7 +44,7 @@
   ".agents/tools/tests/test_static.py": "fdf9a1617eece1b13325f3961966e31a85e8003e9a32c50b849bafadd527dd83",
   ".agents/tools/tests/test_tracking.py": "6692c82adadb0e83918a96786f16cedcdd8f9c0612c96088500651fc7817b66a",
   ".agents/tools/tests/test_upgrade.py": "260053333b76d62133e7579e0c941aab1db6cd064e134ecc50f98322025ff2ad",
-  ".agents/tools/tests/test_v36.py": "5bfa71e9e3f464afabe829fec3f7b4df58e5ccd7c0594a7a14b51f8c712fa251",
+  ".agents/tools/tests/test_v36.py": "c6b3372ff1b8ba14856323e4cd021f983824c521009d9fae590c7d9fe1e714d4",
   ".agents/tools/tests/test_v38.py": "eea05e9fe663feee4b36d528f351f677dc5f2213a8a699a8ccefc4f98bc4a82c",
   ".agents/tools/tests/test_workflow.py": "fe20e0649eac3882b2d98a721d85e693966eebf7581c4db6b10f0960f87cbbf2",
   ".agents/tools/ws.py": "d8df99109e755f507e73e3e01dfd71690353ad6b16f7e9176beed2409f90ca37",
@@ -54,7 +54,7 @@
   ".agents/tools/wslib/core.py": "0676e5ff52139f329d294737d6f3f66c802dd703f819926cecf3281aa1952d56",
   ".agents/tools/wslib/coverage.py": "2898ed49f1b3cc87d99f83f7ee642c102b6083f84c1acbe6836f8ec99995b9aa",
   ".agents/tools/wslib/defaults.py": "933d9fe4ad25704a5a3d34de3c3d57377c8310b27fb096b7f4f9b85eba647ed5",
-  ".agents/tools/wslib/delivery.py": "0dacb91b2dc636b4ccbb06712255a5feab56a44355b38de8a192f05744994218",
+  ".agents/tools/wslib/delivery.py": "d67dc70e1727cf0cdee6e3ab16d4b2e345ac872c4c64eb0b98d8ea8d57dfda43",
   ".agents/tools/wslib/distribution.py": "e73fb91afba5fdf99b6a673969cbbfc65d03bac4ab3f763cf0020c854b4b8211",
   ".agents/tools/wslib/doctor.py": "c889bc162f6dfe0fdbbfc6306ba53847db1bd10681ffa68ef96057fd5d8210c5",
   ".agents/tools/wslib/dsh.py": "3627bcf93d102c20adb951401f7c6c27256cbd8f92ac00a7dc723d073c0e6e58",

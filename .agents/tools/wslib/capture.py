@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -541,8 +542,12 @@ def import_sessions(root: Path, host: str, since: float | None = None) -> dict:
     if host == 'dsh':
         from . import dsh
         return dsh.import_sessions(root, since=since)
+    found = local_sessions(root, host)
+    if os.environ.get('WS_IMPORT_DEBUG') and host == 'codex':
+        print(f'import debug: since {since}; ' +
+              ', '.join(f'{p.name} mtime {p.stat().st_mtime}' for _, p in found) or 'no session found', file=sys.stderr)
     results = [capture(root, host, 'import', {'session_id': sid, 'transcript_path': str(path)})
-               for sid, path in local_sessions(root, host) if since is None or path.stat().st_mtime >= since]
+               for sid, path in found if since is None or path.stat().st_mtime >= since]
     return {'host': host, 'sessions': len(results), 'messages': sum(r.get('messages', 0) for r in results)}
 
 

@@ -419,7 +419,7 @@ class ChatImport(Workspace):
             # timestamps to whole seconds, as the CI runners do, cannot tell the two moments apart.
             then = time.time() - (2 if days < 0 else days * 86400)
             os.utime(path, (then, then))
-        return {'HOME': str(home), 'USERPROFILE': str(home), 'WS_IMPORT': ''}
+        return {'HOME': str(home), 'USERPROFILE': str(home), 'WS_IMPORT': '', 'WS_IMPORT_DEBUG': '1'}
 
     def imported(self, env):
         return json.loads(self.ws('start', env=env).stdout.splitlines()[0])['imported_sessions']

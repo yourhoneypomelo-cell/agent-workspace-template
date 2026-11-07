@@ -424,7 +424,11 @@ class ChatImport(Workspace):
 
     def imported(self, env, importing=None):
         args = ('start', *(('--import', importing) if importing else ()))
-        return json.loads(self.ws(*args, env=env).stdout.splitlines()[0])['imported_sessions']
+        found = json.loads(self.ws(*args, env={**env, 'WS_IMPORT_TRACE': '1'}).stdout.splitlines()[0])['imported_sessions']
+        if not found and importing:
+            trace = self.root / '.agents/cache/import-trace.txt'
+            self.fail(trace.read_text(encoding='utf-8') if trace.is_file() else 'no trace')
+        return found
 
     def set_up(self, *options, env):
         out = self.ws('init', '--goal', 'Demo', *options, env=env).stdout

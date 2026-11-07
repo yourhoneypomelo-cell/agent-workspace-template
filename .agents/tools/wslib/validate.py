@@ -597,6 +597,9 @@ def advisories(root: Path) -> list:
         result += spec_warnings(root, data)
         result += secret_warnings(root, chats=True)
         settings = config(root)
+        from .capture import IMPORT_QUESTION, import_rule
+        if import_rule(root)[0] == 'ask' and state_of(root).get('mode') == 'active':
+            result.append('Chat import is not decided. ' + IMPORT_QUESTION)
         if settings['credentials'] == 'plain' and not settings['credential_files']:
             result.append('WORKSPACE "credentials" is "plain" but "credential_files" names no file, so every credential '
                           'is redacted. Name the files where the user keeps them as written, such as '

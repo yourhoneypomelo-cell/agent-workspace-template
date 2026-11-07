@@ -45,7 +45,7 @@ class Review(Workspace):
 
     def test_reconcile_answers_the_nudge_and_bad_payloads_never_fail(self):
         self.init()
-        text = self.read('docs/state/ARCHITECTURE.md').replace('"credentials": "ask"}', '"credentials": "ask", "stop_nudge": true}')
+        text = self.read('docs/state/ARCHITECTURE.md').replace('"credentials": "ask"', '"credentials": "ask", "stop_nudge": true')
         self.assertIn('"stop_nudge": true', text)
         self.write('docs/state/ARCHITECTURE.md', text)
         self.capture_and_turn('s1', 'use SQLite')

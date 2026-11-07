@@ -536,25 +536,48 @@ def local_sessions(root: Path, host: str) -> list:
     return found[-50:]
 
 
-def import_sessions(root: Path, host: str) -> dict:
+def import_sessions(root: Path, host: str, since: float | None = None) -> dict:
+    """Copy this project's sessions of one host. With since, a session last written before that time stays out."""
     if host == 'dsh':
         from . import dsh
-        return dsh.import_sessions(root)
+        return dsh.import_sessions(root, since=since)
     results = [capture(root, host, 'import', {'session_id': sid, 'transcript_path': str(path)})
-               for sid, path in local_sessions(root, host)]
+               for sid, path in local_sessions(root, host) if since is None or path.stat().st_mtime >= since]
     return {'host': host, 'sessions': len(results), 'messages': sum(r.get('messages', 0) for r in results)}
 
 
-def import_all(root: Path) -> dict:
+IMPORT_QUESTION = ("Ask the user once, in your reply: may ws start copy this project's chats from the AI tools on this "
+                   'machine (Codex, Kiro, Kimi Code, Gemini, Qwen Code, Qoder, CodeBuddy, WorkBuddy and DeepSeek '
+                   'Harness) into docs/chats/, leaving out chats from before the workspace was set up? Then set '
+                   'WORKSPACE "chat_import" in docs/state/ARCHITECTURE.md to "on" or "off".')
+
+
+def import_rule(root: Path) -> tuple:
+    """("on", "off" or "ask", and the time sessions must be newer than, or None). WS_IMPORT=0 or 1 in the environment
+    wins over WORKSPACE "chat_import", so a user can decide for every project at once (owner decision D1)."""
+    from .core import WorkspaceError, config
+    try:
+        settings = config(root)
+    except (WorkspaceError, ValueError, OSError):
+        settings = {}
+    rule = {'0': 'off', '1': 'on'}.get(os.environ.get('WS_IMPORT', ''), settings.get('chat_import', 'ask'))
+    since = settings.get('chat_import_since')
+    if since:
+        moment = datetime.fromisoformat(str(since))
+        since = (moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)).timestamp()
+    return rule, since or None
+
+
+def import_all(root: Path, since: float | None = None) -> dict:
     """Copy this project's sessions from every host store found on this machine. Never raises."""
     found = {}
     for host in AUTO_IMPORT:
         try:
             if host == 'dsh':
                 from . import dsh
-                result = dsh.import_sessions(root, automatic=True)
+                result = dsh.import_sessions(root, automatic=True, since=since)
             else:
-                result = import_sessions(root, host)
+                result = import_sessions(root, host, since)
         except Exception:  # an unreadable store of one host must not stop the others
             continue
         if result['sessions']:

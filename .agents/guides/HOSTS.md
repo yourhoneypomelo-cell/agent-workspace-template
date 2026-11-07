@@ -135,8 +135,16 @@ Codex asks you to review and trust project hooks once, with `/hooks`, before the
 
 Some chats never pass through a hook: Kimi Code keeps hooks only in its user config, Codex hooks
 need trust, and Antigravity's Stop hook can fire before the final reply is written. `ws start`
-therefore imports this project's sessions from the stores it can read in about a second. The
-others are imported on request.
+therefore imports this project's sessions from the stores it can read in about a second, once the
+user agrees. The others are imported on request.
+
+`ws init` asks the agent to put the question to the user once, and the answer goes into WORKSPACE
+`"chat_import"` in ARCHITECTURE.md: `"on"`, `"off"`, or `"ask"` until decided. While it is `"ask"`,
+`ws start` imports nothing and `ws check` repeats the question. Sessions last written before `init`
+are never imported automatically; `"chat_import_since"` records that moment. `WS_IMPORT=0` or
+`WS_IMPORT=1` in the user's environment decides for every project at once. In a git project, `init`
+also asks whether git should ignore `docs/chats/`; `--chats-git ignore`, or the line `/docs/chats/`
+in `.gitignore`, keeps the copies out of commits.
 
 | Host | Store | Matched by | When |
 | --- | --- | --- | --- |
@@ -149,8 +157,7 @@ others are imported on request.
 
 Cursor and Antigravity stores must be read in full, which took 20 to 160 s on a machine with
 thousands of sessions. Results are cached in `.agents/cache/session-scan.json`, so a second run is
-faster. Set `WS_IMPORT=0` to skip the import at `ws start`. An import updates existing transcripts
-in place.
+faster. An import updates existing transcripts in place.
 
 DeepSeek Harness stores sessions in `~/.dsh/sessions/--<project key>--/`, compressed with zstd. `ws start`
 imports them when the running Python can decompress zstd: Python 3.14 or newer, or the `backports.zstd`

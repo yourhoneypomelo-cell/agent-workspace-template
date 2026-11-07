@@ -294,7 +294,7 @@ class Messages(Workspace):
     def test_24_the_stop_nudge_lets_a_pure_question_pass(self):
         self.init()
         text = self.read('docs/state/ARCHITECTURE.md')
-        self.write('docs/state/ARCHITECTURE.md', text.replace('"credentials": "ask"}', '"credentials": "ask", "stop_nudge": true}'))
+        self.write('docs/state/ARCHITECTURE.md', text.replace('"credentials": "ask"', '"credentials": "ask", "stop_nudge": true'))
         stop = {'stdin': json.dumps({'session_id': 's1'})}
         self.prompt('What does the demo return?')
         self.assertEqual(self.ws('capture', '--host', 'claude', '--event', 'Stop', **stop).stdout, '')
@@ -388,6 +388,72 @@ class Redaction(Workspace):
         done = self.ws('add', 'question', '--set', 'question=Server login? password: Hunter2Fake9x')
         self.assertIn('ask the user how credentials are kept', done.stderr)
         self.assertIn('password: [REDACTED]', self.read('docs/state/REQUIREMENTS.md'))
+
+
+class ChatImport(Workspace):
+    def home(self, *sessions):
+        """A home folder holding Codex sessions of this project, given as (name, text, days old)."""
+        home = self.parent / 'home'
+        for name, text, days in sessions:
+            path = home / '.codex/sessions/2026/11/07' / f'rollout-{name}.jsonl'
+            path.parent.mkdir(parents=True, exist_ok=True)
+            records = [{'type': 'session_meta', 'payload': {'id': name, 'cwd': str(self.root)}},
+                       {'type': 'response_item', 'payload': {'type': 'message', 'role': 'user',
+                                                             'content': [{'type': 'input_text', 'text': text}]}}]
+            path.write_text(''.join(json.dumps(r) + '\n' for r in records), encoding='utf-8')
+            if days:
+                then = time.time() - days * 86400
+                os.utime(path, (then, then))
+        return {'HOME': str(home), 'USERPROFILE': str(home), 'WS_IMPORT': ''}
+
+    def imported(self, env):
+        return json.loads(self.ws('start', env=env).stdout.splitlines()[0])['imported_sessions']
+
+    def set_up(self, *options, env):
+        out = self.ws('init', '--goal', 'Demo', *options, env=env).stdout
+        self.ws('add', 'requirement', '--set', 'requirement=Demo returns 4', '--set', 'acceptance=listed')
+        self.save()
+        return out
+
+    def test_26_start_imports_nothing_until_the_user_decides(self):
+        # ws start copied every chat of the folder from nine host stores, chats from before the setup included.
+        env = self.home(('new', 'Use SQLite for storage', 0))
+        self.assertIn('may ws start copy', self.set_up(env=env))
+        self.assertIn('"chat_import": "ask"', self.read('docs/state/ARCHITECTURE.md'))
+        started = self.ws('start', env=env).stdout
+        self.assertEqual(json.loads(started.splitlines()[0])['imported_sessions'], {})
+        self.assertIn('Chat import is not decided', started)
+
+    def test_26_an_answer_at_init_imports_only_chats_from_after_the_setup(self):
+        env = self.home(('old', 'An old chat about pricing', 30))
+        self.assertNotIn('may ws start copy', self.set_up('--chat-import', 'on', env=env))
+        self.home(('new', 'Use SQLite for storage', 0))
+        self.assertEqual(self.imported(env), {'codex': 1})
+        self.assertIn('Use SQLite', self.read('docs/chats/codex/rollout-new.md'))
+        self.assertFalse((self.root / 'docs/chats/codex/rollout-old.md').exists())
+        self.assertNotIn('Chat import is not decided', self.ws('check', env=env, expect=None).stdout)
+
+    def test_26_a_git_project_is_asked_whether_git_ignores_the_chats(self):
+        (self.root / '.git').mkdir()
+        out = self.ws('init', '--goal', 'Demo', '--chat-import', 'off').stdout
+        self.assertIn('should git ignore docs/chats/', out)
+        self.assertNotIn('may ws start copy', out)
+
+    def test_26_ignore_adds_docs_chats_to_the_project_gitignore(self):
+        (self.root / '.git').mkdir()
+        self.write('.gitignore', 'node_modules/')
+        out = self.ws('init', '--goal', 'Demo', '--chat-import', 'off', '--chats-git', 'ignore').stdout
+        self.assertNotIn('should git ignore', out)
+        self.assertEqual(self.read('.gitignore'), 'node_modules/\n/docs/chats/\n')
+
+    def test_26_ws_import_in_the_environment_decides_for_every_project(self):
+        # Guards the user-level override: WS_IMPORT=0 never imports, WS_IMPORT=1 imports without asking.
+        self.init()
+        self.save()
+        env = self.home(('new', 'Use SQLite for storage', 0))
+        self.assertEqual(self.imported({**env, 'WS_IMPORT': '0'}), {})
+        self.save()
+        self.assertEqual(self.imported({**env, 'WS_IMPORT': '1'}), {'codex': 1})
 
 
 if __name__ == '__main__':

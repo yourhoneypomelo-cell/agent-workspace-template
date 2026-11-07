@@ -196,7 +196,7 @@ LOG_HEADERS = {
 }
 
 # credentials: how the project keeps passwords, keys and tokens, as the user decided. ask = not decided yet.
-DEFAULT_CONFIG = {'ownership': 'solo', 'exclude': [], 'credentials': 'ask'}
+DEFAULT_CONFIG = {'ownership': 'solo', 'exclude': [], 'credentials': 'ask', 'chat_import': 'ask'}
 CREDENTIAL_RULES = ('ask', 'plain', 'redact')
 # AGENTS.md is read in full at every session start; 14 KB leaves room under Antigravity's 24,000-byte cut.
 BUDGETS = {'AGENTS.md': 14000, 'T0': 26000, 'state': 16000, 'log': 64000}

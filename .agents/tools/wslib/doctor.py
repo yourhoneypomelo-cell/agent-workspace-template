@@ -186,9 +186,13 @@ def state(root: Path, add):
     except WorkspaceError as error:
         add('problems', 'config', str(error), f'repair the WORKSPACE block in docs/state/ARCHITECTURE.md, then {WS} check')
         return
-    imports = 'off (WS_IMPORT=0)' if os.environ.get('WS_IMPORT', '1') == '0' else 'on'
-    add('facts', 'config', f'ownership {settings["ownership"]}, credentials {settings["credentials"]}, chat import at '
-        f'start {imports}')
+    from .capture import import_rule
+    rule, since = import_rule(root)
+    imports = rule + (f' (WS_IMPORT={os.environ["WS_IMPORT"]})' if os.environ.get('WS_IMPORT') in ('0', '1') else '') + (
+        ', chats from before the setup left out' if rule == 'on' and since else '')
+    kept = f' in {len(settings["credential_files"])} named files' if settings['credentials'] == 'plain' else ''
+    add('facts', 'config', f'ownership {settings["ownership"]}, credentials {settings["credentials"]}{kept}, chat '
+        f'import at start {imports}')
 
 
 def tool(root: Path, add):

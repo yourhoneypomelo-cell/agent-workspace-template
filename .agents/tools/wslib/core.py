@@ -332,7 +332,26 @@ def config(root: Path) -> dict:
     pending = merged.get('pending_adapters', [])
     if not isinstance(pending, list) or any(not isinstance(p, str) for p in pending):
         raise WorkspaceError('WORKSPACE pending_adapters must be a list of paths')
+    if merged['chat_import'] not in ('ask', 'on', 'off'):
+        raise WorkspaceError('WORKSPACE chat_import must be "ask" (the user has not decided), "on" (ws start copies '
+                             "this project's chats from host stores) or \"off\"")
+    since = merged.get('chat_import_since')
+    try:
+        if since is not None:
+            dt.datetime.fromisoformat(str(since))
+    except ValueError:
+        raise WorkspaceError('WORKSPACE chat_import_since must be a time such as "2026-11-07T08:00:00+00:00"') from None
     return merged
+
+
+def with_settings(text: str, changes: dict) -> str:
+    """ARCHITECTURE.md with keys of the WORKSPACE block set. The block stays one line of JSON."""
+    found = CONFIG_RE.search(text)
+    if not found:
+        raise WorkspaceError(f'{ARCHITECTURE} needs one WORKSPACE:START/WORKSPACE:END block')
+    data = json.loads(found.group(1))
+    data.update(changes)
+    return text[:found.start(1)] + json.dumps(data, ensure_ascii=False) + text[found.end(1):]
 
 
 # Watched files and content fingerprints.

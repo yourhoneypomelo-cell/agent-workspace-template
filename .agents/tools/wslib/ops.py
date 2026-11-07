@@ -10,12 +10,12 @@ from . import coverage, evidence, logs, validate
 from .coverage import redact
 from .core import (
     WorkspaceError, atomic_write, card, card_text, checkpoint_of, config, describe_drift, difference, drift_count,
-    fingerprint, now, preview, read, rewatch, safe_path, save_state, sha, state_of, with_goal,
+    fingerprint, now, preview, read, rewatch, safe_path, save_state, sha, state_of, with_goal, with_settings,
     with_state, write, writer_label, session_identity, same_session, other_session, other_session_text, delegated,
     host_process, host_alive, same_host, other_host, live_host_text,
 )
 from .locks import lock
-from .schema import CHECKPOINTS_KEPT, HANDOFF, LOG_NAMES, NONE, REQUIREMENTS, SCHEMA
+from .schema import ARCHITECTURE, CHECKPOINTS_KEPT, HANDOFF, LOG_NAMES, NONE, REQUIREMENTS, SCHEMA
 from .views import (  # noqa: F401  (re-exported)
     INIT_CARD, TURN_REMINDER, brief, recent_minutes, stale_card_fields, status, turn_context, turn_reminder,
 )
@@ -124,8 +124,26 @@ def ledger(root: Path) -> dict:
     return (cp or {}).get('ledger') or {}
 
 
+GIT_QUESTION = ('Ask the user once, in your reply: this project uses git; should git ignore docs/chats/, where copies '
+                'of the chats are kept? If so, add the line /docs/chats/ to .gitignore.')
+
+
+def in_git(root: Path) -> bool:
+    return any((folder / '.git').exists() for folder in (root, *root.parents))
+
+
+def ignore_chats(root: Path):
+    """Add docs/chats/ to the project's .gitignore. docs/chats/.gitignore belongs to the template, so an upgrade
+    would replace a line written there."""
+    path = root / '.gitignore'
+    text = path.read_text(encoding='utf-8') if path.is_file() else ''
+    if not re.search(r'(?m)^/?docs/chats/?[ \t]*$', text):
+        atomic_write(path, text + ('\n' if text and not text.endswith('\n') else '') + '/docs/chats/\n')
+
+
 # Lifecycle
-def init(root: Path, goal_text: str, writer: str | None, session: str | None = None):
+def init(root: Path, goal_text: str, writer: str | None, session: str | None = None, chat_import: str | None = None,
+         chats_git: str | None = None):
     goal_text = redact(' '.join(goal_text.split()))
     if not goal_text:
         raise WorkspaceError('--goal must be one non-empty sentence')
@@ -146,12 +164,22 @@ def init(root: Path, goal_text: str, writer: str | None, session: str | None = N
                      last_write_at=now(), host=host_process())
         write(root, HANDOFF, with_state(handoff, state))
         write(root, REQUIREMENTS, requirements)
+        # Chats from before this moment stay out of every import (owner decision D1).
+        write(root, ARCHITECTURE, with_settings(read(root, ARCHITECTURE), {'chat_import': chat_import or 'ask',
+                                                                           'chat_import_since': now()}))
+        if chats_git == 'ignore':
+            ignore_chats(root)
         logs.append(root, 'REQUIREMENT_LOG', {'ID': 'goal', 'Event': 'set', 'Detail': short(goal_text), 'Source': 'user'})
         logs.append(root, 'MAINTENANCE_LOG', {'Event': 'init', 'Detail': f'writer {writer}; schema {SCHEMA}'})
         # Seal at once, so a session that dies before its first checkpoint still leaves a change baseline.
         state['checkpoint'] = seal(root, writer)
         save_state(root, state)
     emit({'mode': 'active', 'revision': state['revision'], 'writer': writer})
+    if not chat_import and os.environ.get('WS_IMPORT', '') not in ('0', '1'):
+        from .capture import IMPORT_QUESTION
+        print(IMPORT_QUESTION)
+    if not chats_git and in_git(root):
+        print(GIT_QUESTION)
 
 
 def start(root: Path, writer: str | None, force: bool, reason: str | None, session: str | None = None, tasks=()):
@@ -261,10 +289,9 @@ def start(root: Path, writer: str | None, force: bool, reason: str | None, sessi
             if reason:
                 detail += f'; {redact(reason)}'
             logs.append(root, 'MAINTENANCE_LOG', {'Event': 'takeover' if previous else 'start', 'Detail': short(detail, 400)})
-    imported = {}
-    if os.environ.get('WS_IMPORT', '1') != '0':
-        from .capture import import_all
-        imported = import_all(root)
+    from .capture import import_all, import_rule
+    rule, since = import_rule(root)
+    imported = import_all(root, since) if rule == 'on' else {}
     problems = validate.semantics(root, sealing=True)
     emit({'writer': writer, 'revision': state['revision'], 'took_over_from': previous, 'unsaved_changes': changes,
           'imported_sessions': imported})

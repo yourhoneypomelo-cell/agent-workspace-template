@@ -110,6 +110,10 @@ def parser() -> argparse.ArgumentParser:
     init.add_argument('--goal', required=True)
     init.add_argument('--writer')
     init.add_argument('--session', help='session key printed by the brief hook')
+    init.add_argument('--chat-import', choices=('on', 'off'), help="the user's answer: may ws start copy this "
+                      "project's chats from host stores into docs/chats/")
+    init.add_argument('--chats-git', choices=('keep', 'ignore'), help="the user's answer for a git project: "
+                      'ignore adds docs/chats/ to .gitignore')
     start = subs.add_parser('start')
     start.add_argument('--writer')
     start.add_argument('--session', help='session key printed by the brief hook; resumes ownership after compaction')
@@ -510,7 +514,7 @@ def main(argv=None) -> int:
             print(f'Workspace: {"FAIL" if errors else label}')
             return 1 if errors else 0
         elif args.command == 'init':
-            ops.init(root, args.goal, args.writer, args.session)
+            ops.init(root, args.goal, args.writer, args.session, args.chat_import, args.chats_git)
         elif args.command == 'start':
             ops.start(root, args.writer, args.force, args.reason, args.session, tasks=[t for v in args.task for t in v.replace(',', ' ').split()])
         elif args.command == 'add':

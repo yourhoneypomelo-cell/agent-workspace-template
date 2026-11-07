@@ -35,8 +35,8 @@ for the Stop nudge, the per-turn record and the mode markers.
 | `check [--ready] [--strict]` | no | Validate. `--ready` also requires a released, sealed, covered workspace |
 | `note TEXT` | yes | One progress line in SESSION_LOG. No validation, no seal |
 | `idea TEXT` | yes | An idea the user did not confirm, as a bullet in the Idea pool of REQUIREMENTS.md, without an ID |
-| `init --goal TEXT` | yes | First run only. Records the goal and claims the workspace |
-| `start [--session KEY]` | yes | Claims the workspace, lists unsaved files, imports sessions from the host stores (`WS_IMPORT=0` skips the import). The same session resumes instead of taking over |
+| `init --goal TEXT` | yes | First run only. Records the goal and claims the workspace. `--chat-import on\|off` and, in a git project, `--chats-git keep\|ignore` record the user's answers; without them it prints the questions to ask |
+| `start [--session KEY]` | yes | Claims the workspace, lists unsaved files, and imports this project's sessions from the host stores when WORKSPACE `"chat_import"` is `"on"`, leaving out sessions from before `init`. The same session resumes instead of taking over |
 | `add TABLE --set f=v` | yes | Adds a row with the next free ID and logs it |
 | `set ID --set f=v` | yes | Changes a row. Status changes and summary edits are logged |
 | `card --set f=v` | yes | Changes handoff card fields |

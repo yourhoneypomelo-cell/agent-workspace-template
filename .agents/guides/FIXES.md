@@ -186,3 +186,8 @@ every test named here exists.
 | 3.9.0 | ws check did not scan the transcripts in docs/chats | `test_v39.Redaction.test_27_ws_check_scans_the_saved_transcripts` | fails |
 | 3.9.0 | "plain" kept every credential as written everywhere, transcripts included; it now applies only to the files credential_files names (owner decision D2) | `test_v39.Redaction.test_27_d2_plain_keeps_credentials_only_in_the_files_the_owner_names` | fails |
 | 3.9.0 | In ask mode a credential is redacted and no write is refused (owner decision D2) | `test_v39.Redaction.test_27_ask_mode_refuses_no_write` | guard |
+| 3.9.0 | ws start copied every chat of the folder from nine host stores without asking, chats from before the setup included; it now waits for WORKSPACE "chat_import" (owner decision D1) | `test_v39.ChatImport.test_26_start_imports_nothing_until_the_user_decides` | fails |
+| 3.9.0 | With import on, chats last written before init stay out | `test_v39.ChatImport.test_26_an_answer_at_init_imports_only_chats_from_after_the_setup` | fails |
+| 3.9.0 | A git project was never asked whether docs/chats/ belongs in commits | `test_v39.ChatImport.test_26_a_git_project_is_asked_whether_git_ignores_the_chats` | fails |
+| 3.9.0 | init --chats-git ignore adds docs/chats/ to the project's .gitignore, which an upgrade never replaces | `test_v39.ChatImport.test_26_ignore_adds_docs_chats_to_the_project_gitignore` | fails |
+| 3.9.0 | WS_IMPORT=0 or 1 in the user's environment decides for every project | `test_v39.ChatImport.test_26_ws_import_in_the_environment_decides_for_every_project` | guard |

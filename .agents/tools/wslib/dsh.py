@@ -159,12 +159,12 @@ def messages(text: str) -> list:
     return result
 
 
-def import_sessions(root: Path, automatic: bool = False) -> dict:
+def import_sessions(root: Path, automatic: bool = False, since: float | None = None) -> dict:
     """Write docs/chats/dsh/<session>.md for each root session of this project. Unchanged files are rewritten
-    with the same text, so a second import changes nothing."""
+    with the same text, so a second import changes nothing. With since, older sessions stay out."""
     from .capture import _index, rewrite
     from .locks import lock
-    found = sessions(root)
+    found = [(sid, path) for sid, path in sessions(root) if since is None or path.stat().st_mtime >= since]
     if not found:
         return {'host': 'dsh', 'sessions': 0, 'messages': 0}
     decode, reason = decoder(in_process=automatic)

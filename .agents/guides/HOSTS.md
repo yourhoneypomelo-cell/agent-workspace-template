@@ -71,6 +71,11 @@ Hook commands use paths relative to the project root, except Antigravity's, whic
 `.agents/`. The tool finds the project from its own location, so either works. They start with the first of
 `python`, `python3` and `py -3` that runs Python 3.9 or newer on this machine; `ws hooks enable <host> --python
 <command>` writes another. An older Python prints which version ws.py needs, and a hook then exits quietly.
+A host that starts hooks in another folder, such as a subfolder the user opened, cannot find the relative path:
+`ws hooks enable <host> --absolute` writes the interpreter and ws.py as quoted absolute paths with forward slashes,
+with PowerShell's `&` in front where a host names a PowerShell command. The files then point at this copy of the
+project, so run it again after moving the project; `ws doctor` names hooks that point elsewhere. Which hosts need
+it is open until the host trials of owner decision D5, so the default stays relative.
 `ws hooks disable <host>` takes the tool's entries out again: the file gets its bytes from before the first
 enable back when nothing else changed, and a file left with no hooks is removed.
 

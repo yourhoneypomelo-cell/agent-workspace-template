@@ -150,6 +150,28 @@ def with_python(value, python: str):
     return value
 
 
+def absolute_command(root: Path, python: str | None) -> str:
+    """The interpreter and ws.py as quoted absolute paths with forward slashes, which bash, cmd and PowerShell all
+    accept; cmd reads an unquoted forward slash as a switch. Without --python, the interpreter running this command."""
+    import shutil
+    import sys
+    parts = python.split() if python else [sys.executable]
+    program = Path(shutil.which(parts[0]) or parts[0]).as_posix()
+    script = (root / '.agents/tools/ws.py').resolve().as_posix()
+    return ' '.join([f'"{program}"', *parts[1:], f'"{script}"'])
+
+
+def with_absolute(value, command: str):
+    """Hook settings that run ws.py by absolute paths, so a host may start them from any folder. PowerShell runs a
+    quoted program only after the call operator &."""
+    if isinstance(value, dict):
+        return {k: ('& ' if k == 'powershell' else '') + command + re.sub(r'^python (?:\.agents/)?tools/ws\.py', '', v)
+                if k in COMMAND_KEYS and isinstance(v, str) else with_absolute(v, command) for k, v in value.items()}
+    if isinstance(value, list):
+        return [with_absolute(item, command) for item in value]
+    return value
+
+
 def merge_hooks(existing, ours: dict) -> dict:
     """Add our hooks to a host settings file. User hooks are kept; our older entries are replaced."""
     if not isinstance(existing, dict):
@@ -192,9 +214,10 @@ def merge_hooks(existing, ours: dict) -> dict:
 LEGACY_HOOK_FILES = {'kiro': ('.kiro/hooks/workspace-brief.json',)}
 
 
-def enable_hooks(root: Path, host: str, show: bool, python: str | None = None):
+def enable_hooks(root: Path, host: str, show: bool, python: str | None = None, absolute: bool = False):
     rel, settings = hook_settings(host)
-    settings = with_python(settings, python or interpreter())
+    settings = with_absolute(settings, absolute_command(root, python)) if absolute else \
+        with_python(settings, python or interpreter())
     path = root / rel
     for old in LEGACY_HOOK_FILES.get(host, ()):
         legacy = root / old

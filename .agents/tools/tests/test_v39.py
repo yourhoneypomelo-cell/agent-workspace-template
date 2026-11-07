@@ -456,5 +456,49 @@ class ChatImport(Workspace):
         self.assertEqual(self.imported({**env, 'WS_IMPORT': '1'}), {'codex': 1})
 
 
+class HookPaths(Workspace):
+    def hook(self, rel, *keys):
+        value = json.loads(self.read(rel))
+        for key in keys:
+            value = value[key]
+        return value
+
+    def run_from(self, command, folder):
+        return subprocess.run(command, shell=True, cwd=folder, input=json.dumps({'session_id': 's1', 'prompt': 'hi'}),
+                              capture_output=True, text=True, encoding='utf-8', env=ENV)
+
+    def test_25_absolute_hooks_run_from_a_subfolder_of_a_path_with_spaces(self):
+        from wslib import distribution
+        from support import TEMPLATE
+        self.root = self.parent / 'my project'
+        distribution.install(TEMPLATE, self.root, allow_modified=True)
+        self.init()
+        self.ws('hooks', 'enable', 'claude', '--absolute')
+        command = self.hook('.claude/settings.json', 'hooks', 'UserPromptSubmit', 0, 'hooks', 0, 'command')
+        self.assertIn('/my project/.agents/tools/ws.py" turn --hook claude', command)
+        folder = self.root / 'src' / 'deep'
+        folder.mkdir(parents=True)
+        done = self.run_from(command, folder)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn('hookSpecificOutput', done.stdout)
+        self.ws('hooks', 'enable', 'claude', '--absolute')
+        self.assertEqual(len(self.hook('.claude/settings.json', 'hooks', 'UserPromptSubmit')), 1)
+
+    def test_25_powershell_commands_get_the_call_operator(self):
+        self.init()
+        self.ws('hooks', 'enable', 'copilot', '--absolute')
+        entry = self.hook('.github/hooks/workspace.json', 'hooks', 'sessionStart', 0)
+        self.assertTrue(entry['powershell'].startswith('& '), entry)
+        self.assertFalse(entry['bash'].startswith('& '), entry)
+        self.assertTrue(entry['bash'].endswith('/.agents/tools/ws.py" brief --hook copilot'), entry)
+
+    def test_25_the_default_stays_relative(self):
+        # Guards the default until the host trials decide it (owner decision D5).
+        self.init()
+        self.ws('hooks', 'enable', 'claude')
+        command = self.hook('.claude/settings.json', 'hooks', 'UserPromptSubmit', 0, 'hooks', 0, 'command')
+        self.assertTrue(command.endswith(' .agents/tools/ws.py turn --hook claude'), command)
+
+
 if __name__ == '__main__':
     unittest.main()

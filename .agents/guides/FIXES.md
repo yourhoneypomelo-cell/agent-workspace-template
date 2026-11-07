@@ -191,3 +191,6 @@ every test named here exists.
 | 3.9.0 | A git project was never asked whether docs/chats/ belongs in commits | `test_v39.ChatImport.test_26_a_git_project_is_asked_whether_git_ignores_the_chats` | fails |
 | 3.9.0 | init --chats-git ignore adds docs/chats/ to the project's .gitignore, which an upgrade never replaces | `test_v39.ChatImport.test_26_ignore_adds_docs_chats_to_the_project_gitignore` | fails |
 | 3.9.0 | WS_IMPORT=0 or 1 in the user's environment decides for every project | `test_v39.ChatImport.test_26_ws_import_in_the_environment_decides_for_every_project` | guard |
+| 3.9.0 | A host that starts hooks in a subfolder could not find the relative ws.py; hooks enable --absolute writes quoted absolute paths that run from any folder, also under a path with spaces | `test_v39.HookPaths.test_25_absolute_hooks_run_from_a_subfolder_of_a_path_with_spaces` | fails |
+| 3.9.0 | With --absolute, a PowerShell hook command gets the call operator & in front | `test_v39.HookPaths.test_25_powershell_commands_get_the_call_operator` | fails |
+| 3.9.0 | Hook commands stay relative by default until the host trials decide (owner decision D5) | `test_v39.HookPaths.test_25_the_default_stays_relative` | guard |

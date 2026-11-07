@@ -55,7 +55,8 @@ COMMANDS = '''commands:
   compact [--dry-run] [--prune-evidence]        move closed rows to CLOSED_ITEMS.md, roll logs
   snapshot --label NAME [PATHS]                 zip the documents before a large reorganization; no restore
   hooks enable|show|disable HOST  write or remove hook settings: claude, codex, cursor, gemini, copilot, kiro, antigravity,
-                             grok, codebuddy, workbuddy, qoder, qwen; --python CMD sets the interpreter command
+                             grok, codebuddy, workbuddy, qoder, qwen; --python CMD sets the interpreter command,
+                             --absolute writes absolute paths for hosts that start hooks in another folder
   capture --host H --event E read a hook payload on stdin and copy the transcript
   chats import HOST          copy this project's sessions from a local store: kimi, codex, antigravity,
                              kiro, cursor, workbuddy, codebuddy, qoder, qwen, gemini, dsh
@@ -164,6 +165,8 @@ def parser() -> argparse.ArgumentParser:
     hooks.add_argument('host', choices=HOSTS)
     hooks.add_argument('--python', metavar='CMD', help='interpreter command the hooks run, such as python3 or "py -3"; '
                        'by default the first of python, python3 and py -3 that is 3.9 or newer')
+    hooks.add_argument('--absolute', action='store_true', help='write the interpreter and ws.py as absolute paths, for '
+                       'a host that starts hooks from another folder; the files then point at this copy of the project')
     cap = subs.add_parser('capture')
     cap.add_argument('--host', required=True)
     cap.add_argument('--event', default='unknown')
@@ -545,7 +548,7 @@ def main(argv=None) -> int:
         elif args.command == 'hooks' and args.action == 'disable':
             disable_hooks(root, args.host)
         elif args.command == 'hooks':
-            enable_hooks(root, args.host, args.action == 'show', args.python)
+            enable_hooks(root, args.host, args.action == 'show', args.python, args.absolute)
         elif args.command == 'capture':
             # Hosts give hooks a few seconds; a busy workspace must not stall the host.
             os.environ.setdefault('WS_LOCK_WAIT', '3')

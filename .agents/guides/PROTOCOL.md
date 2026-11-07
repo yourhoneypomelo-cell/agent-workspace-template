@@ -46,7 +46,7 @@ for the Stop nudge, the per-turn record and the mode markers.
 | `checkpoint --stop T --next T [--keep]` | yes | Seals and logs the session. Releases ownership unless `--keep` |
 | `compact [--dry-run]` | yes | Moves closed rows to CLOSED_ITEMS.md, full rows to `docs/archive/closed/`, and rolls long logs |
 | `snapshot --label L [PATHS]` | yes | Zips the documents and named paths to `docs/archive/snapshots/` and sets the card `baseline` |
-| `hooks enable\|show\|disable HOST` | yes, except `show` | Writes, prints or removes the brief, per-turn and transcript hooks of one host. `disable` gives back the file from before the first enable |
+| `hooks enable\|show\|disable HOST` | yes, except `show` | Writes, prints or removes the brief, per-turn and transcript hooks of one host. `disable` gives back the file from before the first enable. `--absolute` writes absolute paths, for hosts that start hooks in another folder |
 | `doctor [--json]` | no | Hooks, interpreter, session identity, lock and tool files at a glance. Exits with 1 when it finds a problem, and names the fix for each |
 | `capture --host H --event E` | yes | Hook target. Copies the transcript named in the payload, or saves the message text it holds |
 | `chats import HOST` | yes | Copies this project's sessions from a host store: kimi, codex, antigravity, kiro, cursor, workbuddy, codebuddy, qoder, qwen, gemini or dsh |

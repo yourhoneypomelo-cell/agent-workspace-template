@@ -237,6 +237,19 @@ class Messages(Workspace):
         self.save()
         self.ready()
 
+    def test_24_an_upgrade_lists_the_open_messages_as_a_seal_does(self):
+        # A seal of 3.8 lists none, so after an upgrade every new message blocked READY until the next checkpoint.
+        from wslib import ops, upgrade
+        self.done()
+        self.save()
+        state = core.state_of(self.root)
+        old = {k: v for k, v in core.checkpoint_of(self.root, state).items() if k != 'messages_open'}
+        state['checkpoint'] = ops.write_checkpoint(self.root, old)
+        core.save_state(self.root, state)
+        upgrade.rebaseline(self.root, [], 'test: upgrade', upgraded={'from': '3.8.0', 'to': '3.9.0', 'at': 'now'})
+        self.prompt('Also add a footer with the version', host='kiro')
+        self.ready()
+
     def test_24_the_same_sentence_in_two_sessions_is_reconciled_in_each(self):
         self.init()
         for session in ('s1', 's2'):

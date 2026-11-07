@@ -194,3 +194,4 @@ every test named here exists.
 | 3.9.0 | A host that starts hooks in a subfolder could not find the relative ws.py; hooks enable --absolute writes quoted absolute paths that run from any folder, also under a path with spaces | `test_v39.HookPaths.test_25_absolute_hooks_run_from_a_subfolder_of_a_path_with_spaces` | fails |
 | 3.9.0 | With --absolute, a PowerShell hook command gets the call operator & in front | `test_v39.HookPaths.test_25_powershell_commands_get_the_call_operator` | fails |
 | 3.9.0 | Hook commands stay relative by default until the host trials decide (owner decision D5) | `test_v39.HookPaths.test_25_the_default_stays_relative` | guard |
+| 3.9.0 | After an upgrade from 3.8, whose seal lists no open messages, every new message blocked READY until the next checkpoint; the upgrade now lists them as a seal does | `test_v39.Messages.test_24_an_upgrade_lists_the_open_messages_as_a_seal_does` | fails |

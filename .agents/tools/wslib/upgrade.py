@@ -56,6 +56,14 @@ def rebaseline(root: Path, paths, note: str, upgraded: dict | None = None, remov
         manifest = {**cp, 'created_at': now(), 'files': files, 'rebaselined': done}
         if upgraded:
             manifest['upgraded'] = upgraded
+        if 'messages_open' not in manifest:
+            # A seal of 3.8 lists no open messages, so without this every message saved after the upgrade would
+            # block READY until the first checkpoint of the new version.
+            from .reconcile import pending
+            try:
+                manifest['messages_open'] = sorted(mid for mid, _ in pending(root))
+            except (WorkspaceError, OSError, ValueError):
+                pass
         pointer = write_checkpoint(root, manifest)
         state['checkpoint'] = pointer
         state['revision'] += 1

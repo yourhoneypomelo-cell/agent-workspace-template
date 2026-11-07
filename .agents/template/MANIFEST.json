@@ -1,5 +1,5 @@
 {
- "created_at": "2026-11-07T18:59:07+00:00",
+ "created_at": "2026-11-07T19:04:34+00:00",
  "files": {
   ".agents/README.md": "e339e27d20c0874353796a72add8121a698b1878977ff659198509c7a16fc012",
   ".agents/TEMPLATE_CHECKOUT.md": "d88bf0d92630df240179e4a5d95f8406453bfe165b107b5557797cfaeac589b7",
@@ -46,7 +46,7 @@
   ".agents/tools/tests/test_upgrade.py": "260053333b76d62133e7579e0c941aab1db6cd064e134ecc50f98322025ff2ad",
   ".agents/tools/tests/test_v36.py": "c6b3372ff1b8ba14856323e4cd021f983824c521009d9fae590c7d9fe1e714d4",
   ".agents/tools/tests/test_v38.py": "eea05e9fe663feee4b36d528f351f677dc5f2213a8a699a8ccefc4f98bc4a82c",
-  ".agents/tools/tests/test_v39.py": "4c96d2ead996bc881ede7dcf87a290b350af13bb6f34ca10a6e3dae1ed56dbf1",
+  ".agents/tools/tests/test_v39.py": "846c8c3d250a26424adc2403efe598ebb169cfc280be019f35941635e84a9ce7",
   ".agents/tools/tests/test_workflow.py": "525fe4dc07390a4941797fa561fcdb0cb80452c7d16ad5b5db4c14aff900fdfe",
   ".agents/tools/ws.py": "989372d9b5743fa7f8cc5a4f169d26dc574f195cd43c4ea5909b9624fdffae32",
   ".agents/tools/wslib/__init__.py": "94a2e392b5b4221525e6cf36d5f417338fa3198da853aa579f03aef97cd27808",

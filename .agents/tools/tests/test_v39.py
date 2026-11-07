@@ -416,10 +416,9 @@ class ChatImport(Workspace):
                                                              'content': [{'type': 'input_text', 'text': text}]}}]
             path.write_text(''.join(json.dumps(r) + '\n' for r in records), encoding='utf-8')
         if days:
-            # A session dated two seconds after this moment is safely newer than init, which runs next; one dated
-            # in whole days is safely older. A filesystem that rounds to seconds, as the CI runners do, still keeps
-            # them on their own side of the install.
-            then = time.time() + (2 if days < 0 else -days * 86400)
+            # A session dated an hour after this moment is safely newer than init, which runs next; one dated in
+            # whole days is safely older. The gap is far wider than any filesystem's timestamp rounding.
+            then = time.time() + (3600 if days < 0 else -days * 86400)
             os.utime(path, (then, then))
         return {'HOME': str(home), 'USERPROFILE': str(home), 'WS_IMPORT': '', 'WS_IMPORT_DEBUG': '1'}
 

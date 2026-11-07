@@ -38,6 +38,13 @@ jobs:
       - name: Tests of 3.9.0 (system lock, permissions, messages, redaction, chat import, hook paths)
         working-directory: .agents/tools/tests
         run: python -m unittest test_v39
+        env:
+          WS_IMPORT_DEBUG: ${{ runner.temp }}/import-debug.txt
+      - name: Import debug
+        if: always()
+        run: cat "$WS_IMPORT_DEBUG" 2>/dev/null || echo "no import debug"
+        env:
+          WS_IMPORT_DEBUG: ${{ runner.temp }}/import-debug.txt
 
   full:
     name: full tier, ubuntu-latest, newest Python

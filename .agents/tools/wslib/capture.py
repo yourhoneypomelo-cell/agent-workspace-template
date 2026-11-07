@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import re
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -543,9 +542,11 @@ def import_sessions(root: Path, host: str, since: float | None = None) -> dict:
         from . import dsh
         return dsh.import_sessions(root, since=since)
     found = local_sessions(root, host)
-    if os.environ.get('WS_IMPORT_DEBUG') and host == 'codex':
-        print(f'import debug: since {since}; ' +
-              ', '.join(f'{p.name} mtime {p.stat().st_mtime}' for _, p in found) or 'no session found', file=sys.stderr)
+    summary = os.environ.get('GITHUB_STEP_SUMMARY')
+    if summary:
+        with open(summary, 'a', encoding='utf-8') as stream:
+            stream.write(f'import debug: {host} since {since}; ' +
+                         (', '.join(f'{p.name} mtime {p.stat().st_mtime}' for _, p in found) or 'no session found') + '\n')
     results = [capture(root, host, 'import', {'session_id': sid, 'transcript_path': str(path)})
                for sid, path in found if since is None or path.stat().st_mtime >= since]
     return {'host': host, 'sessions': len(results), 'messages': sum(r.get('messages', 0) for r in results)}
@@ -576,6 +577,7 @@ def import_rule(root: Path) -> tuple:
 def import_all(root: Path, since: float | None = None) -> dict:
     """Copy this project's sessions from every host store found on this machine. Never raises."""
     found = {}
+    summary = os.environ.get('WS_IMPORT_DEBUG')
     for host in AUTO_IMPORT:
         try:
             if host == 'dsh':
@@ -583,7 +585,10 @@ def import_all(root: Path, since: float | None = None) -> dict:
                 result = dsh.import_sessions(root, automatic=True, since=since)
             else:
                 result = import_sessions(root, host, since)
-        except Exception:  # an unreadable store of one host must not stop the others
+        except Exception as error:  # an unreadable store of one host must not stop the others
+            if summary:
+                with open(summary, 'a', encoding='utf-8') as stream:
+                    stream.write(f'import debug: {host} raised {type(error).__name__}: {error}\n')
             continue
         if result['sessions']:
             found[host] = result['sessions']

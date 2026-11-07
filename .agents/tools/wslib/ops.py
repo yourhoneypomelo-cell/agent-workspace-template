@@ -291,6 +291,10 @@ def start(root: Path, writer: str | None, force: bool, reason: str | None, sessi
             logs.append(root, 'MAINTENANCE_LOG', {'Event': 'takeover' if previous else 'start', 'Detail': short(detail, 400)})
     from .capture import import_all, import_rule
     rule, since = import_rule(root)
+    debug = os.environ.get('WS_IMPORT_DEBUG')
+    if debug:
+        with open(debug, 'a', encoding='utf-8') as stream:
+            stream.write(f"start: rule {rule!r}, since {since}, WS_IMPORT {os.environ.get('WS_IMPORT')!r}\n")
     imported = import_all(root, since) if rule == 'on' else {}
     problems = validate.semantics(root, sealing=True)
     emit({'writer': writer, 'revision': state['revision'], 'took_over_from': previous, 'unsaved_changes': changes,

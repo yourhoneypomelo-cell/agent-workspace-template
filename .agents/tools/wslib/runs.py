@@ -7,7 +7,8 @@ from pathlib import Path
 
 from . import evidence, logs, tables, validate
 from .coverage import redact, redact_pasted
-from .core import WorkspaceError, card, card_text, lock, read, safe_path, state_of, today, write
+from .core import WorkspaceError, card, card_text, read, safe_path, state_of, today, write
+from .locks import lock
 from .ops import bump, emit, guarded, require_owner, short
 from .verifying import previous_evidence, ship_features, verdict_text
 from .schema import HANDOFF, NONE, TABLES
@@ -68,8 +69,10 @@ def verify(root: Path, ids: list, command: list, done: bool, kind: str | None, r
     with lock(root):
         state = state_of(root)
         owner = require_owner(root, state, writer, rev)
-        from .claims import guard_tasks
-        guard_tasks(state, ids, 'verify')
+        from .permits import permit
+        permit(state, 'task', ids, what='verify')
+        from .claims import holders, label_of
+        held = [p for _, scope in holders(state, exclude=label_of(state)) for p in scope['paths'] or []]
         task_table = tables.table_for('tasks')
         task_rows = {r['ID']: r for r in tables.rows(root, task_table)}
         kinds = set()
@@ -107,7 +110,7 @@ def verify(root: Path, ids: list, command: list, done: bool, kind: str | None, r
         # Each task's expect clauses must all appear; a run that verifies several tasks meets all of them.
         expected = [e for rid in ids for e in evidence.split_expect(task_rows[rid].get('Acceptance', ''))[1]]
     rel, data = evidence.run(root, list(command), redact(label) if label else (ids[0] if ids else 'check'), owner, revision,
-                             needed, timeout, report, definitions, for_tasks=list(ids), expected=expected)
+                             needed, timeout, report, definitions, for_tasks=list(ids), expected=expected, others=held)
     with lock(root):
         state = state_of(root)
         # With --rev (shared ownership) another writer may not have moved the workspace while the command ran.

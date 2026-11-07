@@ -71,6 +71,11 @@ class Process(unittest.TestCase):
                 missing.append(name)
         self.assertEqual(missing, [])
 
+    def test_protocol_prints_the_permission_table_the_commands_enforce(self):
+        from wslib.permits import table_markdown
+        text = (TEMPLATE / '.agents/guides/PROTOCOL.md').read_text(encoding='utf-8')
+        self.assertEqual(text.split('<!-- PERMITS:START -->\n', 1)[1].split('<!-- PERMITS:END -->', 1)[0], table_markdown())
+
     def test_test_environment_clears_every_session_variable(self):
         # Run inside a host conversation, the tests would otherwise give every test project that conversation.
         code = ('import os, sys; sys.path.insert(0, ".."); from wslib.core import SESSION_VARS; '

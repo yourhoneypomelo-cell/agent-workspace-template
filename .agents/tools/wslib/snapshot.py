@@ -10,7 +10,8 @@ import zipfile
 from pathlib import Path
 
 from . import logs
-from .core import WorkspaceError, card, card_text, lock, now, read, safe_path, save_state, sha, state_of, write
+from .core import WorkspaceError, card, card_text, now, read, safe_path, save_state, sha, state_of, write
+from .locks import lock
 from .schema import ADAPTERS, HANDOFF, PRUNE_DIRS, PRUNE_FILES, SECRET_SUFFIXES
 
 FOLDER = 'docs/archive/snapshots'
@@ -105,13 +106,14 @@ def take(root: Path, label: str, paths: list, pin: bool) -> dict:
     with lock(root):
         state = state_of(root)
         from .core import require_session
-        from .claims import label_of, require_alone
+        from .claims import label_of
+        from .permits import permit
         from .validate import conflict_markers
         require_session(root, state)
         if state['mode'] != 'active' or not label_of(state):
             raise WorkspaceError('no session owns the workspace; run "ws.py start" first')
         # The snapshot sets the card's baseline, and the card belongs to whoever works alone.
-        require_alone(state, 'ws snapshot')
+        permit(state, 'workspace', what='ws snapshot')
         for marker in conflict_markers(root)[:1]:
             raise WorkspaceError(marker)
         files = files_in(root, [*paths, *recovery_files(root, state)])

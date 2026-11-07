@@ -9,7 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import tables
-from .core import atomic_write, lock, read, safe_path, today
+from .core import atomic_write, read, safe_path, today
+from .locks import lock
 from .coverage import redact, redact_json_lines, redact_pasted
 from .schema import CHAT_INDEX, HEADING_NOTE
 

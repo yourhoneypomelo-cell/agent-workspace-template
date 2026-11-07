@@ -197,33 +197,6 @@ def label_of(state: dict) -> str | None:
     return CALLER.get() or state.get('writer')
 
 
-def guard_tasks(state: dict, ids, what='change') -> None:
-    """Refuse touching tasks another working session claimed."""
-    mine = label_of(state)
-    for label, scope in holders(state, exclude=mine):
-        taken = sorted(set(scope['tasks']) & set(ids))
-        if taken:
-            raise WorkspaceError(f'{", ".join(taken)} belongs to {label}, which is still working, so this session must '
-                                 f'not {what} it. Ask the user; that session records its own tasks')
-
-
-def guard_retire(state: dict, identifier: str, tasks) -> None:
-    """Refuse retiring a requirement or feature that a task of another working session builds on."""
-    for label, scope in holders(state, exclude=label_of(state)):
-        taken = sorted(set(scope['tasks']) & set(tasks))
-        if taken:
-            raise WorkspaceError(f'{", ".join(taken)} builds on {identifier} and belongs to {label}, which is still working, '
-                                 f'so this session must not retire {identifier}. Ask the user; that session records its own tasks')
-
-
-def require_alone(state: dict, what: str) -> None:
-    """Workspace-wide changes wait until no other session is working."""
-    others = holders(state, exclude=label_of(state))
-    if others:
-        raise WorkspaceError(f'{what} changes the whole workspace, and {", ".join(l for l, _ in others)} is still working. '
-                             'Wait until it checkpoints, or ask the user')
-
-
 def theirs(state: dict) -> set:
     """Tasks the other working sessions hold."""
     return {t for _, scope in holders(state, exclude=label_of(state)) for t in scope['tasks']}

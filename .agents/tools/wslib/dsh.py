@@ -163,7 +163,8 @@ def import_sessions(root: Path, automatic: bool = False) -> dict:
     """Write docs/chats/dsh/<session>.md for each root session of this project. Unchanged files are rewritten
     with the same text, so a second import changes nothing."""
     from .capture import _index, render
-    from .core import atomic_write, lock, safe_path
+    from .core import atomic_write, safe_path
+    from .locks import lock
     found = sessions(root)
     if not found:
         return {'host': 'dsh', 'sessions': 0, 'messages': 0}

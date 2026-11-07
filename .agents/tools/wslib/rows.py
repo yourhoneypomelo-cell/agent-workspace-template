@@ -7,8 +7,9 @@ from pathlib import Path
 from . import coverage, evidence, logs, tables, validate
 from .coverage import redact
 from .core import (
-    WorkspaceError, card, card_text, lock, now, read, safe_path, state_of, today, with_goal, goal_of,
+    WorkspaceError, card, card_text, now, read, safe_path, state_of, today, with_goal, goal_of,
 )
+from .locks import lock
 from .ops import bump, emit, guarded, ledger, previous_row_path, require_owner, short
 from .retired import RETIRE_AS, retired_match, retired_nearest
 from .schema import CARD_FIELDS, CLOSED, HANDOFF, NEEDS_REASON, NONE, REQUIREMENTS, TEMPLATE_DIR
@@ -165,12 +166,13 @@ def set_row(root: Path, identifier: str, sets: list, source: str | None, writer=
         state = state_of(root)
         require_owner(root, state, writer, rev)
         from . import claims
+        from .permits import permit
         current = {r['ID']: r for r in tables.rows(root, t)}
         if t.key == 'tasks':
-            claims.guard_tasks(state, [identifier])
+            permit(state, 'task', [identifier])
         elif t.key in ('requirements', 'features') and fields.get('Status') in t.retired:
             # Retiring a row that another session's claimed task builds on would pull the ground from under it.
-            claims.guard_retire(state, identifier, builders(t.key, identifier, current, claims.task_rows(root)))
+            permit(state, 'retire', builders(t.key, identifier, current, claims.task_rows(root)), row=identifier)
         if identifier not in current:
             closed = {r['ID'] for r in tables.closed_rows(root)}
             if identifier in closed:
@@ -211,6 +213,12 @@ def set_row(root: Path, identifier: str, sets: list, source: str | None, writer=
             moved_text = heading + f'\n## {identifier} as recorded before {today()}\n\n' + '\n'.join(
                 f'- {k}: {v}' for k, v in old.items() if k != 'ID') + '\n'
         changes = {t.file: tables.upsert(read(root, t.file), t.headers, t.file, row)}
+        if t.key == 'tasks' and row['Status'] in ('done', 'dropped') and row['Status'] != old['Status']:
+            named = tables.card_ids(card(root).get('current_task', NONE), 'T')
+            if identifier in named:
+                # It leaves the card as after verify --done: a parallel session cannot edit the main session's card.
+                rest = ', '.join(x for x in named if x != identifier) or NONE
+                changes[HANDOFF] = card_text(read(root, HANDOFF), {'current_task': rest})
         if move_detail:
             changes[target] = moved_text
             folder, name = target.rsplit('/', 1)
@@ -332,10 +340,8 @@ def set_card(root: Path, sets: list, writer=None, rev=None):
     with lock(root):
         state = state_of(root)
         require_owner(root, state, writer, rev)
-        from .claims import CALLER
-        if CALLER.get():
-            raise WorkspaceError('the card belongs to the main session. A parallel session records its stop point and next '
-                                 'step with "ws checkpoint --keep --stop ... --next ..."')
+        from .permits import permit
+        permit(state, 'card')
         replaced = replaced_card_values(card(root), fields)
         guarded(root, {HANDOFF: card_text(read(root, HANDOFF), fields)})
         log_replaced(root, replaced)
@@ -351,8 +357,8 @@ def set_goal(root: Path, text: str, source: str | None, writer=None, rev=None):
     with lock(root):
         state = state_of(root)
         require_owner(root, state, writer, rev)
-        from .claims import require_alone
-        require_alone(state, 'ws goal')
+        from .permits import permit
+        permit(state, 'workspace', what='ws goal')
         old = goal_of(read(root, REQUIREMENTS))
         if old == text:
             raise WorkspaceError('the goal already reads that way')

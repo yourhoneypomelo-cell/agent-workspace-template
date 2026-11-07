@@ -197,9 +197,9 @@ def tool(root: Path, add):
     if linked(root / '.agents'):
         add('problems', 'tool', f'.agents is a link to {(root / ".agents").resolve()}, so ws.py reads and writes that '
             'other project', 'replace the link with a copy of the .agents folder')
-    from .core import _holder_text, lock_busy
+    from .locks import holder_text, lock_busy
     try:
-        add('facts', 'lock', f'held ({_holder_text(root)}): a ws command is running' if lock_busy(root) else 'free')
+        add('facts', 'lock', f'held ({holder_text(root)}): a ws command is running' if lock_busy(root) else 'free')
     except WorkspaceError as error:
         add('problems', 'lock', str(error), 'move the project to a local disk, or set WS_LOCK=legacy for this version')
     template = (root / TEMPLATE_MARKER).is_file()

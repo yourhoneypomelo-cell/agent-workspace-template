@@ -5,7 +5,7 @@ import unittest
 from unittest import mock
 
 from support import TEMPLATE, Workspace
-from wslib import capture, core, evidence, lint, tables
+from wslib import capture, core, evidence, lint, locks, tables
 from wslib.core import WorkspaceError
 from wslib.schema import TABLES
 
@@ -235,14 +235,14 @@ class Watching(Workspace):
 class Locking(Workspace):
     def test_lock_from_dead_process_is_removed(self):
         self.write('.agents/cache/ws.lock', json.dumps({'pid': 999999, 'created_at': 'x'}))
-        with core.lock(self.root):
+        with locks.lock(self.root):
             pass
         self.assertFalse((self.root / '.agents/cache/ws.lock').exists())
 
     def test_live_lock_blocks_with_advice(self):
-        with core.lock(self.root), mock.patch.dict(os.environ, {'WS_LOCK_WAIT': '1'}):
+        with locks.lock(self.root), mock.patch.dict(os.environ, {'WS_LOCK_WAIT': '1'}):
             with self.assertRaisesRegex(WorkspaceError, 'another ws.py command is running'):
-                with core.lock(self.root):
+                with locks.lock(self.root):
                     pass
         self.assertFalse((self.root / '.agents/cache/ws.lock').exists())
 

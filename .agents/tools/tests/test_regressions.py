@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 from support import ENV, TEMPLATE, TOOLS, Workspace
-from wslib import core, evidence, logs, rows, schema, tables
+from wslib import core, evidence, locks, logs, rows, schema, tables
 from wslib.schema import LIB_MODULES, TABLES
 
 WRITER = ('import subprocess, sys\n'
@@ -72,7 +72,7 @@ class Locking(Workspace):
 
     def test_l1_release_keeps_a_lock_that_is_not_ours(self):
         path = self.root / '.agents/cache/ws.lock'
-        with core.lock(self.root):
+        with locks.lock(self.root):
             path.write_text(json.dumps({'pid': os.getpid(), 'created_at': 'x', 'nonce': 'another process'}), encoding='utf-8')
         self.assertTrue(path.exists())
 
@@ -84,17 +84,17 @@ class Locking(Workspace):
         path = self.root / '.agents/cache/ws.lock'
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({'pid': 999999999, 'created_at': 'x', 'nonce': 'gone'}), encoding='utf-8')
-        with mock.patch.object(Path, 'unlink', busy_once(Path.unlink)), core.lock(self.root):
+        with mock.patch.object(Path, 'unlink', busy_once(Path.unlink)), locks.lock(self.root):
             pass
         self.assertFalse(path.exists())
 
     def test_release_is_retried_while_a_reader_holds_the_lock(self):
-        with mock.patch.object(Path, 'unlink', busy_once(Path.unlink)), core.lock(self.root):
+        with mock.patch.object(Path, 'unlink', busy_once(Path.unlink)), locks.lock(self.root):
             pass
         self.assertFalse((self.root / '.agents/cache/ws.lock').exists())
 
     def test_a_lock_create_refused_during_a_delete_is_retried(self):
-        with mock.patch.object(core.os, 'open', busy_once(os.open)), core.lock(self.root):
+        with mock.patch.object(core.os, 'open', busy_once(os.open)), locks.lock(self.root):
             pass
 
 

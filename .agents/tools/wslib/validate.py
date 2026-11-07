@@ -7,9 +7,10 @@ from pathlib import Path
 
 from . import evidence, logs, tables
 from .core import (
-    WorkspaceError, card, checkpoint_of, config, describe_drift, difference, exists, fingerprint, goal, lock_busy, read,
+    WorkspaceError, card, checkpoint_of, config, describe_drift, difference, exists, fingerprint, goal, read,
     rewatch, safe_path, sha, state_of,
 )
+from .locks import lock_busy
 from .schema import (
     ADAPTERS, BUDGETS, CARD_FIELDS, CLOSED, NEEDS_REASON, GUIDE_DIR, LOG_DIR, LOG_NAMES, NONE, OPTIONAL_CARD_FIELDS,
     PLACEHOLDERS, PREFIX_TABLE, PROTOCOL_MARKER, REQUIRED, SCHEMA, SKILLS, SPEC_DIR, STATE_DIR, STATE_NAMES,

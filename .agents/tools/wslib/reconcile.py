@@ -12,7 +12,8 @@ from pathlib import Path
 
 from . import logs, tables
 from .coverage import redact
-from .core import READ_ONLY, WorkspaceError, atomic_write, lock, read, safe_path, sha, state_of
+from .core import READ_ONLY, WorkspaceError, atomic_write, read, safe_path, sha, state_of
+from .locks import lock
 from .schema import CACHE_DIR, CHAT_DIR, CHAT_INDEX, HEADING_NOTE, PREFIX_TABLE
 
 LOG = 'RECONCILE_LOG'

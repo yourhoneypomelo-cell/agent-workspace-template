@@ -10,10 +10,11 @@ from . import coverage, evidence, logs, tables, validate
 from .coverage import redact
 from .core import (
     WorkspaceError, atomic_write, card, card_text, checkpoint_of, config, describe_drift, difference, drift_count,
-    fingerprint, goal_of, lock, now, preview, read, rewatch, safe_path, save_state, sha, state_of, today, with_goal,
+    fingerprint, goal_of, now, preview, read, rewatch, safe_path, save_state, sha, state_of, today, with_goal,
     with_state, write, writer_label, session_identity, same_session, other_session, other_session_text, delegated,
     host_process, host_alive, same_host, other_host, live_host_text,
 )
+from .locks import lock
 from .schema import CARD_FIELDS, CHECKPOINTS_KEPT, CLOSED, NEEDS_REASON, HANDOFF, LOG_NAMES, NONE, REQUIREMENTS, SCHEMA, TABLES
 from .retired import RETIRE_AS, retired_match, retired_nearest
 from .views import (  # noqa: F401  (re-exported)
@@ -47,7 +48,7 @@ def require_owner(root: Path, state: dict, writer: str | None, rev: int | None) 
     from .claims import CALLER, caller
     who = caller(state, writer)
     if who not in (None, 'primary'):
-        # A parallel session writes under its own claim; guard_tasks stops it touching another session's tasks.
+        # A parallel session writes under its own claim; permits.permit stops it touching another session's tasks.
         state['claims'][who]['last_write_at'] = now()
         CALLER.set(who)
         if rev is not None and rev != state['revision']:
@@ -599,8 +600,8 @@ def compact(root: Path, dry_run: bool, prune: bool, writer=None, rev=None) -> di
         state = state_of(root)
         if not dry_run:
             require_owner(root, state, writer, rev)
-            from .claims import require_alone
-            require_alone(state, 'ws compact')
+            from .permits import permit
+            permit(state, 'workspace', what='ws compact')
         fields = card(root)
         keep = set(tables.card_ids(fields.get('current_task', NONE), 'T')) | set(tables.card_ids(fields.get('current_feature', NONE), 'F'))
         moved = []

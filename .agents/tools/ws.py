@@ -87,6 +87,7 @@ def parser() -> argparse.ArgumentParser:
     def owned(sub):
         sub.add_argument('--writer', help='session label; required with shared ownership')
         sub.add_argument('--rev', type=int, help='expected revision; required with shared ownership')
+        sub.add_argument('--session', help='session key printed by the brief hook, on a host without a session variable')
         return sub
 
     brief = subs.add_parser('brief')
@@ -96,6 +97,7 @@ def parser() -> argparse.ArgumentParser:
     turn.add_argument('--hook', choices=HOSTS, help='print in the prompt-submit hook format of this host')
     note = subs.add_parser('note')
     note.add_argument('text', nargs='+')
+    note.add_argument('--session', help='session key printed by the brief hook, on a host without a session variable')
     idea = owned(subs.add_parser('idea'))
     idea.add_argument('text', nargs='+')
     subs.add_parser('status')
@@ -149,6 +151,7 @@ def parser() -> argparse.ArgumentParser:
     compact.add_argument('--prune-evidence', action='store_true', help='delete evidence files no row references')
     snap = subs.add_parser('snapshot', help='zip the documents (and named paths) before a large reorganization')
     snap.add_argument('paths', nargs='*', help='extra product paths to include')
+    snap.add_argument('--session', help='session key printed by the brief hook, on a host without a session variable')
     snap.add_argument('--label', required=True, help='for example before-docs-merge')
     snap.add_argument('--pin', action='store_true', help='never prune this snapshot')
     hooks = subs.add_parser('hooks')
@@ -164,6 +167,7 @@ def parser() -> argparse.ArgumentParser:
     chats.add_argument('host', choices=capture.IMPORT_HOSTS)
     rec = subs.add_parser('reconcile')
     rec.add_argument('message', nargs='?', help='message ID from the list, or "all" with --reason')
+    rec.add_argument('--session', help='session key printed by the brief hook, on a host without a session variable')
     rec.add_argument('--ids', help='rows that record the message, for example R4,P2')
     rec.add_argument('--reason', help='why no row is needed: question, chat, duplicate, superseded, out-of-scope, secret')
     rec.add_argument('--limit', type=int, default=20)
@@ -442,6 +446,9 @@ def main(argv=None) -> int:
                     'In PowerShell use single quotes around the whole field=value')
         print(f'ERROR: unexpected arguments: {" ".join(extra)}{hint}', file=sys.stderr)
         return 2
+    if getattr(args, 'session', None):
+        from wslib.core import GIVEN_SESSION
+        GIVEN_SESSION.set(args.session)
     target = None if args.root else linked_agents()
     if target:
         print(f'ERROR: .agents in this project is a link to {target}, so ws.py would read and write that other '

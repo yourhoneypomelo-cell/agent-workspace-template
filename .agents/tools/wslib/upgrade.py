@@ -14,7 +14,8 @@ import time
 from pathlib import Path
 
 from . import logs
-from .core import WorkspaceError, checkpoint_of, fingerprint, lock, now, save_state, sha, state_of
+from .core import WorkspaceError, checkpoint_of, fingerprint, now, save_state, sha, state_of
+from .locks import lock
 from .evidence import RULES
 from .schema import HOOK_FILES, MAINTAINER_FILES, MANIFEST, RUNTIME_FILES, SCHEMA, SEARCH_IGNORE, VERSION
 

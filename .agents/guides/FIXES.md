@@ -163,3 +163,9 @@ every test named here exists.
 | 3.9.0 | A killed holder frees the system lock at once | `test_v39.Lock.test_22_a_killed_holder_frees_the_lock_at_once` | guard |
 | 3.9.0 | WS_LOCK=legacy uses the lock file of 3.8 for this version | `test_v39.Lock.test_22_ws_lock_legacy_uses_the_older_lock_file` | guard |
 | 3.9.0 | Eight concurrent writers lose and duplicate no row | `test_v39.Lock.test_22_eight_writers_get_unique_ids_and_lose_no_row` | guard |
+| 3.9.0 | Who may run which write command was decided in five places; one table now decides it, and PROTOCOL prints that table | `test_v39.Permits.test_23_each_identity_may_run_what_the_table_says` | guard |
+| 3.9.0 | The permission table in PROTOCOL could drift from the commands | `test_static.Process.test_protocol_prints_the_permission_table_the_commands_enforce` | guard |
+| 3.9.0 | A parallel session could change or verify a task it had not claimed; its release left that task out, and the next main checkpoint stuck on it | `test_v39.Permits.test_23_p8_a_parallel_session_touches_only_tasks_in_its_claim` | fails |
+| 3.9.0 | A parallel session could not drop its own task while the card named it: the status was refused, and so was the card | `test_v39.Permits.test_23_p8_a_dropped_task_leaves_the_card` | fails |
+| 3.9.0 | Verify was rejected when another session edited files inside its own claim during the run | `test_v39.Permits.test_23_p7_verify_ignores_edits_inside_another_sessions_claim` | fails |
+| 3.9.0 | A session that claimed with the --session key the hook prints lost that identity at the next write command, which did not accept --session | `test_v39.Permits.test_23_p6_a_session_key_tells_two_conversations_in_one_window_apart` | fails |

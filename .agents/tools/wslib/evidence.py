@@ -409,7 +409,10 @@ def _clip(text: str) -> str:
 
 
 def run(root: Path, command: list, label: str, writer: str, revision: int, kind: str, timeout: int,
-        report_format: str | None, definitions: dict, for_tasks: list | None = None, expected: list | None = None) -> tuple:
+        report_format: str | None, definitions: dict, for_tasks: list | None = None, expected: list | None = None,
+        others=()) -> tuple:
+    """Run an acceptance command and write its evidence. others are the paths other working sessions hold: they may
+    edit them while this command runs, so changes there do not make the run unstable."""
     before_files = fingerprint(root, source_only=True)
     started = now()
     env = dict(os.environ, PYTHONUTF8='1', PYTHONIOENCODING='utf-8', PYTHONDONTWRITEBYTECODE='1')
@@ -457,7 +460,8 @@ def run(root: Path, command: list, label: str, writer: str, revision: int, kind:
                            skipped=0, explicit_failure=True)
     after_files = fingerprint(root, source_only=True)
     changed = difference(before_files, after_files)
-    source_stable = before_files == after_files
+    changed = {k: [n for n in v if not any(n == p or n.startswith(p + '/') for p in others)] for k, v in changed.items()}
+    source_stable = not any(changed.values())
     empty_run = kind == 'check' and bool(EMPTY_RUN.search(output))
     missing = missing_expected(output, expected or [])
     accepted = (code == 0 and source_stable and not summary['explicit_failure'] and not empty_run and not missing

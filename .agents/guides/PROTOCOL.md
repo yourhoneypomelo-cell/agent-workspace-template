@@ -172,11 +172,20 @@ A session that runs `ws start --task` again keeps its claim: the new tasks are c
 it finished meanwhile is left out with a note. `--writer` names a claim only for the session that made it: its
 session variable, or else its window, must match.
 
-| While others work, a session may | It may not |
-| --- | --- |
-| Add requirements, questions, decisions, preferences and tasks | Change or verify a task another session claimed |
-| Change, verify and checkpoint its own tasks | Retire a requirement or feature a claimed task cites |
-| Run `ws note`, `ws reconcile` and every read-only command | Run `ws compact`, `ws goal`, `ws snapshot` or edit the card |
+While other sessions work, each write command follows this table, which `wslib/permits.py` enforces. A helper
+started with `WS_ROLE`, and a window with no claim while another session owns the workspace, write nothing.
+
+<!-- PERMITS:START -->
+| Command | Main session | Parallel session |
+| --- | --- | --- |
+| `ws add`, `ws idea` | yes | yes |
+| `ws set` on a task, `ws verify` | its own tasks | its own tasks |
+| `ws set` that retires a requirement or feature | when no task another session holds builds on the row | when no task another session holds builds on the row |
+| `ws card` | yes | no, the card belongs to the main session |
+| `ws goal`, `ws compact`, `ws snapshot` | only when no other session is working | only when no other session is working |
+| `ws note`, `ws reconcile` | yes | yes |
+| `ws checkpoint` | yes | yes, for its own tasks |
+<!-- PERMITS:END -->
 
 A parallel session's `ws checkpoint` checks only its own tasks, logs its hand edits of them, and writes its
 stop point and next step to its row under "Parallel sessions" in HANDOFF.md. Without `--keep` the row is
